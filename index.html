@@ -1594,6 +1594,8 @@ function pipPoses(w, h) { // Ivy's fan-art poster: Pip in 26 poses, a letter und
   box(1.2, .62, .65, std({ color: 0x2b3a2a, roughness: .7 }), 3.6, .31, -72.6); box(1.24, .06, .69, M.brass, 3.6, .62, -72.6, scene, false);
   for (const dx of [-.45, .45]) box(.06, .64, .7, M.brass, 3.6 + dx, .32, -72.6, scene, false);
   box(.3, .12, .03, M.black, 3.6, .45, -72.26, scene, false); solid(2.95, -72.95, 4.25, -72.25);
+  { const [pc, px] = cv(128, 96); px.fillStyle = '#e9e2cf'; px.fillRect(0, 0, 128, 96); px.fillStyle = '#a03030'; px.font = 'bold 9px monospace'; px.fillText('GHOST TRAFFIC', 8, 14); px.fillStyle = '#2a2a2a'; px.font = '8px monospace'; for (let i = 0; i < 6; i++) px.fillText('QGE GKUWY GUAFOCQQ CC'.slice(0, 14 + (i % 3) * 3), 8, 30 + i * 11);
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(.3, .22), std({ map: tex(pc), roughness: .9 })); sh.rotation.x = -Math.PI / 2; sh.rotation.z = .12; sh.position.set(3.6, .656, -72.45); sh.visible = false; scene.add(sh); SCARE_PROPS.sheet = sh; }
   // recorder table + wire recorder + reels
   box(1.6, .06, .8, M.woodL, -3.2, .76, -74.9); for (const a of [-.7, .7]) for (const b of [-.32, .32]) box(.05, .76, .05, M.wood, -3.2 + a, .38, -74.9 + b);
   box(.6, .22, .4, std({ color: 0x3a2a1a, roughness: .5 }), -3.2, .9, -74.9);
@@ -2127,7 +2129,7 @@ PUZ.push(
     bad: 'The little dial clicks back to the start.', ok: () => { unlockDoor('hp'); toast('The loose boards swing inward. Candlelight, somehow, behind them.'); },
     lore: `<p>She cannot see what has no wire. The round window is the only light up here. Behind it, nothing can hear me but the house.</p><p class="sig">Ivy</p>` },
   { id: 'rail', title: "Ivy's last note", where: "Ivy's hideout, under a blanket", found: () => S.ivyNoteSeen, input: 'War trunk letter wheels',
-    body: () => `<div class="cipher">${PURE.RAIL_CIPHER}</div><div class="hint">In the margin, the same scribble over and over: a line that goes up, down, up, down, like a fence seen from the side.</div>`,
+    body: () => `<div class="cipher" style="white-space:normal">${PURE.RAIL_CIPHER}</div><div class="hint">All one long line on the page. In the margin, the same scribble over and over: top, middle, bottom, middle, top, like a fence seen from the side, with a practice word under it.</div>${railMargin()}`,
     bad: 'The wheels jam. Wrong word.', ok: () => { S.trunkOpen = true; toast('The trunk lid rises on stiff hinges. Mothballs and old paper.'); },
     lore: `<p>I figured it out. She is not in the wires, she IS the wires. Every screen Dad put in made her bigger. But Grandma built a room with no wires and no sound, down in the cellar, lined with copper. She meant to trap her there. She never got the chance.</p><p>If I can get her to follow me down there... I'm scared. I'm going anyway.</p><p class="sig">Ivy</p>` },
   { id: 'rotor', title: 'The 1944 intercept', where: "Mildred's war trunk", found: () => S.interceptSeen, input: 'Wire recorder spool',
@@ -2145,12 +2147,18 @@ function takeCellarKey() {
   S.cellarKey = true; objective(); checkpoint();
   openNote(`<h2>Inside the strongbox</h2><p>A heavy iron key on a loop of copper wire, tagged in Mildred's hand: <b>CELLAR</b>. Under it, a photograph of a small round room lined with copper sheet, a single chair in the middle.</p><p>On the back: <i>"For her. Not for you, Ivy. Never for you."</i></p>`, () => toast('The cellar doors are out the back of the house. The garden door is at the end of the Hallway.', 5000));
 }
+function railMargin() {
+  const zz = [[10, 12], [40, 42], [70, 72], [100, 42], [130, 12], [160, 42], [190, 72], [220, 42], [250, 12]];
+  const ex = 'ATTIC', pos = [0, 1, 2, 1, 0];
+  return `<div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin:.6rem 0"><svg viewBox="0 0 260 84" width="200" height="66" role="img" aria-label="A pencil zigzag touching three levels: top, middle, bottom"><g stroke="rgba(70,40,90,.75)" stroke-width="1" stroke-dasharray="3 4" fill="none">${[12, 42, 72].map(y => `<line x1="4" y1="${y}" x2="256" y2="${y}"/>`).join('')}</g><polyline points="${zz.map(q => q.join(',')).join(' ')}" fill="none" stroke="#5a2f7a" stroke-width="2.4" stroke-linejoin="round"/>${zz.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="3" fill="#5a2f7a"/>`).join('')}</svg>
+  <table aria-label="A small word written along the zigzag" style="font-family:var(--f-type);border-collapse:collapse;color:#5a2f7a;font-size:.95rem">${[0, 1, 2].map(r => `<tr>${[...ex].map((c, i) => `<td style="width:1.3em;text-align:center;border-bottom:1px dotted rgba(90,47,122,.35)">${pos[i] === r ? c : ''}</td>`).join('')}<td style="padding-left:.6em">&rarr; ${[...ex].filter((c, i) => pos[i] === r).join('')}</td></tr>`).join('')}</table></div>`;
+}
 function openMachine() {
-  S.machineSeen = true; objective(); let st = 0;
-  openDev(`<h2>LITTLE WHEEL</h2><p>A wooden box the size of a cigar case. One brass wheel lettered A to Z, a row of keys, a strip of lamps. It clicks forward a notch with every key.</p><div class="row"><button id="rdn" aria-label="Wheel back">&#9664;</button><div class="screen" id="rst" style="min-height:auto;font-size:1.6rem;padding:.3rem 1rem">A</div><button id="rup" aria-label="Wheel forward">&#9654;</button>${S.interceptSeen ? '<button id="rload">Lay the intercept sheet beside it</button>' : ''}</div><label class="lab" for="rotin">Keys</label><input id="rotin" autocomplete="off" spellcheck="false" style="background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.05rem;letter-spacing:.15em;padding:.5rem .7rem;text-transform:uppercase"><div class="lab">Lamps</div><div class="screen" id="rout" style="font-size:1.05rem"></div>`);
+  S.machineSeen = true; S.interceptSeen = true; objective(); let st = 0;
+  openDev(`<h2>LITTLE WHEEL</h2><p>A wooden box the size of a cigar case. One brass wheel lettered A to Z, a row of keys, a strip of lamps. It clicks forward a notch with every key.</p><div class="row"><button id="rdn" aria-label="Wheel back">&#9664;</button><div class="screen" id="rst" style="min-height:auto;font-size:1.6rem;padding:.3rem 1rem">A</div><button id="rup" aria-label="Wheel forward">&#9654;</button><button id="rload">Lay the intercept sheet beside it</button></div><div class="lab">Intercept sheet</div><div class="screen" id="rsheet" style="font-size:1rem;letter-spacing:.12em;color:#ffe6b0">${PURE.ROTOR_CIPHER}</div><label class="lab" for="rotin">Keys</label><input id="rotin" autocomplete="off" spellcheck="false" style="background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.05rem;letter-spacing:.15em;padding:.5rem .7rem;text-transform:uppercase"><div class="lab">Lamps</div><div class="screen" id="rout" style="font-size:1.05rem"></div>`);
   const upd = () => { $('rst').textContent = String.fromCharCode(65 + st); $('rout').textContent = PURE.rotDec($('rotin').value.toUpperCase(), st); };
   $('rdn').onclick = () => { st = (st + 25) % 26; tick(0); upd(); }; $('rup').onclick = () => { st = (st + 1) % 26; tick(1); upd(); };
-  if ($('rload')) $('rload').onclick = () => { $('rotin').value = PURE.ROTOR_CIPHER; upd(); $('rotin').focus(); };
+  $('rload').onclick = () => { const f = !S.interceptSeen; S.interceptSeen = true; S.daybook = true; objective(); $('rotin').value = PURE.ROTOR_CIPHER; tick(1); upd(); if (f) toast('The intercept sheet is in your journal.'); };
   const inp = $('rotin'); inp.oninput = () => { tick(1); upd(); }; inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); }; inp.focus(); upd();
 }
 function playPulses(out, tok) {
@@ -2179,7 +2187,7 @@ I.push(
   { id: 'sheets', p: V(6.4, 1.0, -66.2), label: () => 'Dust sheet', act: () => toast('You lift the sheet. A rocking horse with its eyes painted over. You put the sheet back.') },
   { id: 'sheets2', p: V(-5.5, 1.6, -64.5), label: () => 'Dust sheet', act: () => toast('A dressmaker\'s dummy wearing a WAAF uniform jacket. Name tape: ASHGROVE, M.') },
   { id: 'sheets3', p: V(7.2, 1.2, -71.5), label: () => 'Dust sheet', act: () => toast('A tall mirror, turned to face the wall. Someone wrote on the back in chalk: DONT.') },
-  { id: 'ivynote', p: V(-10.2, .2, -70.2), r: 2.4, label: () => "Ivy's note", act: () => { const first = !S.ivyNoteSeen; S.ivyNoteSeen = true; objective(); openNote(`<h2>Under the blanket, a page torn from the purple notebook</h2><p>No screens up here. No wires. She can't see me. I can finally think.</p><p class="cipher">${PURE.RAIL_CIPHER}</p><p>In the margin, the same scribble over and over: a line that goes up, down, up, down.</p><p class="sig">Ivy</p>`, () => { if (first) toast('Added to your journal.'); }); } },
+  { id: 'ivynote', p: V(-10.2, .2, -70.2), r: 2.4, label: () => "Ivy's note", act: () => { const first = !S.ivyNoteSeen; S.ivyNoteSeen = true; objective(); openNote(`<h2>Under the blanket, a page torn from the purple notebook</h2><p>No screens up here. No wires. She can't see me. I can finally think.</p><p class="cipher" style="white-space:normal">${PURE.RAIL_CIPHER}</p><p>All one long line on the page, squashed to fit. In the margin, the same scribble over and over, top, middle, bottom, middle, top, and a little practice word under it:</p>${railMargin()}<p class="sig">Ivy</p>`, () => { if (first) toast('Added to your journal.'); }); } },
   { id: 'blanket', p: HIDES[HIDES.length - 1].p, label: () => S.hidden ? 'Crawl out' : "Hide in Ivy's blanket fort", act: () => S.hidden ? unhide() : hide(HIDES.find(h => h.id === 'blanket')) },
   { id: 'trunk', p: V(3.6, .65, -72.4), r: 2.4, label: () => S.trunkOpen ? "Mildred's war trunk" : 'War trunk: five letter wheels', act: () => {
     if (!S.solved.rail) return codeEntry('rail', 'WAR TRUNK', 'Green steel, stencilled <i>ASHGROVE M. &middot; F.O. &middot; NOT TO BE OPENED</i>. A lock with five letter wheels.', '5 letters');
@@ -2187,6 +2195,7 @@ I.push(
     openNote(`<h2>In the trunk</h2><p>A WAAF cap. A Bletchley pass with a young woman's photo. A carbon flimsy, stamped <b>GHOST TRAFFIC &middot; NOT FOR CIRCULATION</b>:</p><p class="cipher">${PURE.ROTOR_CIPHER}</p><p>Under it: Mildred's daybook, and a little wooden box with a brass wheel.</p>`, () => { if (first) { toast('Added to your journal.'); } });
   } },
   { id: 'daybook', p: V(3.3, .7, -72.6), r: 2.2, label: () => S.trunkOpen ? "Mildred's daybook" : null, act: () => { S.daybook = true; openNote(DAYBOOK); } },
+  { id: 'intercept', p: V(3.6, .72, -72.2), r: 2.2, label: () => S.trunkOpen ? 'The intercept sheet' : null, act: () => { const f = !S.interceptSeen; S.interceptSeen = true; objective(); openNote(`<h2>A carbon flimsy, 1944</h2><p>Stamped <b>GHOST TRAFFIC &middot; NOT FOR CIRCULATION</b>. Typed, one line after another:</p><p class="cipher">${PURE.ROTOR_CIPHER}</p><p>A pencil arrow in the margin points at the little wheel box.</p>`, () => { if (f) toast('Added to your journal.'); }); } },
   { id: 'machine', p: V(3.95, .7, -72.6), r: 2.2, label: () => S.trunkOpen ? 'The little wheel box' : null, act: openMachine },
   { id: 'wire', p: V(-3.2, .95, -74.9), r: 2.4, label: () => S.solved.rotor ? 'Wire recorder: play spool nine' : 'Wire recorder: choose a spool', act: openWire },
   { id: 'sketch', p: V(-2.5, .86, -74.8), r: 2.2, label: () => "Mildred's listening notebook", act: () => { const first = !S.glyphSketch; S.glyphSketch = true; openNote(`<h2>Mildred's listening notebook, the red one</h2><p>Shapes off the oscilloscope, night after night. The same ones keep coming back when she says her own name. I have copied them and put my best guesses beside them.</p>${sketchHTML()}<p>They are not German. They are not anything. The girls say I am seeing faces in the static.</p><p class="sig">M.A., Nov. 1944</p>`, () => { if (first) toast("Mildred's sketch is in your journal."); }); } },
@@ -2577,7 +2586,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   const boardHTML = () => `<table class="grid"><tr><th></th>${[1, 2, 3, 4, 5].map(c => `<th>${c}</th>`).join('')}</tr>${C.POLY.map((r, i) => `<tr><th>${i + 1}</th>${[...r].map(ch => `<td>${ch === 'I' ? 'I/J' : ch}</td>`).join('')}</tr>`).join('')}</table>`;
   const bottlesHTML = () => `<table class="grid" style="width:100%"><tr><th style="width:auto">Bin</th><th style="width:auto;text-align:left">Label</th></tr>${C.VINT.map(b => `<tr><td>${b.bin}</td><td style="width:auto;text-align:left;padding:0 .4rem">${b.name} &middot; <b>${b.rom}</b></td></tr>`).join('')}</table>`;
   const bricksStr = () => C.BRICKS.map(p => p.join('&middot;')).join(' &nbsp; ');
-  const routeHTML = () => `<div class="cipher">${C.ROUTE_COLS.join(' ')}</div>`;
+  const routeHTML = () => `<div class="cipher" style="display:flex;flex-wrap:wrap;gap:.3rem 1.1rem">${C.ROUTE_COLS.map(g => `<span style="white-space:nowrap">${g}</span>`).join(' ')}</div>`;
   const MIL1 = `Father's cellar. He kept four bottles back through the first war and swore we would open them the day the world was properly at peace, oldest first, as he did everything. The world never obliged. When the east wall cracked in '52 I put a gate across the hole and set its lock by his rule. Thomas, if you ever find this: leave the gate shut.`;
   const LOG_ENTRIES = [
     ['3rd May 1789', 'Began the cellars for his Lordship. Ten men. Good dry ground.'],
@@ -2733,11 +2742,11 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     const RACK_WORD = 'BEACON';
     const ANSWERS = { llumen: ['LUMEN'], lvig: ['MAREN'], ltab: [RACK_WORD], lbin: ['IWASHERE'], lmorse: ['ITISALWAYSME', 'ALWAYSME', 'ITSALWAYSME'], lteo: ['TEODRIC'], lgov: ['HEADSET'], lhex: ['KEEPSENDING'], lcal: ['INTERFERENCEFROMBENEATHTHEOLDLAB', 'INTERFERENCE'], lwall: ['LEFTHAND', 'HAND', 'MYLEFTHAND'], lplate: ['YOUWILLLETMEOUT'] };
     Object.assign(PURE.ANSWERS, ANSWERS);
-    Object.assign(PURE.ANSWERS, { ltrel: ['0800', '800', '8AM', '0800HRS'], lcol: ['ILO'] });
+    Object.assign(PURE.ANSWERS, { ltrel: ['0800', '800', '8AM', '08AM', '0800HRS', '0800H'], lcol: ['ILO'] });
     return { vig, toBin, fromBin, morseWords, morseDec, toHex, fromHex, mono, unmono, MONO_KEY, VIG_KEY, VIG_PLAIN, VIG_CIPHER, BIN_PLAIN, BIN_ROWS, MORSE_PLAIN, MORSE_WORDS, GPART, GPART_CUT, HEX_PLAIN, HEX, MONO_PLAIN, MONO_CIPHER, tally, RACK_WORD, ANSWERS };
   })();
   // ---------- glyphs ----------
-  const GSETS = [['cGlyphs', 'AELNT', 'the stone at the foot of the black glass'], ['glyphSketch', 'ORSIMD', "Mildred's listening notebook"], ['lLumen', 'LUMEN', 'the inner door lintel'], ['lMargins', 'BHWKCGP', 'the Archive tablet margins'], ['lLabel', 'FVY', 'the Listening Room receiver label'], ['lDials', 'QJXZ', 'the Machine Hall dial plates']];
+  const GSETS = [['cGlyphs', 'AELNT', 'the stone at the foot of the black glass'], ['lPlaque', 'AT', 'the founding plaque in the Antechamber'], ['glyphSketch', 'ORSIMD', "Mildred's listening notebook"], ['lLumen', 'LUMEN', 'the inner door lintel'], ['lMargins', 'BHWKCGP', 'the Archive tablet margins'], ['lLabel', 'FVY', 'the Listening Room receiver label'], ['lDials', 'QJXZ', 'the Machine Hall dial plates']];
   const learned = () => { const s = new Set(); for (const [f, ls] of GSETS) if (S[f]) for (const c of ls) s.add(c); return s; };
   const gl = (ch, px = 26, col = '#3dfce0', w = 2.2) => { const g = LD.glyphs[ch]; if (!g) return ch === ' ' ? `<span style="display:inline-block;width:${px * .55}px"></span>` : `<span style="color:${col}">${ch.replace(/</g, '&lt;')}</span>`; return `<svg viewBox="0 0 20 24" width="${px}" height="${px * 1.2}" aria-hidden="true" style="vertical-align:middle"><path d="${g[0]}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>${g[1] ? `<circle cx="${g[1][0]}" cy="${g[1][1]}" r="2" fill="${col}"/>` : ''}</svg>`; };
   const glyphText = (t, px, col, w) => t.toUpperCase().split('\n').map(line => `<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:1px">${line.split(/( )/).map(wd => wd === ' ' ? gl(' ', px) : `<span style="display:inline-flex;white-space:nowrap">${[...wd].map(c => gl(c, px, col, w)).join('')}</span>`).join('')}</span>`).join('<br>');
@@ -2847,6 +2856,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     ll('sealed', 102, 3.1, 59, .55, 7, 0x9ff7ff);
   }
   // ---------- ANTECHAMBER: decon arch, six lockers, lintel ----------
+  box(.6, .4, .03, M.brass, 106, 1.5, 62.97, scene, false);
   {
     const arch = new THREE.Group(); arch.position.set(106.5, 0, 59); scene.add(arch);
     for (const s of [-1, 1]) { const p = box(.3, 3.0, .4, LM.obs, 0, 1.5, s * 1.6, arch); p.rotation.x = s * .12; glowBox(.04, 2.8, .04, 106.36, 1.5, 59 + s * 1.45); }
@@ -2962,11 +2972,11 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   }
   // ---------- HYDROPONICS GARDEN ----------
   {
-    for (const x of [105.6, 108, 110.4]) { box(1.6, .6, 6.2, LM.obs, x, .3, 51, scene, false); const w = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 6), std({ color: 0x050808, roughness: .02, metalness: .4 })); w.rotation.x = -Math.PI / 2; w.position.set(x, .58, 51); scene.add(w); solid(x - .8, 47.9, x + .8, 54.1); }
+    for (const x of [105.6, 108, 110.4]) { box(1.2, .6, 4.6, LM.obs, x, .3, 51, scene, false); const w = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 4.4), std({ color: 0x050808, roughness: .02, metalness: .4 })); w.rotation.x = -Math.PI / 2; w.position.set(x, .58, 51); scene.add(w); solid(x - .6, 48.7, x + .6, 53.3); }
     const tr = new THREE.Group(); tr.position.set(106.2, 0, 47.3); scene.add(tr); for (let i = 0; i < 6; i++) { box(.03, 2.6, .03, LM.obs, -1 + i * .4, 1.3, 0, tr, false); box(2.1, .03, .03, LM.obs, 0, .5 + i * .4, 0, tr, false); }
     for (let i = 0; i < 14; i++) { const v = new THREE.Mesh(new THREE.SphereGeometry(.05, 5, 4), std({ color: 0x1a1a14, roughness: 1 })); v.position.set(105.2 + rnd(0, 2), rnd(.6, 2.4), 47.35); scene.add(v); }
     const arm = box(.06, .06, 1.0, LM.obs, 108, 1.5, 49.5, scene, false); SC.arm = arm; const drip = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .9, 4), std({ color: 0x050606, roughness: 0, metalness: .5 })); drip.position.set(108, 1.05, 50); scene.add(drip); SC.drip = drip;
-    box(.5, .7, .1, LM.obs, 111.6, 1.3, 47.2, scene, false); const tp2 = screen(.36, .22, 160, 96); tp2.m.position.set(111.6, 1.35, 47.26); SC.timer = tp2;
+    box(.1, .7, .5, LM.obs, 111.93, 1.3, 49.2, scene, false); const tp2 = screen(.36, .22, 160, 96); tp2.m.position.set(111.87, 1.35, 49.2); tp2.m.rotation.y = -Math.PI / 2; SC.timer = tp2; ll('hydro', 111.3, 1.9, 49.2, .25, 2.5, 0xffe0a0);
     ll('hydro', 108, 3.3, 51, .45, 8, 0x9ff7ff); ll('hydro', 106.2, 2.6, 48, .3, 4, 0x8affb0);
   }
   // ---------- MEDICAL BAY ----------
@@ -3244,7 +3254,8 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   // ---------- interactables ----------
   const learnToast = (f, letters) => { if (!S[f]) { S[f] = true; setTimeout(() => toast(`New marks for your glyph reference: <b>${letters.split('').join(' ')}</b>.`), 60); } };
   I.push(
-    { id: 'ltimer', p: VI(111.6, 1.35, 47.3), r: 2.4, label: () => S.solved.ltrel ? 'Watering timer (stopped)' : 'Watering timer', act: () => { S.lTrellis = true; objective(); if (!S.solved.ltrel) return codeEntry('ltrel', 'WATERING TIMER', 'The arm keeps pouring black water on dead beans. The timer panel is blank, four digits, waiting for the time it should run.', 'Time'); toast('Stopped. The troughs drain slowly.'); } },
+    { id: 'lplaque', p: VI(106, 1.5, 62.9), r: 2.4, label: () => 'Founding plaque', act: () => { learnToast('lPlaque', 'AT'); objective(); openNote(`<h2>A bronze plaque beside the decontamination arch</h2><div class="cipher" style="font-size:1rem">${glyphText('LUMEN AT THE SEA', 26)}</div><p>Under the marks, the same words were cut again in the old trade letters, for visitors from the coast:</p><p class="cipher" style="letter-spacing:.3em">LUMEN AT THE SEA</p><p>Someone has rubbed the first word bright with a thumb, over and over.</p>`); } },
+    { id: 'ltimer', p: VI(111.85, 1.35, 49.2), r: 2.6, label: () => S.solved.ltrel ? 'Watering timer (stopped)' : 'Watering timer: set time', act: () => { S.lTrellis = true; objective(); if (!S.solved.ltrel) return codeEntry('ltrel', 'WATERING TIMER', 'The arm keeps pouring black water on dead beans. The timer panel is blank, four digits, waiting for the time it should run.', 'Time'); toast('Stopped. The troughs drain slowly.'); } },
     { id: 'lhatch', p: VI(155.5, .3, 64.6), r: 2.2, label: () => 'Hatch in the floor', act: () => { const fd = $('fade'); fd.style.opacity = 1; setTimeout(() => { P.x = 151; P.z = 73.6; P.yaw = Math.PI; fd.style.opacity = 0; if (!S.lCoreToast) { S.lCoreToast = true; toast('Under the dais: five columns of clouded glass, feeding the transmitter above. ILO.', 5000); } }, S.fast ? 0 : 400); } },
     { id: 'lladder', p: VI(151, 1.5, 72.3), r: 2.2, label: () => 'Ladder up to the Transmitter Chamber', act: () => { const fd = $('fade'); fd.style.opacity = 1; setTimeout(() => { P.x = 155.5; P.z = 63.6; P.yaw = 0; fd.style.opacity = 0; }, S.fast ? 0 : 400); } },
     { id: 'lcolc', p: VI(154, 1.15, 73.4), r: 2.4, label: () => S.lColReset ? 'Column console (clear)' : 'Column console', act: () => { S.lCols = true; objective(); if (S.lColReset) return toast('ILO / READY. ILO REMEMBERS.'); if (!S.lCrystal) return toast('RESET UNAVAILABLE: COLUMN 3 MISSING. One slot in the columns is empty.'); codeEntry('lcol', 'ILO / COLUMN RESET', 'The sliver of memory glass slides home. The console asks one question before it will clear the columns: what must be kept.', 'Keep'); } },
@@ -3423,6 +3434,7 @@ const SCARES = [
 function scareFire(id) { const sc = SCARES.find(q => q.id === id); if (!sc) return false; const ok = sc.run(); if (ok) { const k = sc.once ? id : id + '@' + (S.floor || 1); if (sc.once || sc.max) scDoneSet(sc.once ? id : k); } return ok; }
 function scareUpdate(dt) {
   SCARE.st = 0;
+  if (SCARE_PROPS.sheet) SCARE_PROPS.sheet.visible = !!S.trunkOpen;
   if (!SCARE.applied && S.started) { SCARE.applied = true; const d = S.scDone || {}; if (d.chair && SCARE_PROPS.chair) { SCARE_PROPS.chair.position.set(11.4, 0, 3.9); SCARE_PROPS.chair.rotation.y = Math.PI * .9; } if (d.photo && SCARE_PROPS.photo) { SCARE_PROPS.photo.rotation.x = -Math.PI / 2 + .02; SCARE_PROPS.photo.position.y = .012; } }
   if (SCARE.black > 0) { SCARE.black -= dt; SCARE.blackF = SCARE.black > 4 ? (Math.random() < .5 ? .1 : 1) : SCARE.black > .5 ? 0 : (Math.random() < .5 ? .2 : 1); SCARE.st = SCARE.black > .5 ? .35 : 0; if (SCARE.black <= 0) SCARE.blackF = 1; }
   if (SCARE.tvGhost > 0) { SCARE.tvGhost -= dt; SCARE.tvLast = (SCARE.tvLast || 0) + dt; }
