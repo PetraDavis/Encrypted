@@ -109,7 +109,7 @@ button{font:inherit;cursor:pointer}
   <div id="room">GRAND FOYER</div>
   <div id="toast"></div>
   <button id="jbtn" type="button">Journal (J)</button>
-  <div id="hint">WASD move · Shift run · C crouch · F flashlight · E interact · J / Tab journal</div>
+  <div id="hint">WASD move · Shift run · Space jump · C crouch · F flashlight · E interact · J / Tab journal</div>
 </div>
 <div id="fade"></div>
 
@@ -118,7 +118,7 @@ button{font:inherit;cursor:pointer}
   <div class="logo" aria-label="enCRYPTed">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div>
   <div class="tag">Ashgrove Manor · bought at government auction · power off since the accident</div>
   <button class="btn" id="start">Enter</button>
-  <div class="keys"><b>WASD</b> move &nbsp; <b>Mouse</b> look &nbsp; <b>E</b> interact &nbsp; <b>F</b> flashlight &nbsp; <b>C</b> crouch &nbsp; <b>J</b> journal<br>Headphones recommended. Ground floor.</div>
+  <div class="keys"><b>WASD</b> move &nbsp; <b>Mouse</b> look &nbsp; <b>E</b> interact &nbsp; <b>F</b> flashlight &nbsp; <b>Space</b> jump &nbsp; <b>C</b> crouch &nbsp; <b>J</b> journal<br>Headphones recommended. Ground floor.</div>
 </div>
 
 <div id="note" class="ov panel" hidden><div class="paper" id="notebody"></div></div>
@@ -959,7 +959,7 @@ addEventListener('resize', resize); resize();
 // One switch for the monster: false keeps Ysolde out (no sighting, roaming, catching, flicker or static). ?ysolde=1 turns her on.
 const YSOLDE_ENABLED = false || /[?&]ysolde=1/.test(location.search);
 const S = { started: false, power: false, locked: false, main: true, router: true, noteFound: false, closetOpen: false, keyLiving: false, notebook: false, tapHeard: false, phoneRinging: false, phoneDone: false, codebook: false, fridgeSeen: false, letter: false, inkRevealed: false, stairKey: false, ended: false, ys: false, sightingDone: false, sighting: 0, hidden: null, ui: false, dead: 0, solved: {}, fast: false };
-const P = { x: 0, z: 4.9, yaw: 0, pitch: 0, eye: 1.65, crouch: false, bob: 0, moving: false, running: false };
+const P = { x: 0, z: 4.9, yaw: 0, pitch: 0, eye: 1.65, crouch: false, bob: 0, moving: false, running: false, jy: 0, vy: 0 };
 const keys = {};
 const lit = () => S.power && S.main;
 let toastTimer;
@@ -1252,6 +1252,7 @@ addEventListener('keydown', e => {
   if (k === 'e' && focus) { e.preventDefault(); focus.act(); }
   if (k === 'j') { e.preventDefault(); openJournal(); }
   if (k === 'c' || k === 'control') P.crouch = !P.crouch;
+  if (k === ' ') { e.preventDefault(); if (!S.hidden && !S.dead && P.jy === 0 && P.vy === 0) { P.vy = P.crouch ? 2.6 : 3.2; noiseBurst(220, 2, .06, .04, 'lowpass', true); } }
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -1356,7 +1357,9 @@ function frame() {
     }
   }
   const targetEye = S.hidden ? S.hidden.cam[2] : P.crouch ? 1.0 : 1.65; P.eye += (targetEye - P.eye) * Math.min(1, dt * 8);
-  camera.position.set(P.x, P.eye + Math.sin(P.bob) * .035, P.z);
+  // jump: gravity + ground check (walls and furniture are full-height in 2D, so a jump never crosses them)
+  if (P.vy !== 0 || P.jy > 0) { if (S.ui || S.hidden || S.dead) { P.vy = 0; P.jy = 0; } else { P.vy -= 9.8 * dt; P.jy += P.vy * dt; if (P.jy <= 0) { P.jy = 0; P.vy = 0; noiseBurst(rnd(150, 200), 2, .12, P.crouch ? .05 : .12, 'lowpass', true); } } }
+  camera.position.set(P.x, P.eye + P.jy + (P.jy > 0 ? 0 : Math.sin(P.bob) * .035), P.z);
   camera.rotation.set(0, 0, 0); camera.rotateY(P.yaw); camera.rotateX(P.pitch);
   const room = roomAt(P.x, P.z); if (room !== curRoom) { curRoom = room; $('room').textContent = ROOMS[room].name.toUpperCase(); }
   // doors swing
