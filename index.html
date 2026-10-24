@@ -138,9 +138,9 @@ const PURE = (() => {
   const norm = s => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const PLAIN = 'IF THE LIGHTS DIE SHE IS IN THE ROOM. DONT RUN. HIDE IN THE COAT CLOSET. ITS CODE IS ECHO';
   const CIPHER = caesar(PLAIN, 3);
-  // tap code: 5x5 Polybius square, K shares C
-  const TAPGRID = ['ABCDE', 'FGHIJ', 'LMNOP', 'QRSTU', 'VWXYZ'];
-  const tapEncode = w => [...w.replace(/K/g, 'C')].map(ch => { for (let r = 0; r < 5; r++) { const c = TAPGRID[r].indexOf(ch); if (c >= 0) return [r + 1, c + 1]; } return null; });
+  // tap code: 5x5 Polybius square, I and J share a box
+  const TAPGRID = ['ABCDE', 'FGHIK', 'LMNOP', 'QRSTU', 'VWXYZ'];
+  const tapEncode = w => [...w.replace(/J/g, 'I')].map(ch => { for (let r = 0; r < 5; r++) { const c = TAPGRID[r].indexOf(ch); if (c >= 0) return [r + 1, c + 1]; } return null; });
   const tapDecode = pairs => pairs.map(([r, c]) => TAPGRID[r - 1][c - 1]).join('');
   const TAP = tapEncode('QUIET');
   const MORSE = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..' };
@@ -971,10 +971,10 @@ function objective() {
   else if (!S.tapHeard) t = 'The TV in the Living Room switched itself on.';
   else if (!s.tap) t = S.notebook ? 'Decode the knocks. The hallway keypad wants five letters.' : "Decode the knocks. Ivy's notebook might explain them.";
   else if (!S.phoneDone) t = 'A phone is ringing in the Living Room.';
-  else if (!s.morse) t = S.codebook ? 'Decode the Morse. Then try the Kitchen.' : "Decode the Morse. Mildred's codebook is in the Library.";
+  else if (!s.morse) t = S.codebook ? 'Make sense of the beeps. Then try the Kitchen.' : 'Make sense of the beeps. Mildred kept her old notes in the Library.';
   else if (!S.fridgeSeen) t = 'Check the smart fridge in the Kitchen.';
   else if (!s.a1z) t = 'Decode the fridge note. The Office keypad is in the Hallway.';
-  else if (!S.inkRevealed) t = S.letter ? 'Warm the blank letter over the Office candle.' : 'Something blank is waiting in the Pantry. The Office has a candle.';
+  else if (!S.inkRevealed) t = S.letter ? 'The letter is blank. Mildred always had a trick.' : 'Mildred hid things where Thomas would never look. The Pantry?';
   else if (!s.ink) t = 'Tell the Library bookshelf the word.';
   else if (!S.stairKey) t = "Search Mildred's study.";
   else if (!S.ended) t = 'Unlock the staircase in the Grand Foyer.';
@@ -1012,27 +1012,27 @@ function hide(h) { S.hidden = h; S.preHide = { x: P.x, z: P.z }; P.x = h.cam[0];
 function unhide() { if (!S.hidden) return; S.hidden = null; P.x = S.preHide.x; P.z = S.preHide.z; $('hideov').style.opacity = 0; noiseBurst(400, 3, .3, .2); }
 // ---------- puzzles ----------
 const tapStr = PURE.TAP.map(p => p.join('-')).join('   ');
-const gridHTML = () => `<table class="grid"><tr><th></th>${[1, 2, 3, 4, 5].map(c => `<th>${c}</th>`).join('')}</tr>${PURE.TAPGRID.map((r, i) => `<tr><th>${i + 1}</th>${[...r].map(ch => `<td>${ch === 'C' ? 'C/K' : ch}</td>`).join('')}</tr>`).join('')}</table>`;
+const gridHTML = () => `<table class="grid"><tr><th></th>${[1, 2, 3, 4, 5].map(c => `<th>${c}</th>`).join('')}</tr>${PURE.TAPGRID.map((r, i) => `<tr><th>${i + 1}</th>${[...r].map(ch => `<td>${ch === 'I' ? 'I/J' : ch}</td>`).join('')}</tr>`).join('')}</table>`;
 const morseHTML = () => `<div class="mchart">${Object.entries(PURE.MORSE).map(([k, v]) => `<span><b>${k}</b> ${v.replace(/\./g, '&middot;').replace(/-/g, '&ndash;')}</span>`).join('')}</div>`;
 const INK_TEXT = 'Ivy, my clever girl. Lemon juice and a candle, the oldest trick we had. Behind the library shelf is my study. The brass dial answers to the hut where I broke codes in the war. We painted it on the door as HUT 6.';
 const PUZ = [
-  { id: 'caesar', title: 'Caesar shift', where: 'behind the grandfather clock', found: () => S.noteFound, input: 'Coat closet code',
-    body: () => `<div class="cipher">${PURE.CIPHER}</div><div class="hint">Ivy: shift every letter back by the number of letters in my name.</div>`,
-    bad: 'The keypad buzzes. Shift each letter back by three: D becomes A.', ok: () => openCloset(),
+  { id: 'caesar', title: "Ivy's note", where: 'behind the grandfather clock', found: () => S.noteFound, input: 'Coat closet code',
+    body: () => `<div class="cipher">${PURE.CIPHER}</div><div class="hint">Ivy: "Grandma taught me this one when I was six. My name is the key."</div>`,
+    bad: 'The keypad buzzes. Ivy said her name was the key.', ok: () => openCloset(),
     lore: `<p>If you are reading this, you turned the power back on. That's how she wakes up. Her name is <b>Ysolde</b>. She used to be a person, a scientist, a long time ago. Now she is a signal and she lives in anything with a wire.</p><p>She knows when someone reads these. She can't stop you. But she will come looking.</p><p class="sig">Ivy</p>` },
-  { id: 'tap', title: 'Tap code', where: 'knocks from the Living Room TV', found: () => S.tapHeard, input: 'Hallway door keypad',
-    body: () => `<div class="cipher">${tapStr}</div><div class="hint">Knocks in pairs: row, then column.</div>${S.notebook ? gridHTML() : '<div class="hint">Ivy wrote about knock codes somewhere. Her notebook?</div>'}`,
-    bad: 'Wrong code. Each pair is row then column on the grid. K shares a square with C.', ok: () => { unlockDoor('fh'); setTimeout(startPhone, 2500); },
+  { id: 'tap', title: 'Knocks from the TV', where: 'knocks from the Living Room TV', found: () => S.tapHeard, input: 'Hallway door keypad',
+    body: () => `<div class="cipher">${tapStr}</div>${S.notebook ? gridHTML() : '<div class="hint">Ivy doodled something like this in a notebook. Where did she leave it?</div>'}`,
+    bad: 'The keypad buzzes. Count the knocks again.', ok: () => { unlockDoor('fh'); setTimeout(startPhone, 2500); },
     lore: `<p><b>QUIET.</b> That's the rule. She hears. Running, slamming, shouting: she finds you. Walk. Crouch if she's close.</p><p>If the lights start to stutter, get somewhere closed and wait it out. The coat closet. Under the big dining table. The dumbwaiter in the kitchen.</p><p class="sig">Ivy</p>` },
-  { id: 'morse', title: 'Morse code', where: 'the rotary phone, and the floor lamp', found: () => S.phoneDone, input: 'Smart fridge passcode',
-    body: () => `<div class="cipher">${PURE.MORSE_MSG.replace(/\./g, '&middot;').replace(/-/g, '&ndash;').replace(/ /g, ' &nbsp; ')}</div><div class="hint">Short beep: dot. Long beep: dash.</div>${S.codebook ? morseHTML() : "<div class=\"hint\">Mildred's codebook is in the Library.</div>"}`,
-    bad: "Not it. Mildred's codebook lists every letter.", ok: () => { drawFridge(); toast('In the Kitchen, the fridge chimes.'); },
+  { id: 'morse', title: 'Beeps on a dead line', where: 'the rotary phone, and the floor lamp', found: () => S.phoneDone, input: 'Smart fridge passcode',
+    body: () => `<div class="cipher">${PURE.MORSE_MSG.replace(/\./g, '&middot;').replace(/-/g, '&ndash;').replace(/ /g, ' &nbsp; ')}</div>${S.codebook ? morseHTML() : "<div class=\"hint\">Mildred kept her wartime notes somewhere among her books.</div>"}`,
+    bad: 'The fridge stays locked.', ok: () => { drawFridge(); toast('In the Kitchen, the fridge chimes.'); },
     lore: `<p>1944. In Hut 6 we listened to static for patterns. One night the static listened back.</p><p>Her name was Ysolde. She was a scientist once, long before us, and she tried to turn herself into a signal. She succeeded. She cannot cross a cut wire. Pull the plug and she slows.</p><p class="sig">M. A.</p>` },
-  { id: 'a1z', title: 'A1Z26', where: 'the smart fridge screen', found: () => S.fridgeSeen, input: 'Office door keypad',
+  { id: 'a1z', title: 'The fridge note', where: 'the smart fridge screen', found: () => S.fridgeSeen, input: 'Office door keypad',
     body: () => `<div class="cipher">${PURE.A1Z}</div><div class="hint">Ivy: "in our language, so Dad stops forgetting it."</div>`,
-    bad: 'Wrong code. A is 1, B is 2, all the way to Z at 26.', ok: () => unlockDoor('ho'),
+    bad: 'The keypad buzzes. Dad never could remember it either.', ok: () => unlockDoor('ho'),
     lore: `<p>Dad had the house wired "smart" last spring. Fridge, speaker, cameras, locks. He thinks it's convenient. Every screen is a door for her now.</p><p>Grandma's office has the camera wall. It shows where she is. Use it.</p><p class="sig">Ivy</p>` },
-  { id: 'ink', title: 'Invisible ink', where: "Mildred's blank letter, warmed over the candle", found: () => S.inkRevealed, input: 'Library bookshelf dial',
+  { id: 'ink', title: "Mildred's letter", where: 'the paper from the recipe tin', found: () => S.inkRevealed, input: 'Library bookshelf dial',
     body: () => `<div class="lore">${INK_TEXT}</div>`,
     bad: 'The dial will not turn. Read the warmed letter again.', ok: () => { unlockDoor('ls'); toast('Somewhere in the Library, a bookshelf groans on its hinge.'); },
     lore: `<p>Thomas never saw her. Ivy always did. I built this house around a cage of copper and silence, and the smart wiring undid it.</p><p>My key to the upper floor is on my desk. Upstairs is where she is strongest.</p><p class="sig">Grandmother</p>` },
@@ -1062,8 +1062,8 @@ function openJournal(focusId) {
     h += `</div>`;
   }
   const refs = [];
-  if (S.notebook) refs.push(`<div class="entry"><div class="lab">Ivy's notebook · knock code</div>${gridHTML()}</div>`);
-  if (S.codebook) refs.push(`<div class="entry"><div class="lab">Mildred's codebook · Morse</div>${morseHTML()}</div>`);
+  if (S.notebook) refs.push(`<div class="entry"><div class="lab">Ivy's notebook</div>${gridHTML()}</div>`);
+  if (S.codebook) refs.push(`<div class="entry"><div class="lab">Mildred's codebook</div>${morseHTML()}</div>`);
   if (S.ys) refs.push(`<div class="entry"><div class="lab">Surviving her</div><div class="hint">Lights stutter and static rises when she is near. Walk or crouch: running carries. Hide in the coat closet, under the dining table or in the kitchen dumbwaiter. The Utility Room breaker panel can cut the router or the house power: she slows, but so does your view of her.</div></div>`);
   h += refs.join('');
   $('jbody').innerHTML = h; $('journal').hidden = false;
@@ -1141,7 +1141,7 @@ function phoneAct() {
         S.fast ? f() : setTimeout(f, at * 1000); tt += d + u; }
       const at = tt; S.fast ? (out.textContent += '  ') : setTimeout(() => { if (devTok === tok) out.textContent += '   '; }, at * 1000); tt += u * 3;
     }
-    const fin = () => { if (devTok !== tok) return; if (!S.phoneDone) { S.phoneDone = true; objective(); toast('Beeps written in your journal. The floor lamp is blinking the same rhythm.'); } };
+    const fin = () => { if (devTok !== tok) return; if (!S.phoneDone) { S.phoneDone = true; objective(); toast('Beeps written in your journal. Behind you, a lamp stutters.'); } };
     S.fast ? fin() : setTimeout(fin, tt * 1000);
   };
   $('mplay').onclick = play; play();
@@ -1185,17 +1185,17 @@ const I = [
   { id: 'portrait', p: V(RX - .05, 2.9, .6), label: () => 'Portrait', act: () => toast('A brass plate: <b>Mildred Ashgrove, 1921 to 2009</b>. Bletchley Park, Hut 6.') },
   { id: 'portrait2', p: V(-RX + .05, 2.9, 1.2), label: () => 'Portrait', act: () => toast('The eyes have been scratched out of the canvas. From the inside of the frame.') },
   { id: 'tv', p: V(-14.85, 1.55, 2.75), r: 3.4, label: () => 'Smart TV', act: tvAct },
-  { id: 'notebook', p: V(-12.75, .47, 2.5), label: () => "Ivy's notebook", act: () => { S.notebook = true; objective(); openNote(`<h2>Ivy's notebook, purple, covered in stickers</h2><p>Knock code! Prisoners used it to talk through walls. Two numbers per letter: knock the <b>row</b>, pause, knock the <b>column</b>. K and C share a box.</p>${gridHTML()}<p>She can hear voices and screens. She's bad at knocks. I think it's too slow for her.</p><p>Next project: flag semaphore for Pip. The flags are on my wall upstairs.</p><p class="sig">Ivy</p>`); } },
+  { id: 'notebook', p: V(-12.75, .47, 2.5), label: () => "Ivy's notebook", act: () => { S.notebook = true; objective(); openNote(`<h2>Ivy's notebook, purple, covered in stickers</h2><p>For talking through walls when you can't talk out loud.</p>${gridHTML()}<p>She can hear voices and screens. She's bad at knocks. I think it's too slow for her.</p><p class="sig">Ivy</p>`); } },
   { id: 'phone', p: V(-7.55, .72, 5.45), label: () => S.phoneRinging ? 'Answer the ringing phone' : 'Rotary phone', act: phoneAct },
-  { id: 'lamp', p: V(-14.4, 1.5, 5.4), label: () => 'Floor lamp', act: () => toast(S.phoneDone && !S.solved.morse ? 'The bulb blinks in long and short pulses. The same rhythm as the phone.' : 'An old brass floor lamp.') },
-  { id: 'codebook', p: V(-10.6, .84, -3.05), label: () => "Mildred's codebook", act: () => { S.codebook = true; objective(); openNote(`<h2>Mildred's codebook, Hut 6, 1943</h2><p>Morse, for the girls on the night shift. Dot short, dash long, a breath between letters.</p>${morseHTML()}<p class="sig">M.A.</p>`); } },
+  { id: 'lamp', p: V(-14.4, 1.5, 5.4), label: () => 'Floor lamp', act: () => toast(S.phoneDone && !S.solved.morse ? 'The bulb stutters. Long, short. You have heard this rhythm tonight.' : 'An old brass floor lamp.') },
+  { id: 'codebook', p: V(-10.6, .84, -3.05), label: () => "Mildred's codebook", act: () => { S.codebook = true; objective(); openNote(`<h2>Mildred's codebook, Hut 6, 1943</h2><p>For the girls on the night shift.</p>${morseHTML()}<p class="sig">M.A.</p>`); } },
   { id: 'fridge', p: V(15.95, 1.35, -1.4), label: () => 'Smart fridge', act: fridgeAct },
   { id: 'speaker', p: V(21.8, 1.05, 5.6), label: () => 'Smart speaker', act: () => toast(lit() && S.router ? 'The ring glows. A soft voice: <i>"Sorry, I didn\'t catch that. Could you say it again? Louder?"</i>' : 'The speaker is dead.') },
   { id: 'dumb', p: HIDES[2].p, label: () => S.hidden === HIDES[2] ? 'Climb out' : 'Hide in the dumbwaiter', act: () => S.hidden ? unhide() : hide(HIDES[2]) },
   { id: 'table', p: HIDES[1].p, label: () => S.hidden === HIDES[1] ? 'Crawl out' : 'Hide under the table', act: () => S.hidden ? unhide() : hide(HIDES[1]) },
   { id: 'frame', p: V(11, 1.12, 5.5), label: () => 'Digital photo frame', act: () => toast('Slideshow: Thomas at a barbecue. Ivy with a trophy. Ivy, older, not smiling. A photo of this room, empty. Then a photo of <b>you</b>, standing here.', 5500) },
   { id: 'tin', p: V(26.2, 1.1, 2.2), label: () => S.letter ? 'Recipe tin (empty)' : 'Recipe tin', act: () => { if (S.letter) return toast('Empty.'); S.letter = true; objective(); openNote(`<h2>Inside the recipe tin</h2><p>Under the recipe cards, a folded sheet of good paper with Mildred's monogram. Completely blank.</p><p>It smells faintly of lemons.</p>`); } },
-  { id: 'candle', p: V(11.6, .95, -9.3), label: () => S.letter ? 'Hold the blank letter over the candle' : 'Candle', act: candleAct },
+  { id: 'candle', p: V(11.6, .95, -9.3), label: () => 'Candle', act: candleAct },
   { id: 'monitors', p: V(11, 1.6, -10.85), r: 3.6, label: () => 'Camera monitors', act: () => toast(!lit() ? 'Dead screens.' : !S.router ? 'Six screens of NO SIGNAL.' : 'Six camera feeds. When she is in the house, one of them shows her.') },
   { id: 'breaker', p: V(17.5, 1.5, -10.85), label: () => 'Breaker panel', act: breakerAct },
   { id: 'router', p: V(20.5, 1.25, -10.8), label: () => S.router ? 'Unplug the router' : 'Plug the router back in', act: () => { S.router = !S.router; noiseBurst(1200, 2, .2, .2); toast(S.router ? 'Lights blink back on. The house can see again.' : 'The router dies. Somewhere, a screen whines and goes quiet.'); } },
