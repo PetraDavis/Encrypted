@@ -209,6 +209,45 @@ const PURE = (() => {
 if (typeof module !== 'undefined') { module.exports = PURE; }
 </script>
 <script>
+// ================= CELLAR: pure cipher data (self-contained; extends PURE.ANSWERS) =================
+const CELLAR = (() => {
+  const RN = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  const roman = n => RN.reduce((s, [v, r]) => { while (n >= v) { s += r; n -= v; } return s; }, '');
+  const unroman = s => { const V = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 }; let t = 0; for (let i = 0; i < s.length; i++) { const a = V[s[i]], b = V[s[i + 1]] || 0; t += a < b ? -a : a; } return t; };
+  // Father's four bottles, in the order they sit in the stone bins (left to right)
+  const VINT = [{ bin: 6, name: 'Château Ashgrove', yr: 1899 }, { bin: 2, name: 'Clos des Veilleurs', yr: 1884 }, { bin: 9, name: 'Ashgrove Réserve', yr: 1914 }, { bin: 4, name: 'Château Ashgrove', yr: 1870 }].map(b => Object.assign(b, { rom: roman(b.yr) }));
+  const vintCode = bs => bs.slice().sort((a, b) => unroman(a.rom) - unroman(b.rom)).map(b => b.bin).join('');
+  // Mason's marks (invented): polylines in a 40x40 box
+  const MARKS = {
+    A: [[20, 38, 20, 2], [8, 14, 20, 2, 32, 14]], G: [[6, 4, 34, 4, 6, 36, 34, 36, 6, 4]], L: [[20, 38, 20, 6], [6, 6, 34, 6], [6, 6, 6, 16], [34, 6, 34, 16]],
+    S: [[8, 8, 32, 32], [32, 8, 8, 32], [20, 2, 20, 38]], T: [[4, 20, 36, 20], [20, 20, 20, 38], [28, 10, 36, 20, 28, 30]], N: [[6, 30, 20, 6, 34, 30, 6, 30], [20, 30, 20, 38]],
+    E: [[6, 6, 34, 34], [6, 34, 34, 6], [6, 6, 6, 34]], R: [[20, 4, 20, 36], [10, 36, 30, 36], [20, 4, 32, 14]], W: [[6, 20, 34, 20], [12, 10, 12, 30], [28, 10, 28, 30]], O: [[20, 4, 36, 20, 20, 36, 4, 20, 20, 4], [18, 20, 22, 20]],
+  };
+  const MASONS = [['Thos. Barrow, foreman', 'T', '18s'], ['Abel Hoad', 'A', '12s'], ['Giles Wren', 'G', '12s'], ['Nathl. Oake', 'N', '10s 6d'], ['Luke Pardoe', 'L', '12s'], ['Edwd. Marsh', 'E', '11s'], ['Silas Crane', 'S', '12s'], ['Ralph Dunn', 'R', '9s'], ['Wm. Hatch', 'W', '10s 6d'], ['Obadiah Pike', 'O', '11s']];
+  const MARK_WORD = 'GLASS';
+  // Foreman's last entry: written in rows of seven, taken off column by column
+  const ROUTE_PLAIN = 'HIS LORDSHIP BIDS US BRICK UP THE PASSAGE AND SPEAK OF IT TO NO MAN. THE SMITH HAS SET THE NEW LOCK TO EMBER.';
+  const ROUTE_N = 7;
+  const routeEnc = (s, n) => { const t = s.replace(/[^A-Z]/g, ''); const cols = []; for (let c = 0; c < n; c++) { let x = ''; for (let i = c; i < t.length; i += n) x += t[i]; cols.push(x); } return cols; };
+  const routeDec = cols => { let o = ''; for (let r = 0; r < cols[0].length; r++) for (const c of cols) o += c[r] || ''; return o; };
+  const ROUTE_COLS = routeEnc(ROUTE_PLAIN, ROUTE_N);
+  // Brickmaker's square on the setting-out board
+  const POLY_KEY = 'ASHGROVE';
+  const POLY = (() => { const s = [...new Set((POLY_KEY + 'ABCDEFGHIKLMNOPQRSTUVWXYZ').split(''))].join(''); return [0, 1, 2, 3, 4].map(r => s.slice(r * 5, r * 5 + 5)); })();
+  const polyEnc = w => [...w.replace(/[^A-Z]/g, '').replace(/J/g, 'I')].map(ch => { for (let r = 0; r < 5; r++) { const c = POLY[r].indexOf(ch); if (c >= 0) return [r + 1, c + 1]; } return null; });
+  const polyDec = pairs => pairs.map(([r, c]) => POLY[r - 1][c - 1]).join('');
+  const BRICK_PLAIN = 'SAY HER NAME';
+  const BRICKS = polyEnc(BRICK_PLAIN);
+  // Breach stone: Veyran glyphs copied by the foreman (from veyran-glyphs.json), over the word he wrote under them
+  const GLYPH_WORD = 'LATENT';
+  const GLYPHS = { A: 'M10 2L10 10 M10 2L18 12 M18 12L18 22', E: 'M10 2L18 12 M2 12L10 22 M18 12L10 22', L: 'M2 2L10 10 M10 2L10 10 M10 10L18 12', N: 'M18 2L18 12 M10 10L18 12 M18 12L18 22 M2 22L10 22 M10 22L18 22', T: 'M10 2L2 12 M10 2L10 10 M10 2L18 12 M2 12L2 22 M2 22L10 22' };
+  const GLYPH_NODE = { L: [2, 22], N: [18, 22], T: [18, 22] };
+  const ANSWERS = { cvint: [vintCode(VINT)], cmark: [MARK_WORD], croute: ['EMBER'], cbrick: ['YSOLDE'] };
+  Object.assign(PURE.ANSWERS, ANSWERS);
+  return { roman, unroman, VINT, vintCode, MARKS, MASONS, MARK_WORD, ROUTE_PLAIN, ROUTE_N, routeEnc, routeDec, ROUTE_COLS, POLY_KEY, POLY, polyEnc, polyDec, BRICK_PLAIN, BRICKS, GLYPH_WORD, GLYPHS, GLYPH_NODE, ANSWERS };
+})();
+</script>
+<script>
 // ---------- Ivy's video (from ivy-video-preview.html; dev answer key removed) ----------
 const IVY = (()=>{
 const FPS=24, DUR=128, BPM=120, SPB=60/BPM;
@@ -2096,7 +2135,7 @@ PUZ.push(
   for (const p of PUZ) if (TR3[p.id]) p.plain = TR3[p.id]; }
 function takeCellarKey() {
   S.cellarKey = true; objective(); checkpoint();
-  openNote(`<h2>Inside the strongbox</h2><p>A heavy iron key on a loop of copper wire, tagged in Mildred's hand: <b>CELLAR</b>. Under it, a photograph of a small round room lined with copper sheet, a single chair in the middle.</p><p>On the back: <i>"For her. Not for you, Ivy. Never for you."</i></p>`, () => setTimeout(endGame, S.fast ? 0 : 400));
+  openNote(`<h2>Inside the strongbox</h2><p>A heavy iron key on a loop of copper wire, tagged in Mildred's hand: <b>CELLAR</b>. Under it, a photograph of a small round room lined with copper sheet, a single chair in the middle.</p><p>On the back: <i>"For her. Not for you, Ivy. Never for you."</i></p>`, () => toast('The cellar doors are out the back of the house. The garden door is at the end of the Hallway.', 5000));
 }
 function openMachine() {
   S.machineSeen = true; objective(); let st = 0;
@@ -2306,6 +2345,350 @@ const MSEG = (() => { const u = .25, s = []; for (const code of PURE.MORSE_MSG.s
 const MTOT = MSEG.reduce((a, b) => a + b[1], 0);
 function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < d) return on; x -= d; } return 0; }
 
+
+// ================= CELLAR (B1): geometry, puzzles, notes, save keys. Self-contained; floor id -1 =================
+{
+  const C = CELLAR, CF = -1;
+  // ---------- cellar textures ----------
+  function brickTex(dark) {
+    const [c, g] = cv(512, 512); g.fillStyle = '#1e1814'; g.fillRect(0, 0, 512, 512);
+    for (let r = 0; r < 16; r++) for (let x = -64; x < 512; x += 64) { const ox = r % 2 ? 32 : 0; g.fillStyle = `hsl(${rnd(8, 20)},${rnd(30, 48)}%,${rnd(dark ? 12 : 17, dark ? 20 : 28)}%)`; g.fillRect(x + ox + 2, r * 32 + 2, 60, 28); }
+    grain(g, 512, 512, 26000, .22);
+    for (let i = 0; i < 10; i++) { const x = rnd(0, 512), y = rnd(0, 512), rr = rnd(40, 140); const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(200,200,180,.10)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); }
+    return c;
+  }
+  function rubbleTex(base) {
+    const [c, g] = cv(512, 512); g.fillStyle = '#16130f'; g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 140; i++) { g.fillStyle = `hsl(${rnd(25, 40)},${rnd(6, 16)}%,${rnd(base, base + 12)}%)`; g.beginPath(); g.ellipse(rnd(0, 512), rnd(0, 512), rnd(18, 46), rnd(12, 28), rnd(-.3, .3), 0, 7); g.fill(); }
+    grain(g, 512, 512, 30000, .25); return c;
+  }
+  function rockTex() {
+    const [c, g] = cv(512, 512); g.fillStyle = '#1a1714'; g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 60; i++) { const x = rnd(0, 512), y = rnd(0, 512), rr = rnd(20, 110); const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, `rgba(${Math.random() < .5 ? '0,0,0' : '140,120,100'},.22)`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); }
+    g.strokeStyle = 'rgba(0,0,0,.6)'; for (let i = 0; i < 40; i++) { g.lineWidth = rnd(1, 3); g.beginPath(); let x = rnd(0, 512), y = rnd(0, 512); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += rnd(-40, 40); y += rnd(-15, 15); g.lineTo(x, y); } g.stroke(); }
+    grain(g, 512, 512, 30000, .25); return c;
+  }
+  const CM = {
+    gymWall: mk(tex(paintTex('#5e5c56')), .85), gymFl: mk(tex(concreteTex('#1c1d1f')), .95),
+    brick: mk(tex(brickTex()), .9), brickD: mk(tex(brickTex(true)), .9), flag: mk(tex(rubbleTex(14)), .95),
+    stone: mk(tex(rubbleTex(18)), .95), earth: mk(tex(concreteTex('#2a2219')), 1), rock: mk(tex(rockTex()), 1),
+  };
+  // ---------- cellar geometry ----------
+  const CR = {
+    gym: { name: 'Home Gym', x0: 40, z0: 55, x1: 50, z1: 63, h: 2.7, up: CM.gymWall, fl: CM.gymFl, ce: M.ceil, floor: CF },
+    wine: { name: 'Old Wine Cellar', x0: 50, z0: 55.5, x1: 58, z1: 64.5, h: 2.5, up: CM.brick, fl: CM.flag, ce: CM.brickD, floor: CF },
+    workshop: { name: 'Old Workshop', x0: 58, z0: 54, x1: 66, z1: 64, h: 2.6, up: CM.stone, fl: CM.earth, ce: CM.stone, floor: CF },
+    copper: { name: 'Copper Room', x0: 43, z0: 63, x1: 47, z1: 67, h: 2.4, up: null, fl: null, ce: null, floor: CF },
+    breach: { name: 'The Breach', x0: 66, z0: 57.8, x1: 80, z1: 60.2, h: 2.4, up: CM.rock, fl: CM.rock, ce: CM.rock, floor: CF },
+  };
+  CM.copper = std({ color: 0xb06a3a, roughness: .35, metalness: .85 }); CM.felt = std({ color: 0x2a2420, roughness: 1 });
+  Object.assign(CR.copper, { up: CM.copper, fl: CM.felt, ce: CM.copper });
+  for (const k in CR) { CR[k].key = k; ROOMS[k] = CR[k]; }
+  const CD = [
+    { id: 'cw', axis: 'x', x: 50, z: 59, a: 'gym', b: 'wine', lock: 'carch' },
+    { id: 'cc', axis: 'z', x: 45, z: 63, a: 'gym', b: 'copper', lock: 'carch', w: 1.0 },
+    { id: 'cg', axis: 'x', x: 58, z: 61, a: 'wine', b: 'workshop', lock: 'cgate', w: 1.4 },
+    { id: 'ct', axis: 'x', x: 66, z: 59, a: 'workshop', b: 'breach', lock: 'ctun' },
+  ];
+  for (const d of CD) { d.w = d.w || DW; d.open = d.lock === 'carch'; d.t = d.open ? 1 : 0; DOORS.push(d); DOOR[d.id] = d; }
+  function cRoom(R) {
+    const w = R.x1 - R.x0, d = R.z1 - R.z0, cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
+    const f = uvPlane(w, d, R.fl, 2.4, 2.4); f.rotation.x = -Math.PI / 2; f.position.set(cx, 0, cz); scene.add(f);
+    const c = uvPlane(w, d, R.ce, 2.4, 2.4); c.rotation.x = Math.PI / 2; c.position.set(cx, R.h, cz); scene.add(c);
+    for (const side of ['N', 'S', 'W', 'E']) {
+      const [A0, A1] = side === 'N' || side === 'S' ? [R.x0, R.x1] : [R.z0, R.z1];
+      const ops = openingsFor(R, side); let cur = A0; const segs = [];
+      for (const o of ops) { segs.push([cur, o[0]]); cur = o[1]; } segs.push([cur, A1]);
+      for (const [a, b] of segs) if (b - a > .01) wallPiece(side, R, a, b, 0, R.h, R.up, 2.0, 2.0);
+      if (R.h > DH + .01) for (const o of ops) wallPiece(side, R, o[0], o[1], DH, R.h, R.up, 2.0, 2.0);
+    }
+  }
+  for (const k in CR) cRoom(CR[k]);
+  const cl = (room, x, y, z, base, dist, color, o) => { const e = lamp(room, x, y, z, base, dist, color, o); e.floor = CF; e.L.visible = false; return e; };
+  const SC = {}; // cellar screens/meshes
+  // ---------- HOME GYM (renovated by Thomas) ----------
+  {
+    // stairs up (west end)
+    for (let i = 0; i < 8; i++) box(.28, .3 * (i + 1), 1.2, M.wood, 41.9 - i * .26, .15 * (i + 1), 56.2);
+    box(.04, .9, 1.2, M.iron, 41.1, 2.0, 56.85, scene, false);
+    solid(40, 55, 42.05, 56.85);
+    // treadmill against the north wall
+    box(.8, .18, 1.8, M.black, 45, .09, 56.2); box(.6, .02, 1.6, std({ color: 0x111111, roughness: 1 }), 45, .19, 56.25, scene, false);
+    for (const s of [-1, 1]) box(.05, 1.2, .05, M.steel, 45 + s * .38, .7, 55.4);
+    box(.86, .3, .2, M.black, 45, 1.32, 55.45);
+    const ts = screen(.5, .26, 256, 132); ts.m.position.set(45, 1.36, 55.56); ts.m.rotation.x = -.35; SC.tread = ts;
+    solid(44.55, 55, 45.45, 57.15);
+    ELEC.push({ room: 'gym', x: 45, z: 57.6, name: 'the treadmill' });
+    // weight bench + dumbbell rack
+    box(.35, .45, 1.3, M.leather, 47.6, .23, 59); box(1.5, .04, .04, M.steel, 47.6, 1.05, 58.5, scene, false); for (const s of [-1, 1]) { box(.05, 1.05, .05, M.steel, 47.6 + s * .55, .52, 58.4); const pl = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .05, 18), M.iron); pl.rotation.z = Math.PI / 2; pl.position.set(47.6 + s * .7, 1.05, 58.5); scene.add(pl); }
+    solid(47.3, 58.2, 47.9, 59.7);
+    box(1.4, .5, .4, M.iron, 41.5, .25, 62.7); for (let i = 0; i < 6; i++) box(.24, .09, .09, M.black, 41 + i * .2, .55, 62.7, scene, false); solid(40.7, 62.4, 42.3, 63);
+    // a mirror wall strip, rubber mats
+    box(2.4, 1.6, .02, M.glass, 43, 1.3, 62.98, scene, false);
+    // storage shelving (south-east) with boxes
+    for (let i = 0; i < 4; i++) box(3.0, .03, .5, M.steel, 48.3, .3 + i * .55, 62.7, scene, false);
+    for (const x of [46.85, 49.75]) box(.04, 2.0, .5, M.steel, x, 1.0, 62.7, scene, false);
+    for (let i = 0; i < 9; i++) box(rnd(.4, .6), rnd(.3, .42), .4, std({ color: 0x6a5238, roughness: 1 }), 47.2 + (i % 3) * .95, .5 + Math.floor(i / 3) * .55, 62.7);
+    solid(46.8, 62.4, 49.8, 63);
+    box(.42, .3, .34, std({ color: 0x3a2a1a, roughness: .9 }), 47.2, 1.1 + .05, 62.55); // Mildred's box (on the shelf, sticking out)
+    // fluorescent tube
+    box(1.4, .05, .18, std({ color: 0xffffff, emissive: 0x404448 }), 45, 2.65, 59, scene, false);
+    cl('gym', 45, 2.5, 59, 1.1, 10, 0xdfe6ff, { noBulb: true });
+    cl('gym', 41.5, 2.5, 56.3, .4, 4, 0xffd8a0);
+  }
+  // ---------- MILDRED'S COPPER ROOM (off the gym; no wire, no sound) ----------
+  {
+    for (let i = 0; i < 9; i++) box(.02, 2.4, .02, M.brass, 43.05, 1.2, 63.2 + i * .45, scene, false); // seams
+    const cdr = new THREE.Group(); cdr.position.set(45.5, 0, 63); cdr.rotation.y = -1.9; scene.add(cdr); box(.95, 2.3, .12, CM.copper, -.48, 1.15, 0, cdr); box(.97, 2.32, .02, CM.felt, -.48, 1.15, .07, cdr, false);
+    const rnd2 = new THREE.Mesh(new THREE.CylinderGeometry(1.95, 1.95, 2.38, 40, 1, true, Math.PI + .28, Math.PI * 2 - .56), std({ color: 0xb06a3a, roughness: .3, metalness: .85, side: THREE.BackSide })); rnd2.position.set(45, 1.19, 65); scene.add(rnd2);
+    chair(45, 65.6, Math.PI); solid(44.7, 65.3, 45.3, 65.9);
+    const pg = box(.18, .01, .24, std({ color: 0xd8ccb0, roughness: 1 }), 45, .515, 65.6, scene, false); pg.rotation.y = .3;
+    // the gym's light reaches in a little; there is no fitting in here
+  }
+  // ---------- OLD WINE CELLAR ----------
+  {
+    const bottleGeo = new THREE.CylinderGeometry(.04, .04, .3, 8);
+    const bottles = new THREE.InstancedMesh(bottleGeo, std({ color: 0x0c1a10, roughness: .2, metalness: .3 }), 400); let n = 0; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)), sc = new THREE.Vector3(1, 1, 1);
+    for (const z of [55.75, 64.25]) {
+      box(6.6, 2.0, .04, M.wood, 54, 1.0, z + (z < 60 ? -.2 : .2), scene, false);
+      for (let r = 0; r < 7; r++) { box(6.6, .03, .5, M.wood, 54, .2 + r * .28, z, scene, false); for (let x = 50.9; x < 57.2 && n < 400; x += .1) if (Math.random() < .55) { m4.compose(new THREE.Vector3(x, .26 + r * .28, z), q, sc); bottles.setMatrixAt(n++, m4); } }
+      for (let x = 50.7; x <= 57.3; x += 1.1) box(.05, 2.0, .5, M.woodL, x, 1.0, z, scene, false);
+    }
+    bottles.count = n; scene.add(bottles);
+    solid(50.6, 55.5, 57.4, 56.05); solid(50.6, 63.95, 57.4, 64.5);
+    // four stone bins on the east wall, numbered; Father's sealed bottles
+    box(.4, .9, 2.3, M.stone, 57.8, 1.25, 57.4); solid(57.55, 56.2, 58, 58.6);
+    C.VINT.forEach((b, i) => {
+      const z = 56.6 + i * .55;
+      box(.06, .3, .4, M.black, 57.58, 1.25, z, scene, false);
+      const bt = new THREE.Mesh(bottleGeo, std({ color: 0x14240e, roughness: .15, metalness: .3 })); bt.rotation.z = Math.PI / 2; bt.position.set(57.5, 1.2, z); scene.add(bt);
+      const wax = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), std({ color: 0x8a0a10, roughness: .4 })); wax.position.set(57.33, 1.2, z); scene.add(wax);
+      const [lc, lg] = cv(64, 32); lg.fillStyle = '#d8ccb0'; lg.fillRect(0, 0, 64, 32); lg.fillStyle = '#2a1f17'; lg.font = 'bold 22px serif'; lg.textAlign = 'center'; lg.fillText(String(b.bin), 32, 25);
+      const tag = new THREE.Mesh(new THREE.PlaneGeometry(.12, .06), std({ map: new THREE.CanvasTexture(lc), roughness: 1 })); tag.position.set(57.57, 1.45, z); tag.rotation.y = -Math.PI / 2; scene.add(tag);
+    });
+    // the broken wall: rubble heaped either side of the hole
+    for (let i = 0; i < 26; i++) { const s = rnd(.08, .3); const r = box(s * 1.6, s, s, i % 3 ? CM.brick : M.stone, 58 + rnd(-.9, .9), s / 2, 61 + rnd(-1.1, 1.1)); r.rotation.y = rnd(0, 3); }
+    for (let i = 0; i < 12; i++) { const s = rnd(.12, .25); box(.3, s, s * 1.4, CM.brick, 58, rnd(.2, 2.3), 61 + (i % 2 ? 1 : -1) * (.68 + rnd(0, .15)), scene, false); }
+    // Mildred's steel gate across the hole
+    const pv = new THREE.Group(); pv.position.set(58 - .06, 0, 61 - .7); scene.add(pv); DOOR.cg.pv = pv; DOOR.cg.sign = 1;
+    for (let z = .05; z < 1.4; z += .14) box(.03, 2.3, .03, M.iron, 0, 1.15, z, pv);
+    for (const y of [.15, 1.15, 2.25]) box(.04, .05, 1.4, M.iron, 0, y, .7, pv);
+    box(.08, .14, .1, M.brass, -.06, 1.15, 1.3, pv);
+    cl('wine', 54, 2.3, 60, .75, 8, 0xffb070);
+  }
+  // ---------- OLD WORKSHOP (1789) ----------
+  const glyphCanvas = (w, h, word, ink, bg) => {
+    const [c, g] = cv(w, h); g.fillStyle = bg; g.fillRect(0, 0, w, h); const cw = w / (word.length + 1), s = cw / 24;
+    [...word].forEach((L, i) => { g.save(); g.translate(cw * (i + .5) + cw * .2, h * .12); g.scale(s, s); g.strokeStyle = ink; g.lineWidth = 2.2; g.lineCap = 'round'; g.stroke(new Path2D(C.GLYPHS[L])); const nd = C.GLYPH_NODE[L]; if (nd) { g.fillStyle = ink; g.beginPath(); g.arc(nd[0], nd[1], 1.8, 0, 7); g.fill(); } g.restore(); });
+    return c;
+  };
+  const drawMark = (g, L, x, y, s, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round'; for (const pl of C.MARKS[L]) { g.beginPath(); for (let i = 0; i < pl.length; i += 2) g.lineTo(x + pl[i] * s, y + pl[i + 1] * s); g.stroke(); } };
+  let chestLid;
+  {
+    for (let x = 59; x < 66; x += 1.6) box(.22, .22, 10, M.wood, x, 2.48, 59, scene, false);
+    // carved stones with mason's marks (the last course), north wall
+    [...C.MARK_WORD].forEach((L, i) => {
+      const [sc2, sg] = cv(128, 96); sg.fillStyle = '#5a5248'; sg.fillRect(0, 0, 128, 96); grain(sg, 128, 96, 3000, .3);
+      drawMark(sg, L, 34, 18, 1.5, 'rgba(20,14,10,.9)', 6); drawMark(sg, L, 35, 19, 1.5, 'rgba(200,190,170,.25)', 2);
+      const st = new THREE.Mesh(new THREE.BoxGeometry(.5, .36, .06), [M.stone, M.stone, M.stone, M.stone, std({ map: new THREE.CanvasTexture(sc2), roughness: .95 }), M.stone]);
+      st.position.set(59.6 + i * .56, 1.3, 54.03); scene.add(st);
+    });
+    // wage roll nailed to the west wall
+    const [wc, wg] = cv(256, 320); wg.fillStyle = '#c8b890'; wg.fillRect(0, 0, 256, 320); wg.fillStyle = '#3a2a1a'; wg.font = '13px serif'; wg.fillText('Wages · Ashgrove Cellar', 30, 26);
+    C.MASONS.forEach(([nm, L, w], i) => { wg.font = '12px serif'; wg.fillStyle = '#3a2a1a'; wg.fillText(nm.split(',')[0], 16, 56 + i * 26); drawMark(wg, L, 150, 42 + i * 26, .45, '#2a1a10', 1.6); wg.fillText(w, 200, 56 + i * 26); });
+    grain(wg, 256, 320, 4000, .2);
+    const wr = new THREE.Mesh(new THREE.PlaneGeometry(.55, .7), std({ map: new THREE.CanvasTexture(wc), roughness: 1 })); wr.position.set(58.02, 1.5, 56.5); wr.rotation.y = Math.PI / 2; scene.add(wr);
+    // workbench + setting-out board
+    box(2.4, .08, .8, M.woodL, 62, .85, 63.4); for (const a of [-1.1, 1.1]) for (const b of [-.3, .3]) box(.1, .85, .1, M.wood, 62 + a, .42, 63.4 + b); solid(60.75, 62.95, 63.25, 64);
+    const [bc, bg2] = cv(256, 256); bg2.fillStyle = '#6a5034'; bg2.fillRect(0, 0, 256, 256); bg2.strokeStyle = 'rgba(20,10,5,.8)'; bg2.lineWidth = 2; bg2.fillStyle = 'rgba(20,10,5,.85)'; bg2.font = '24px serif'; bg2.textAlign = 'center';
+    for (let i = 0; i <= 5; i++) { bg2.beginPath(); bg2.moveTo(40 + i * 40, 40); bg2.lineTo(40 + i * 40, 240); bg2.stroke(); bg2.beginPath(); bg2.moveTo(40, 40 + i * 40); bg2.lineTo(240, 40 + i * 40); bg2.stroke(); }
+    C.POLY.forEach((row, r) => { bg2.fillText(String(r + 1), 20, 68 + r * 40); bg2.fillText(String(r + 1), 60 + r * 40, 30); [...row].forEach((ch, k) => bg2.fillText(ch, 60 + k * 40, 68 + r * 40)); });
+    grain(bg2, 256, 256, 3000, .25);
+    const bd = new THREE.Mesh(new THREE.PlaneGeometry(.6, .6), std({ map: new THREE.CanvasTexture(bc), roughness: .9 })); bd.rotation.x = -Math.PI / 2; bd.position.set(62.3, .9, 63.35); scene.add(bd);
+    box(.3, .05, .05, M.iron, 61.3, .91, 63.3, scene, false); box(.08, .1, .12, M.iron, 61.15, .93, 63.3, scene, false); // hammer
+    // foreman's iron-bound chest
+    box(1.0, .5, .6, M.wood, 64.6, .25, 54.6); for (const x of [-.35, .35]) box(.05, .52, .62, M.iron, 64.6 + x, .26, 54.6, scene, false);
+    chestLid = new THREE.Group(); chestLid.position.set(64.6, .5, 54.3); scene.add(chestLid); box(1.02, .1, .62, M.wood, 0, .05, .31, chestLid); box(.16, .14, .05, M.brass, 0, -.02, .63, chestLid);
+    solid(64.05, 54, 65.15, 54.95);
+    // anvil block, barrel
+    box(.5, .5, .4, M.iron, 60, .25, 58.8); solid(59.7, 58.55, 60.3, 59.05);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .8, 12), M.wood); bar.position.set(65.4, .4, 63.4); scene.add(bar); solid(65.05, 63.05, 66, 64);
+    // heavy oak door to the tunnel
+    const pv = new THREE.Group(); pv.position.set(66 - .03, 0, 59 - DW / 2 + .03); scene.add(pv); DOOR.ct.pv = pv; DOOR.ct.sign = 1;
+    box(.1, DH - .04, DW - .06, M.wood, 0, (DH - .04) / 2, (DW - .06) / 2, pv);
+    for (const y of [.4, 1.2, 2.0]) box(.12, .08, DW - .06, M.iron, 0, y, (DW - .06) / 2, pv, false);
+    box(.1, .2, .14, M.brass, -.09, 1.15, DW - .2, pv, false);
+    box(.24, DH + .12, .14, M.woodL, 66, (DH + .12) / 2, 59 - DW / 2 - .07); box(.24, DH + .12, .14, M.woodL, 66, (DH + .12) / 2, 59 + DW / 2 + .07);
+    cl('workshop', 62, 1.9, 58.5, .8, 8, 0xffa050, { candle: true });
+    cl('workshop', 59.2, 1.6, 62.5, .45, 5, 0xffa050, { candle: true });
+  }
+  // ---------- THE BREACH ----------
+  let glass, glassMat;
+  {
+    // brick lining for the first stretch, with stamped bricks among the plain ones
+    for (const z of [57.82, 60.18]) { const p = uvPlane(6, DH, CM.brickD, 2, 2); p.position.set(69.1, DH / 2, z); p.rotation.y = z < 59 ? 0 : Math.PI; scene.add(p); }
+    C.BRICKS.forEach(([r, c], i) => {
+      const [bc2, bg3] = cv(128, 64); bg3.fillStyle = '#5a2a1c'; bg3.fillRect(0, 0, 128, 64); grain(bg3, 128, 64, 1500, .3); bg3.fillStyle = 'rgba(15,8,5,.9)'; bg3.font = 'bold 30px serif'; bg3.textAlign = 'center'; bg3.fillText(`${r} · ${c}`, 64, 44);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(.25, .085, .03), [CM.brickD, CM.brickD, CM.brickD, CM.brickD, std({ map: new THREE.CanvasTexture(bc2), roughness: .9 }), CM.brickD]);
+      b.position.set(66.8 + i * .5, 1.0 + (i % 3) * .18, 57.84); scene.add(b);
+    });
+    // Mildred's chalk on the south lining
+    const [mc, mg] = cv(256, 128); mg.fillStyle = 'rgba(0,0,0,0)'; mg.clearRect(0, 0, 256, 128); mg.fillStyle = 'rgba(230,225,215,.8)'; mg.font = '22px "Kalam", cursive'; mg.fillText('M.A. 1952', 20, 40); mg.fillText('not his numbers', 20, 80);
+    const ch = new THREE.Mesh(new THREE.PlaneGeometry(.8, .4), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(mc), transparent: true, roughness: 1 })); ch.position.set(67.6, 1.5, 60.16); ch.rotation.y = Math.PI; scene.add(ch);
+    // the foreman's stone: Veyran glyphs copied off the glass, the word he scratched beneath
+    const [gc, gg] = cv(384, 192); gg.fillStyle = '#4a443c'; gg.fillRect(0, 0, 384, 192); grain(gg, 384, 192, 5000, .3);
+    gg.drawImage(glyphCanvas(384, 110, C.GLYPH_WORD, 'rgba(15,10,8,.9)', 'rgba(0,0,0,0)'), 0, 10);
+    gg.fillStyle = 'rgba(20,12,8,.85)'; gg.font = 'italic 34px serif'; gg.textAlign = 'center'; gg.fillText(C.GLYPH_WORD, 192, 170);
+    const gs = new THREE.Mesh(new THREE.BoxGeometry(.9, .45, .12), [M.stone, M.stone, M.stone, M.stone, M.stone, std({ map: new THREE.CanvasTexture(gc), roughness: .95 })]);
+    gs.position.set(77.2, .3, 60.0); scene.add(gs); solid(76.7, 59.85, 77.7, 60.2);
+    // the black glass
+    const [vc, vg] = cv(512, 512); vg.fillStyle = '#000'; vg.fillRect(0, 0, 512, 512); vg.strokeStyle = 'rgba(80,250,225,.5)'; vg.lineWidth = 2;
+    for (let r = 60; r < 260; r += 34) { vg.beginPath(); vg.arc(256, 256, r, rnd(0, 3), rnd(3.5, 6.2)); vg.stroke(); }
+    vg.drawImage(glyphCanvas(512, 140, 'TALENTLATE', 'rgba(61,252,224,.75)', 'rgba(0,0,0,0)'), 0, 190);
+    glassMat = std({ color: 0x020205, roughness: .04, metalness: .9, emissive: 0x3dfce0, emissiveMap: new THREE.CanvasTexture(vc), emissiveIntensity: .1, transparent: true, opacity: 1 });
+    glass = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), glassMat); glass.position.set(79.97, 1.2, 59); glass.rotation.y = -Math.PI / 2; scene.add(glass);
+    SC.glow = cl('breach', 79.2, 1.2, 59, .5, 7, 0x6fe8ff, { noBulb: true, steady: true });
+    ELEC.push({ room: 'breach', x: 79, z: 59, name: 'the black glass' });
+  }
+  // ---------- cellar door in the Hallway (ground floor) ----------
+  const cdoor = new THREE.Group(); cdoor.position.set(21.0, 0, -4.6 + .05); scene.add(cdoor);
+  box(1.0, 2.2, .06, M.plank, .5, 1.1, 0, cdoor); for (const y of [.5, 1.7]) box(1.0, .1, .08, M.iron, .5, y, 0, cdoor, false);
+  box(.12, .16, .06, M.brass, .88, 1.1, .05, cdoor, false);
+  box(.12, 2.32, .1, M.woodL, 20.95, 1.16, -4.55); box(.12, 2.32, .1, M.woodL, 22.05, 1.16, -4.55); box(1.22, .12, .1, M.woodL, 21.5, 2.3, -4.55);
+  const [sc3, sg3] = cv(128, 32); sg3.fillStyle = '#d8ccb0'; sg3.fillRect(0, 0, 128, 32); sg3.fillStyle = '#222'; sg3.font = '18px "Special Elite", monospace'; sg3.fillText('GARDEN', 26, 22);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(.5, .6), new THREE.MeshBasicMaterial({ color: 0x1a2a40 })); win.position.set(21.5, 1.75, -4.53); win.rotation.y = Math.PI; scene.add(win);
+  const tape = new THREE.Mesh(new THREE.PlaneGeometry(.3, .075), std({ map: new THREE.CanvasTexture(sc3), roughness: 1 })); tape.position.set(21.5, 1.3, -4.5); scene.add(tape);
+  const doorLeaf = () => { cdoor.rotation.y = S.cellarOpen ? -1.2 : 0; };
+
+  // ---------- cellar notes ----------
+  const markSVG = (L, px = 34, col = '#2a1f17') => `<svg viewBox="0 0 40 40" width="${px}" height="${px}" aria-label="a mason's mark" style="vertical-align:middle">${C.MARKS[L].map(pl => `<polyline points="${pl.join(' ')}" fill="none" stroke="${col}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}</svg>`;
+  const glyphSVG = (L, px = 30, col = '#2a1f17') => `<svg viewBox="0 0 20 24" width="${px}" height="${px * 1.2}" aria-label="a carved glyph" style="vertical-align:middle"><path d="${C.GLYPHS[L]}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linecap="round"/>${C.GLYPH_NODE[L] ? `<circle cx="${C.GLYPH_NODE[L][0]}" cy="${C.GLYPH_NODE[L][1]}" r="1.8" fill="${col}"/>` : ''}</svg>`;
+  const marksRow = col => `<div class="cipher">${[...C.MARK_WORD].map(L => markSVG(L, 40, col)).join(' &nbsp; ')}</div>`;
+  const wageHTML = col => `<table class="grid" style="width:100%"><tr><th style="width:auto;text-align:left">Name</th><th>Mark</th><th style="width:auto">Wage</th></tr>${C.MASONS.map(([n, L, w]) => `<tr><td style="width:auto;text-align:left;padding:0 .4rem">${n}</td><td>${markSVG(L, 24, col)}</td><td style="width:auto">${w}</td></tr>`).join('')}</table>`;
+  const boardHTML = () => `<table class="grid"><tr><th></th>${[1, 2, 3, 4, 5].map(c => `<th>${c}</th>`).join('')}</tr>${C.POLY.map((r, i) => `<tr><th>${i + 1}</th>${[...r].map(ch => `<td>${ch === 'I' ? 'I/J' : ch}</td>`).join('')}</tr>`).join('')}</table>`;
+  const bottlesHTML = () => `<table class="grid" style="width:100%"><tr><th style="width:auto">Bin</th><th style="width:auto;text-align:left">Label</th></tr>${C.VINT.map(b => `<tr><td>${b.bin}</td><td style="width:auto;text-align:left;padding:0 .4rem">${b.name} &middot; <b>${b.rom}</b></td></tr>`).join('')}</table>`;
+  const bricksStr = () => C.BRICKS.map(p => p.join('&middot;')).join(' &nbsp; ');
+  const routeHTML = () => `<div class="cipher">${C.ROUTE_COLS.join(' ')}</div>`;
+  const MIL1 = `Father's cellar. He kept four bottles back through the first war and swore we would open them the day the world was properly at peace, oldest first, as he did everything. The world never obliged. When the east wall cracked in '52 I put a gate across the hole and set its lock by his rule. Thomas, if you ever find this: leave the gate shut.`;
+  const LOG_ENTRIES = [
+    ['3rd May 1789', 'Began the cellars for his Lordship. Ten men. Good dry ground.'],
+    ['19th June', 'Struck rock at the east end. His Lordship bids us drive on for a cold store.'],
+    ['2nd August', 'The heading broke into a hollow. A wall at the end of it, black and smooth as a looking-glass, and warm to the hand. No man here has seen its like.'],
+    ['9th August', 'Hoad says it hums of a night, and that it is a tune. The men will not work the heading after dark. Two carts of brick ordered.'],
+    ['14th August', 'Wren and Pardoe did not come up. We found their tools laid neat at the foot of the glass.'],
+  ];
+  const logHTML = () => `<h2>The logbook of T. Barrow, foreman mason</h2>${LOG_ENTRIES.map(([d, t]) => `<p><b>${d}.</b> ${t}</p>`).join('')}<p><b>16th August.</b> <i>Set as we lay a course. Taken down as the plumb falls.</i></p>${routeHTML()}<p class="sig">T.B.</p>`;
+  const HOAD = `To whoever comes after. We have bricked it in, and set an oak door, and his Lordship has the key and the word. It was not a cold store we found. It is a woman, or was. She sings through the glass and she knows our names. God forgive us, we left her there. A. Hoad`;
+
+  // ---------- cellar puzzles ----------
+  PUZ.push(
+    { id: 'cvint', title: "Father's four bottles", where: 'the stone bins in the old wine cellar', found: () => S.cBottles, input: 'Gate combination lock',
+      body: () => `${bottlesHTML()}<div class="hint">${S.cMil1 ? 'Mildred: "oldest first, as he did everything."' : 'Four sealed bottles, each in its own numbered bin. Someone wrote about them.'}</div>`,
+      bad: 'The brass wheels spin back to zero. Father had a rule.', ok: () => { unlockDoor('cg'); toast('The gate swings in on a squeal of old hinges. Beyond the hole: cold, older air.'); },
+      plain: () => C.VINT.slice().sort((a, b) => a.yr - b.yr).map(b => `${b.rom} = ${b.yr} (bin ${b.bin})`).join('<br>'),
+      lore: `<p>The day the wall cracked I heard it from the kitchen: a long low note, like a wet finger round a glass. Father heard it too, in his last years. He said the house was singing to him. I put the gate up and I did not go through it for a long time.</p><p class="sig">M. A.</p>` },
+    { id: 'cmark', title: 'The last course', where: 'carved stones in the workshop wall', found: () => S.cMarks, input: "Foreman's chest",
+      body: () => `${marksRow('#e8dcc6')}${S.cWage ? wageHTML('#e8dcc6') : '<div class="hint">Every mason signs the stones he lays. Somebody kept the accounts.</div>'}`,
+      bad: 'The brass rings do not give.', ok: () => { chestLid.rotation.x = -1.6; noiseBurst(300, 6, .7, .2, 'bandpass', true, 140); toast('The rings click home. The lid lifts on a smell of tallow and damp paper.'); },
+      plain: () => 'Giles Wren &middot; Luke Pardoe &middot; Abel Hoad &middot; Silas Crane &middot; Silas Crane<br>G L A S S',
+      lore: `<p>The last course of the heading was laid by the men who saw it first. Two of them never drew another wage.</p>` },
+    { id: 'croute', title: "The foreman's last entry", where: "T. Barrow's logbook, from the chest", found: () => S.cLog, input: 'Tunnel door letter lock',
+      body: () => `${routeHTML()}<div class="hint">"Set as we lay a course. Taken down as the plumb falls."</div>`,
+      bad: "The smith's wheels will not turn.", ok: () => { unlockDoor('ct'); toast('The oak door grinds inward. Warm air breathes out of the dark.'); },
+      plain: () => C.ROUTE_PLAIN,
+      lore: `<p>He wrote it so the men could not read it over his shoulder. Most of them could not read at all. He was afraid of the one who could.</p>` },
+    { id: 'cbrick', title: 'Stamped bricks', where: 'the lining of the tunnel', found: () => S.cBricks, input: 'The black glass',
+      body: () => `<div class="cipher">${bricksStr()}</div>${S.cBoard ? boardHTML() : '<div class="hint">Mildred, in chalk: "not his numbers." The masons must have set out their work somewhere.</div>'}`,
+      bad: 'The hum drops away. Then it comes back, patient.', ok: () => openGlass(),
+      plain: () => 'SAY HER NAME',
+      lore: `<p>The brickmaker stamped what he heard at night. The glass taught him the square. It wanted to be asked.</p>` },
+  );
+  // ---------- cellar logic ----------
+  function cellarGo(down) {
+    const fd = $('fade'); fd.style.transition = 'opacity .4s'; fd.style.opacity = 1; creak();
+    const go = () => {
+      S.floor = down ? CF : 1; for (const l of lights) l.L.visible = (l.floor || 1) === S.floor;
+      if (down) { P.x = 42.8; P.z = 56.4; P.yaw = -Math.PI / 2; } else { P.x = 21.5; P.z = -3.5; P.yaw = Math.PI; }
+      P.pitch = 0; P.vy = 0; P.jy = 0; checkpoint(); objective(); fd.style.opacity = 0;
+      if (down && !S.cDownToast) { S.cDownToast = true; toast('Fresh paint and rubber matting: Thomas got this far. A door of copper stands ajar off the gym. Past it all, the air smells of stone and old wine.', 6000); }
+    };
+    S.fast ? go() : setTimeout(go, 450);
+  }
+  function cellarDoor() {
+    if (S.cellarOpen) return cellarGo(true);
+    if (!S.cellarKey) return toast('The old garden door. It opens on a walled yard and nothing else. Through its glass: the slanted cellar doors in the ground, wrapped in chain. The padlock is iron and old.');
+    S.cellarOpen = true; doorLeaf(); toast('Out in the walled yard, the cellar key fits the padlock. The chain slithers off the slanted doors, and they open on steps going down. Fresh paint at the bottom.'); noiseBurst(300, 10, 1.2, .16, 'bandpass', true, 700); objective(); cellarGo(true);
+  }
+  function openGlass() {
+    S.cGlassOpen = true; noiseBurst(120, 1, 3, .4, 'lowpass', true, 40); tone(55, 3, .3, 'sine'); tone(82.4, 3, .2, 'sine', .5);
+    toast('You say her name. The hum climbs into a chord, and the black glass begins to thin like breath on a window...', 6000);
+    setTimeout(cellarEnd, S.fast ? 0 : 4200);
+  }
+  function cellarEnd() {
+    S.cEnded = true; unlock(); S.ui = true;
+    const e = $('end'); e.querySelector('h2').textContent = 'THE LAB: COMING SOON';
+    e.querySelector('p').textContent = 'The glass is gone. Beyond it a corridor of seamless black stone runs down into the earth, lit from nowhere, humming the song from Ivy\'s game. Scratched into the floor at your feet, from the inside: twelve thousand years of tally marks.';
+    e.hidden = false; objective(); saveGame();
+  }
+  const VI = (x, y, z) => new THREE.Vector3(x, y, z);
+  I.push(
+    { id: 'cdoor', p: VI(21.5, 1.2, -4.5), label: () => S.cellarOpen ? 'Go down to the cellar' : S.cellarKey ? 'Unlock the chained cellar doors' : 'Garden door', act: cellarDoor },
+    { id: 'ccopper', p: VI(45, .55, 65.6), label: () => 'Paper on the chair', act: () => { S.cCopper = true; openNote(`<h2>A sheet of Mildred's notepaper, weighted with a copper penny</h2><p>The room is finished. Copper sheet on every face, soldered at every seam. Felt under the floor so a footstep makes no sound. No wire within forty feet of it, and none ever will be.</p><p>If she can be brought in here she cannot get out. Copper stops her. Silence starves her. I only need her to follow something she wants.</p><p>I know what she wants. She wants what is behind the east wall. Father's gate keeps that shut.</p><p class="sig">M. A., 1961</p>`); } },
+    { id: 'cup', p: VI(41.6, 1.2, 56.3), label: () => 'Go upstairs', act: () => cellarGo(false) },
+    { id: 'tread', p: VI(45, 1.3, 55.6), label: () => 'Treadmill', act: () => toast(lit() ? 'The console wakes on its own. Programme: <b>DESCENT</b>. Someone has been running here, and the belt is warm.' : 'The treadmill is dead.') },
+    { id: 'cmil1', p: VI(47.2, 1.15, 62.5), label: () => 'Box marked "MUM - CELLAR BOOK"', act: () => { const f = !S.cMil1; S.cMil1 = true; objective(); openNote(`<h2>A box in Thomas's writing: "MUM - cellar book, do not bin"</h2><p>Inside, a leather cellar book. Most pages list wines long drunk. On the last page, in Mildred's hand:</p><p>${MIL1}</p><p class="sig">M. A.</p>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'cbottles', p: VI(57.5, 1.25, 57.4), label: () => "Four sealed bottles", act: () => { const f = !S.cBottles; S.cBottles = true; objective(); openNote(`<h2>Four bottles under red wax, each in a numbered stone bin</h2><p>The labels are foxed and brown. Left to right:</p>${bottlesHTML()}<p>A newer steel gate is bolted across the hole in the wall beside them. Its combination lock has four brass wheels.</p>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'door_cg', door: DOOR.cg, p: VI(57.75, 1.2, 61.6), r: 2.4, label: () => DOOR.cg.open ? null : 'Gate lock: enter combination', act: () => codeEntry('cvint', 'COMBINATION LOCK', 'A steel gate bolted across a hole in the brickwork. The lock is newer than the bricks, older than you. Four brass wheels, 0 to 9.', '4 digits') },
+    { id: 'choad', p: VI(58.2, 1.4, 62.55), label: () => 'Paper pushed into the broken brickwork', act: () => openNote(`<h2>A scrap of paper, folded small and pushed into a crack</h2><p>${HOAD}</p>`) },
+    { id: 'cmarks', p: VI(60.75, 1.3, 54.1), label: () => 'Carved stones', act: () => { const f = !S.cMarks; S.cMarks = true; objective(); openNote(`<h2>A course of dressed stones, each cut with a mark</h2>${marksRow('#2a1f17')}<p>The rest of the wall is rough rubble. Only this course was finished with care.</p>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'cwage', p: VI(58.1, 1.5, 56.5), label: () => 'Board nailed to the wall', act: () => { const f = !S.cWage; S.cWage = true; objective(); openNote(`<h2>Wages of the Masons, Ashgrove Cellar, week ending 9th August 1789</h2>${wageHTML('#2a1f17')}<p>Two of the lines have been struck through, and then written in again more heavily.</p>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'cboard', p: VI(62.3, .95, 63.35), label: () => 'Setting-out board', act: () => { S.cBoard = true; objective(); openNote(`<h2>A setting-out board, scored with a lattice</h2>${boardHTML()}<p>Masons laid out their work on boards like this. This one has been gone over and over with a nail.</p>`); } },
+    { id: 'cchest', p: VI(64.6, .6, 54.75), label: () => S.solved.cmark ? (S.cLog ? "Read the foreman's logbook" : 'Open the chest') : "Foreman's chest: letter lock", act: () => {
+        if (!S.solved.cmark) return codeEntry('cmark', 'IRON-BOUND CHEST', 'Burned into the lid: <i>T. BARROW</i>. A letter lock of five brass rings, each stamped A to Z.', '5 letters');
+        const f = !S.cLog; S.cLog = true; objective(); openNote(logHTML(), () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'door_ct', door: DOOR.ct, p: VI(65.75, 1.2, 59.5), r: 2.4, label: () => DOOR.ct.open ? null : "Oak door: smith's letter lock", act: () => codeEntry('croute', "SMITH'S LETTER LOCK", 'A heavy oak door strapped with iron. Five lettered wheels, hand-cut.', '5 letters') },
+    { id: 'cbricks', p: VI(69, 1.2, 57.95), r: 3.2, label: () => 'Stamped bricks', act: () => { const f = !S.cBricks; S.cBricks = true; objective(); openNote(`<h2>Bricks in the tunnel lining, stamped before firing</h2><p>Most are plain. Some carry a pair of numerals. From the door inward:</p><div class="cipher">${bricksStr()}</div>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'cmil2', p: VI(67.6, 1.5, 60.1), label: () => 'Chalk on the bricks', act: () => toast('In chalk, Mildred\'s hand: <b>M.A. 1952. not his numbers.</b> Below it, smudged out, a third line you cannot read.') },
+    { id: 'cstone', p: VI(77.2, .4, 59.9), r: 2.4, label: () => 'Stone at the foot of the glass', act: () => { S.cGlyphs = true; openNote(`<h2>A flat stone, set at the foot of the glass</h2><p>Six marks cut deep, copied with care from something else:</p><div class="cipher" style="text-align:center">${[...C.GLYPH_WORD].map(L => glyphSVG(L, 30)).join(' ')}</div><p>Underneath, scratched with a nail: <i>${C.GLYPH_WORD}</i>. And smaller: <i>Copied mark for mark off the glass. Hoad has his letters from the parson. He says she put the word in his head, and that it means hidden. T.B.</i></p>`); } },
+    { id: 'cglass', p: VI(79.8, 1.3, 59), r: 3.2, label: () => S.cGlassOpen ? 'The way down' : 'The black glass', act: () => {
+        if (S.cGlassOpen) return cellarEnd();
+        if (!S.solved.cbrick && !S.cBricks) return toast('Smooth, black, warm as skin. It hums under your palm. Marks drift up through it and sink again.');
+        codeEntry('cbrick', 'THE BLACK GLASS', 'Smooth, black, warm as skin. It hums under your palm, waiting.', 'Speak'); } },
+  );
+  // ---------- objective / floor / save hooks (wrap existing functions) ----------
+  const objBase = objective;
+  objective = function () {
+    if (S.floor === CF) {
+      const s = S.solved; let t;
+      if (S.cEnded || S.cGlassOpen) t = 'The Lab: coming soon.';
+      else if (!s.cvint) t = S.cBottles ? 'The gate in the wine cellar wants four numbers.' : 'Search the cellar. The old wine racks are past the gym.';
+      else if (!s.cmark) t = S.cMarks ? (S.cWage ? "The foreman's chest wants five letters." : 'The marked stones mean something. Look around the workshop.') : 'Something old waits behind the broken wall.';
+      else if (!S.cLog) t = "Read the foreman's logbook.";
+      else if (!s.croute) t = 'The tunnel door wants five letters.';
+      else t = S.cBricks ? 'The black glass is waiting for a word.' : 'Follow the tunnel.';
+      $('objt').innerHTML = t; return;
+    }
+    objBase();
+    if (S.cellarKey && !S.cellarOpen) $('objt').innerHTML = S.floor === 1 ? 'You have the cellar key. The garden door at the end of the Hallway leads to the chained cellar doors.' : 'You have the cellar key. Go back down to the ground floor: the cellar doors are out the back.';
+  };
+  const applyBase = applySave;
+  applySave = function (d) { applyBase(d); doorLeaf(); if (S.solved.cmark) chestLid.rotation.x = -1.6; objective(); };
+  // ---------- cellar per-frame: treadmill screen, glass hum ----------
+  let ct = 0, cs = 0, humG = null;
+  const drawTread = () => { const { g, t: tx } = SC.tread; g.fillStyle = '#020604'; g.fillRect(0, 0, 256, 132); if (lit()) { g.fillStyle = Math.random() < .06 ? '#ff4060' : '#7fe0a0'; g.font = '14px monospace'; g.fillText('PROGRAMME: DESCENT', 10, 22); g.fillText('ELAPSED  ' + (Math.random() < .1 ? '12000 YRS' : '00:13:13'), 10, 52); g.fillText('DEPTH    ' + (Math.floor(ct * 3) % 1789) + ' m', 10, 78); g.fillStyle = '#3dfce0'; g.fillText(Math.random() < .3 ? 'KEEP GOING DOWN' : '', 10, 112); } tx.needsUpdate = true; };
+  (function cloop() {
+    requestAnimationFrame(cloop); const dt = .016; ct += dt;
+    if (S.floor !== CF) { if (humG) humG.gain.value = 0; return; }
+    cs += dt; if (cs > .2) { cs = 0; drawTread(); }
+    const dg = Math.hypot(P.x - 80, P.z - 59);
+    glassMat.emissiveIntensity = S.cGlassOpen ? Math.min(3, glassMat.emissiveIntensity + .03) : .12 + .08 * Math.sin(ct * 2.1) + (dg < 4 ? .1 : 0);
+    if (S.cGlassOpen) glassMat.opacity = Math.max(.15, glassMat.opacity - .006);
+    SC.glow.base = S.cGlassOpen ? 2 : .5;
+    if (A.ctx && !humG) { humG = A.ctx.createGain(); humG.gain.value = 0; for (const f of [49, 98.4, 147]) { const o = A.ctx.createOscillator(); o.frequency.value = f; o.connect(humG); o.start(); } humG.connect(A.master); }
+    if (humG) humG.gain.value = roomAt(P.x, P.z) === 'copper' ? 0 : clamp(1 - dg / 18, 0, 1) * .05;
+  })();
+  window.__CELLAR = { C, CR, CD, cellarGo, cellarDoor, cellarEnd, openGlass };
+}
 // ================= LOOP =================
 const clockT = new THREE.Clock(); let t = 0, nextCreak = 6, lastTick = 0, ringNext = 0, curRoom = '';
 const fwd = new THREE.Vector3();
