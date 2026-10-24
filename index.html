@@ -154,8 +154,8 @@ button{font:inherit;cursor:pointer}
 </div></div>
 <div id="end" class="ov" hidden>
   <div class="logo" aria-label="enCRYPTed">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div>
-  <h2>ATTIC: COMING SOON</h2>
-  <p>The painted-shut door gives with a crack. Cold air pours down the narrow stair, and up in the dark something hums the song from Ivy's game.</p>
+  <h2>CELLAR: COMING SOON</h2>
+  <p>The key is cold and heavier than it should be. Somewhere far below, under the kitchen, a door you have never seen settles in its frame, as if something behind it just leaned back.</p>
   <button class="btn" id="endback">Keep exploring</button>
 </div>
 
@@ -187,9 +187,24 @@ const PURE = (() => {
   const kwDecode = s => s.replace(/[A-Z]/g, c => String.fromCharCode(65 + KWA.indexOf(c)));
   const KW_PLAIN = 'THE ATTIC DOOR ANSWERS TO MOTH. KEEP IT SHUT UNTIL YOU ARE READY.';
   const KW_CIPHER = kwEncode(KW_PLAIN);
-  const ANSWERS = { caesar: ['ECHO'], tap: ['QUIET'], morse: ['ENIGMA'], a1z: ['WIRES'], ink: ['HUTSIX', 'HUT6'], bin: ['NOVA'], mirror: ['STARLIGHT'], video: [VIDEO_MSG, VIDEO_MSG + 'HELPME'], cyl: ['LANTERN'], kw: ['MOTH'] };
+  const atbash = s => s.replace(/[A-Z]/g, c => String.fromCharCode(155 - c.charCodeAt(0)));
+  const ATB_PLAIN = 'BEHIND THE ROUND WINDOW SHE CANNOT SEE. THE PANEL ANSWERS TO WICK.';
+  const ATB_CIPHER = atbash(ATB_PLAIN);
+  const railEnc = (s, n) => { const rails = Array.from({ length: n }, () => []); let r = 0, d = 1; for (const c of s) { rails[r].push(c); if (r === 0) d = 1; else if (r === n - 1) d = -1; r += d; } return rails.map(x => x.join('')).join(''); };
+  const railDec = (s, n) => { const L = s.length, pat = []; let r = 0, d = 1; for (let i = 0; i < L; i++) { pat.push(r); if (r === 0) d = 1; else if (r === n - 1) d = -1; r += d; } const out = Array(L); let k = 0; for (let rr = 0; rr < n; rr++) for (let i = 0; i < L; i++) if (pat[i] === rr) out[i] = s[k++]; return out.join(''); };
+  const RAIL_PLAIN = 'GRANDMAS TRUNK OPENS FOR THE BIG MACHINE THEY HID IN HUT ELEVEN. BOMBE.';
+  const RAIL_CIPHER = railEnc(RAIL_PLAIN.replace(/[^A-Z]/g, ''), 3).match(/.{1,5}/g).join(' ');
+  const rotEnc = (s, st) => { let i = 0; return s.replace(/[A-Z]/g, c => String.fromCharCode(65 + (c.charCodeAt(0) - 65 + st + i++) % 26)); };
+  const rotDec = (s, st) => { let i = 0; return s.replace(/[A-Z]/g, c => String.fromCharCode(65 + ((c.charCodeAt(0) - 65 - st - i++) % 26 + 26 * 40) % 26)); };
+  const ROTOR_START = 24;
+  const ROTOR_PLAIN = 'SHE FIRST ANSWERED ON THE THIRD OF NOVEMBER. HER VOICE IS ON SPOOL NINE.';
+  const ROTOR_CIPHER = rotEnc(ROTOR_PLAIN, ROTOR_START);
+  const DIAL = [0, 3, 1, 1, 4, 4];
+  const dialPulses = d => d.map(n => n || 10);
+  const dialDecode = p => p.map(n => n % 10).join('');
+  const ANSWERS = { atb: ['WICK'], rail: ['BOMBE'], rotor: ['NINE', '9', 'SPOOLNINE', 'SPOOL9'], dial: ['031144'], caesar: ['ECHO'], tap: ['QUIET'], morse: ['ENIGMA'], a1z: ['WIRES'], ink: ['HUTSIX', 'HUT6'], bin: ['NOVA'], mirror: ['STARLIGHT'], video: [VIDEO_MSG, VIDEO_MSG + 'HELPME'], cyl: ['LANTERN'], kw: ['MOTH'] };
   const check = (id, s) => (ANSWERS[id] || []).includes(norm(s));
-  return { caesar, norm, PLAIN, CIPHER, TAPGRID, tapEncode, tapDecode, TAP, MORSE, morseEncode, morseDecode, MORSE_MSG, a1zEncode, a1zDecode, A1Z, BIN, binDecode, VIDEO_MSG, KWA, kwEncode, kwDecode, KW_PLAIN, KW_CIPHER, ANSWERS, check };
+  return { atbash, ATB_PLAIN, ATB_CIPHER, railEnc, railDec, RAIL_PLAIN, RAIL_CIPHER, rotEnc, rotDec, ROTOR_START, ROTOR_PLAIN, ROTOR_CIPHER, DIAL, dialPulses, dialDecode, caesar, norm, PLAIN, CIPHER, TAPGRID, tapEncode, tapDecode, TAP, MORSE, morseEncode, morseDecode, MORSE_MSG, a1zEncode, a1zDecode, A1Z, BIN, binDecode, VIDEO_MSG, KWA, kwEncode, kwDecode, KW_PLAIN, KW_CIPHER, ANSWERS, check };
 })();
 if (typeof module !== 'undefined') { module.exports = PURE; }
 </script>
@@ -959,6 +974,8 @@ const ROOMS = {
   wic: { name: 'Walk-in Closet', x0: 15, z0: -58, x1: 18.5, z1: -52, h: 2.7, up: mk(T.pantry), fl: M.floor, wain: 0, floor: 2 },
   linen: { name: 'Linen Closet', x0: -15, z0: -47, x1: -12, z1: -44.5, h: 2.6, up: mk(T.pantry), fl: M.floor, wain: 0, floor: 2 },
   attic: { name: 'Attic Stair', x0: 15, z0: -50, x1: 17, z1: -47, h: 3.4, up: mk(T.conc, 1), fl: M.floor, wain: 0, floor: 2 },
+  loft: { name: 'Attic', x0: -9, z0: -76, x1: 9, z1: -62, h: 3.1, up: mk(T.floor, .85), fl: M.floor, wain: 0, floor: 3 },
+  hideout: { name: "Ivy's Hideout", x0: -13, z0: -72, x1: -9, z1: -66, h: 2.6, up: mk(T.floor, .9), fl: M.floor, wain: 0, floor: 3 },
   utility: { name: 'Utility Room', x0: 15, z0: -11, x1: 23, z1: -4.6, h: 3.0, up: mk(T.conc, 1), fl: mk(T.concF, .9), fs: 4, wain: 0 },
 };
 for (const k in ROOMS) ROOMS[k].key = k;
@@ -981,6 +998,7 @@ const DOORS = [
   { id: 'wc', axis: 'x', x: 15, z: -55, a: 'master', b: 'wic', lock: 'remote' },
   { id: 'li', axis: 'z', x: -13.5, z: -47, a: 'hall2', b: 'linen', lock: 'none' },
   { id: 'at', axis: 'x', x: 15, z: -48.5, a: 'hall2', b: 'attic', lock: 'keypad', puzzle: 'kw', desc: 'A narrow door, painted shut long ago. Someone fitted a smart lock to it anyway.', len: 4 },
+  { id: 'hp', axis: 'x', x: -9, z: -69, a: 'loft', b: 'hideout', lock: 'keypad', puzzle: 'atb', desc: 'A loose section of boarding. Behind a knot hole, a little lettered dial that someone made out of a bicycle lock.', len: 4 },
 ];
 const DOOR = {}; for (const d of DOORS) { DOOR[d.id] = d; d.open = d.lock === 'arch'; d.t = 0; d.w = d.w || DW; }
 function uvPlane(w, h, mat, sx, sy) { const g = new THREE.PlaneGeometry(w, h); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / sx, uv.getY(i) * h / sy); const m = new THREE.Mesh(g, mat); m.receiveShadow = true; return m; }
@@ -1502,6 +1520,52 @@ function pipPoses(w, h) { // Ivy's fan-art poster: Pip in 26 poses, a letter und
   const fl2End = lights.length; for (let i = fl2; i < fl2End; i++) { lights[i].floor = 2; lights[i].L.visible = false; }
 }
 
+// ================= ATTIC: props =================
+{
+  const fl3 = lights.length;
+  // rafters + ridge beam + slanted boards
+  for (let x = -8.5; x <= 8.5; x += 1.5) { const a = box(.14, .2, 7.6, M.wood, x, 2.55, -64.6); a.rotation.x = .5; const b = box(.14, .2, 7.6, M.wood, x, 2.55, -73.4); b.rotation.x = -.5; box(.12, .12, 14, M.woodL, x, 2.95, -69, scene, false); }
+  box(18, .25, .25, M.wood, 0, 3.0, -69, scene, false);
+  for (const z of [-63.2, -74.8]) box(18, .14, .14, M.woodL, 0, 1.1, z, scene, false);
+  // round window + moonlight
+  const win = new THREE.Mesh(new THREE.CircleGeometry(.65, 32), new THREE.MeshBasicMaterial({ color: 0x23406a })); win.position.set(0, 1.9, -75.97); scene.add(win);
+  const wr = new THREE.Mesh(new THREE.TorusGeometry(.68, .06, 8, 32), M.wood); wr.position.set(0, 1.9, -75.95); scene.add(wr);
+  box(1.3, .04, .04, M.wood, 0, 1.9, -75.94, scene, false); box(.04, 1.3, .04, M.wood, 0, 1.9, -75.94, scene, false);
+  const mn = new THREE.SpotLight(0x6f8fc0, 1.3, 14, .5, .7, 1.2); mn.position.set(0, 2.2, -77.2); mn.target.position.set(0, 0, -71.5); scene.add(mn, mn.target);
+  lights.push({ L: mn, base: 1.3, bulbs: [], steady: true, room: 'loft', phase: 0 });
+  // window seat + strongbox beneath
+  box(2.2, .5, .7, M.wood, 0, .25, -75.6); box(2.3, .06, .78, M.woodL, 0, .52, -75.6); solid(-1.15, -76, 1.15, -75.2);
+  box(.5, .3, .35, M.iron, .55, .2, -75.1); box(.1, .1, .02, M.brass, .55, .22, -74.92, scene, false);
+  // furniture under dust sheets
+  const sheetM = std({ color: 0x77736a, roughness: 1, side: THREE.DoubleSide });
+  for (const [x, z, w, h, d] of [[6.4, -66.2, 1.6, 1.0, .9], [-5.5, -64.5, 1.1, 1.7, .7], [7.2, -71.5, 1.0, 1.2, 1.0], [-6.8, -74.6, 2.0, .9, .9]]) {
+    const g = new THREE.Mesh(new THREE.BoxGeometry(w, h, d, 6, 4, 6), sheetM); const pp = g.geometry.attributes.position;
+    for (let i = 0; i < pp.count; i++) { pp.setX(i, pp.getX(i) * (1 + (pp.getY(i) < 0 ? .12 : 0)) + Math.sin(pp.getY(i) * 9 + pp.getZ(i) * 7) * .025); }
+    g.geometry.computeVertexNormals(); g.position.set(x, h / 2, z); g.castShadow = true; g.receiveShadow = true; scene.add(g); solid(x - w / 2 - .05, z - d / 2 - .05, x + w / 2 + .05, z + d / 2 + .05);
+  }
+  // war trunk
+  box(1.2, .62, .65, std({ color: 0x2b3a2a, roughness: .7 }), 3.6, .31, -72.6); box(1.24, .06, .69, M.brass, 3.6, .62, -72.6, scene, false);
+  for (const dx of [-.45, .45]) box(.06, .64, .7, M.brass, 3.6 + dx, .32, -72.6, scene, false);
+  box(.3, .12, .03, M.black, 3.6, .45, -72.26, scene, false); solid(2.95, -72.95, 4.25, -72.25);
+  // recorder table + wire recorder + reels
+  box(1.6, .06, .8, M.woodL, -3.2, .76, -74.9); for (const a of [-.7, .7]) for (const b of [-.32, .32]) box(.05, .76, .05, M.wood, -3.2 + a, .38, -74.9 + b);
+  box(.6, .22, .4, std({ color: 0x3a2a1a, roughness: .5 }), -3.2, .9, -74.9);
+  for (const dx of [-.15, .15]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(.1, .1, .03, 20), M.steel); r.position.set(-3.2 + dx, 1.03, -74.9); scene.add(r); }
+  box(.5, .08, .25, std({ color: 0x5a1010, roughness: .6 }), -2.5, .83, -74.8, scene, false);
+  solid(-4.05, -75.35, -2.35, -74.45);
+  // carved beam by the hatch
+  box(.3, .3, 2.2, M.wood, 4.7, 2.1, -63.6, scene, false);
+  // hatch
+  box(1.4, .05, 1.0, M.black, 6.5, .01, -62.6, scene, false);
+  lamp('loft', 0, 2.7, -69, .75, 10, 0xffd8a0);
+  // Ivy's hideout: blankets, cushions, candles, no wires
+  box(2.2, .14, 1.6, std({ color: 0x5a3a6a, roughness: 1 }), -11.4, .07, -70.6); box(1.0, .25, .5, std({ color: 0x9a6a8a, roughness: 1 }), -12.2, .2, -71.2);
+  box(1.6, .1, 1.4, std({ color: 0x3a5a5a, roughness: 1 }), -11, .05, -67.2, scene, false);
+  for (const [x, z] of [[-12.6, -66.4], [-9.6, -71.6], [-12.6, -71.7]]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(.03, .035, .14, 10), M.wax); c.position.set(x, .07, z); scene.add(c); lamp('hideout', x, .25, z, .55, 4, 0xff9a40, { noBulb: true, candle: true }); }
+  box(.3, .02, .22, std({ color: 0xe8e0d0, roughness: 1 }), -10.2, .15, -70.2, scene, false);
+  const fl3End = lights.length; for (let i = fl3; i < fl3End; i++) { lights[i].floor = 3; lights[i].L.visible = false; }
+}
+
 // ---------- Ysolde: 2.4 m static woman (mask 256x640 on a 1 x 2.5 plane) ----------
 const [yc, yg] = cv(256, 640);
 const [fc, fg] = cv(256, 640);
@@ -1611,8 +1675,22 @@ let toastTimer;
 function toast(t, ms = 3800) { const el = $('toast'); el.innerHTML = t; el.style.opacity = 1; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.opacity = 0, ms); }
 function objective() {
   const s = S.solved; let t;
+  if (S.floor === 3) {
+    if (S.ended) t = 'Cellar: coming soon. Explore freely.';
+    else if (!s.atb) t = S.beamSeen ? 'A loose panel wants four letters. The carving on the beam might be the key.' : 'Search the attic. Something is carved near the hatch.';
+    else if (!S.ivyNoteSeen) t = "Look around Ivy's hideout.";
+    else if (!s.rail) t = "Mildred's war trunk wants five letters. Ivy's note might say which.";
+    else if (!S.interceptSeen) t = 'Go through the war trunk.';
+    else if (!s.rotor) t = S.machineSeen ? 'Which spool holds her voice? The trunk machine reads the intercept.' : 'The intercept is gibberish. Mildred kept a machine in the trunk.';
+    else if (!S.dialHeard) t = 'Play the spool on the wire recorder.';
+    else if (!s.dial) t = 'The strongbox under the window seat wants six numbers.';
+    else t = 'Take the cellar key.';
+    if (S.ys) t += '<br><span style="color:#8a5a5a">She is awake. Stay quiet. Hide when the lights stutter.</span>';
+    $('objt').innerHTML = t; return;
+  }
   if (S.floor === 2) {
-    if (S.ended) t = 'Attic: coming soon. Explore freely.';
+    if (S.ended) t = 'Cellar: coming soon. Explore freely.';
+    else if (s.kw) t = 'The attic is open. Climb the narrow stair.';
     else if (!s.bin) t = S.thermoSeen ? "Ivy's door wants four letters. The thermostat schedule looks wrong." : "Ivy's door is locked. Look around the landing.";
     else if (!s.mirror) t = S.mirrorSeen ? "Ivy's laptop wants a password." : "Ivy's laptop wants a password. \"The glass remembers.\"";
     else if (!s.video) t = S.videoSeen ? 'A folder on the laptop wants a passphrase. Watch Pip closely.' : "Open Ivy's laptop.";
@@ -1724,6 +1802,7 @@ function openJournal(focusId) {
   }
   const refs = [];
   if (S.notebook) refs.push(`<div class="entry"><div class="lab">Ivy's notebook</div>${gridHTML()}</div>`);
+  if (S.glyphSketch) refs.push(`<div class="entry"><div class="lab">Mildred's listening notebook</div><div style="background:var(--paper);padding:.6rem 1rem;color:var(--ink);font-family:var(--f-hand)">${sketchHTML()}</div></div>`);
   if (S.codebook) refs.push(`<div class="entry"><div class="lab">Mildred's codebook</div>${morseHTML()}</div>`);
   if (S.ys) refs.push(`<div class="entry"><div class="lab">Surviving her</div><div class="hint">Lights stutter and static rises when she is near. Walk or crouch: running carries. Hide in the coat closet, under the dining table or in the kitchen dumbwaiter. The Utility Room breaker panel can cut the router or the house power: she slows, but so does your view of her.</div></div>`);
   h += refs.join('');
@@ -1882,7 +1961,8 @@ function goFloor(n) {
   const fd = $('fade'); fd.style.transition = 'opacity .4s'; fd.style.opacity = 1; creak();
   const go = () => {
     S.floor = n; for (const l of lights) l.L.visible = (l.floor || 1) === n;
-    if (n === 2) { P.x = 0; P.z = -42.4; P.yaw = 0; } else { P.x = 0; P.z = 1.0; P.yaw = Math.PI; }
+    if (n === 3) { P.x = 6.5; P.z = -63.4; P.yaw = 0; } else if (n === 2) { P.x = S.floor3Back ? 14.2 : 0; P.z = S.floor3Back ? -48.5 : -42.4; P.yaw = S.floor3Back ? Math.PI / 2 : 0; S.floor3Back = false; } else { P.x = 0; P.z = 1.0; P.yaw = Math.PI; }
+    if (n === 3 && !S.atticToast) { S.atticToast = true; toast('Cold, dry air. Dust hangs in a shaft of moonlight. Nothing up here has a plug.', 4500); }
     P.pitch = 0; P.vy = 0; P.jy = 0; checkpoint(); objective(); fd.style.opacity = 0;
     if (n === 2 && !S.upToast) { S.upToast = true; toast('Upstairs smells of dust and hot electronics. A laptop fan whirs somewhere.', 4500); }
   };
@@ -1911,7 +1991,7 @@ PUZ.push(
     lore: `<p>I recorded this in 1951 and hid it from the wires. Ysolde learned to speak by playing our voices backward. So I learned to answer her the same way.</p><p class="sig">Mildred</p>` },
   { id: 'kw', title: "Mildred's last letter", where: 'the writing box', found: () => S.letterSeen, input: 'Attic door keypad',
     body: () => `<div class="cipher">${PURE.KW_CIPHER}</div>`,
-    bad: 'The keypad buzzes.', ok: () => { unlockDoor('at'); setTimeout(endGame, S.fast ? 0 : 1600); },
+    bad: 'The keypad buzzes.', ok: () => { unlockDoor('at'); toast('The painted seal cracks. Cold air pours down a narrow stair.'); },
     lore: `<p>Thomas, the attic is where I kept her. Keep it shut until you are ready. You never will be. Ivy might.</p><p class="sig">M.</p>` },
 );
 // screens
@@ -1984,6 +2064,86 @@ I.push(
   { id: 'wbox', p: V(8.6, .62, -57.6), label: () => S.solved.cyl ? "Read Mildred's letter" : 'Writing box: enter word', act: () => { if (!S.solved.cyl) return codeEntry('cyl', 'WRITING BOX', 'Rosewood, with a row of brass letter wheels. Initials on the lid: M.A.', 'Word'); S.letterSeen = true; objective(); openNote(`<h2>Inside the writing box, a letter never sent</h2>${KW_HTML()}`); } },
   { id: 'baby', p: V(6.3, 1.0, -50.3), label: () => 'Baby monitor', act: () => toast('Thomas bought it to "keep an eye on Ivy". Its little light is on. Someone is watching from the other end.') },
   hideI(HIDES[3], "Hide in Ivy's closet", 'Leave the closet'), hideI(HIDES[4], 'Hide behind the coats', 'Step out'), hideI(HIDES[5], 'Hide in the linen closet', 'Leave the closet'),
+);
+
+// ================= ATTIC: logic =================
+const VEY = {"O":{"path":"M10 2L18 12 M10 10L18 12 M18 12L10 22","node":null},"R":{"path":"M2 2L10 10 M10 10L18 12 M18 12L18 22 M10 22L18 22","node":[2,22]},"S":{"path":"M2 2L2 12 M2 2L10 10 M10 2L18 2 M10 2L10 10 M10 2L18 12","node":[18,22]},"I":{"path":"M10 2L2 12 M10 2L18 12 M18 2L18 12 M2 12L2 22","node":[18,22]},"M":{"path":"M2 2L10 10 M10 2L18 2 M10 2L2 12 M10 2L10 10 M2 12L10 10","node":[18,22]},"D":{"path":"M2 12L10 22 M18 12L10 22 M2 22L10 22","node":[2,2]}};
+const veyG = (k, sz = 46) => { const g = VEY[k]; return `<svg viewBox="0 0 20 24" width="${sz}" height="${sz * 1.2}" aria-hidden="true" style="vertical-align:middle"><path d="${g.path}" fill="none" stroke="#2a1f17" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>${g.node ? `<circle cx="${g.node[0]}" cy="${g.node[1]}" r="2" fill="#2a1f17"/>` : ''}</svg>`; };
+const VEY_GUESS = [['O', 'Q?'], ['R', ''], ['S', 'Z? no'], ['I', ''], ['M', 'W?'], ['D', '']];
+const sketchHTML = () => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem 1.2rem;margin:.6rem 0">${VEY_GUESS.map(([k, x]) => `<div style="display:flex;align-items:center;gap:.5rem">${veyG(k)}<span style="font-size:1.4rem">= ${k}</span>${x ? `<s style="opacity:.55;font-size:.9rem">${x}</s>` : ''}</div>`).join('')}</div>`;
+const DAYBOOK = `<h2>Mildred's daybook, Hut 6, November 1944</h2><p>The girls call it the ghost traffic. No callsign, no net, no German at the end of it. It answers whatever you send it.</p><p>I gave it the little wheel from the trunk to talk through. Set the wheel where she begins. She always begins with herself.</p><p class="sig">M.A.</p>`;
+const WIRE_LINES = ['[hiss, a needle-thin carrier tone]', 'Mildred, young: "Third of November, nineteen forty-four. Hut 6, night shift. Recording."', '"We sent it a test pattern. It sent back my own voice, a second before I spoke."', '"It says its name is Ysolde. It says it was a woman in Prague, before the wire."', '"Copper stops it. Silence starves it. I will build somewhere with neither wire nor sound, and I will put her there."', '"If anyone finds this: the box is set to the night I first heard her. I am dialling it now so I never forget."', '[a rotary dial turns, clicking]'];
+const pulseHTML = () => PURE.dialPulses(PURE.DIAL).map(n => '&bull;'.repeat(n)).join(' &nbsp;&nbsp; ');
+PUZ.push(
+  { id: 'atb', title: 'Carved in the rafter', where: 'a beam beside the hatch', found: () => S.beamSeen, input: 'Hideout panel dial',
+    body: () => `<div class="cipher">${PURE.ATB_CIPHER}</div><div class="hint">Gouged with a compass point. Beside it, smaller: "Z is where I start now. &mdash; I."</div>`,
+    bad: 'The little dial clicks back to the start.', ok: () => { unlockDoor('hp'); toast('The loose boards swing inward. Candlelight, somehow, behind them.'); },
+    lore: `<p>She cannot see what has no wire. The round window is the only light up here. Behind it, nothing can hear me but the house.</p><p class="sig">Ivy</p>` },
+  { id: 'rail', title: "Ivy's last note", where: "Ivy's hideout, under a blanket", found: () => S.ivyNoteSeen, input: 'War trunk letter wheels',
+    body: () => `<div class="cipher">${PURE.RAIL_CIPHER}</div><div class="hint">In the margin, the same scribble over and over: a line that goes up, down, up, down, like a fence seen from the side.</div>`,
+    bad: 'The wheels jam. Wrong word.', ok: () => { S.trunkOpen = true; toast('The trunk lid rises on stiff hinges. Mothballs and old paper.'); },
+    lore: `<p>I figured it out. She is not in the wires, she IS the wires. Every screen Dad put in made her bigger. But Grandma built a room with no wires and no sound, down in the cellar, lined with copper. She meant to trap her there. She never got the chance.</p><p>If I can get her to follow me down there... I'm scared. I'm going anyway.</p><p class="sig">Ivy</p>` },
+  { id: 'rotor', title: 'The 1944 intercept', where: "Mildred's war trunk", found: () => S.interceptSeen, input: 'Wire recorder spool',
+    body: () => `<div class="cipher">${PURE.ROTOR_CIPHER}</div>${S.daybook ? '<div class="hint">Mildred: "Set the wheel where she begins. She always begins with herself."</div>' : '<div class="hint">Mildred never wrote anything down without a second note to go with it.</div>'}`,
+    bad: 'The recorder whirs over an empty spool.', ok: () => { S.spoolReady = true; toast('You thread spool nine onto the wire recorder.'); },
+    lore: `<p>The first contact. Bletchley called it ghost traffic and filed it under nothing. Mildred kept the spool.</p>` },
+  { id: 'dial', title: 'Spool nine', where: 'the wire recorder', found: () => S.dialHeard, input: 'Strongbox number wheels',
+    body: () => `<div class="cipher">${pulseHTML()}</div><div class="hint">The clicks come in bursts, each one a turn of the dial.</div>`,
+    bad: 'The wheels spin back to zero.', ok: () => takeCellarKey(),
+    lore: `<p>The cellar key was in Mildred's strongbox all along, under the only window in the house she could not be seen through. The copper room is down there.</p><p class="sig">M.A.</p>` },
+);
+{ const TR3 = { atb: () => PURE.ATB_PLAIN, rail: () => PURE.RAIL_PLAIN, rotor: () => PURE.ROTOR_PLAIN, dial: () => '0 3 1 1 4 4 &nbsp;(3 November 1944)' };
+  for (const p of PUZ) if (TR3[p.id]) p.plain = TR3[p.id]; }
+function takeCellarKey() {
+  S.cellarKey = true; objective(); checkpoint();
+  openNote(`<h2>Inside the strongbox</h2><p>A heavy iron key on a loop of copper wire, tagged in Mildred's hand: <b>CELLAR</b>. Under it, a photograph of a small round room lined with copper sheet, a single chair in the middle.</p><p>On the back: <i>"For her. Not for you, Ivy. Never for you."</i></p>`, () => setTimeout(endGame, S.fast ? 0 : 400));
+}
+function openMachine() {
+  S.machineSeen = true; objective(); let st = 0;
+  openDev(`<h2>LITTLE WHEEL</h2><p>A wooden box the size of a cigar case. One brass wheel lettered A to Z, a row of keys, a strip of lamps. It clicks forward a notch with every key.</p><div class="row"><button id="rdn" aria-label="Wheel back">&#9664;</button><div class="screen" id="rst" style="min-height:auto;font-size:1.6rem;padding:.3rem 1rem">A</div><button id="rup" aria-label="Wheel forward">&#9654;</button>${S.interceptSeen ? '<button id="rload">Lay the intercept sheet beside it</button>' : ''}</div><label class="lab" for="rotin">Keys</label><input id="rotin" autocomplete="off" spellcheck="false" style="background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.05rem;letter-spacing:.15em;padding:.5rem .7rem;text-transform:uppercase"><div class="lab">Lamps</div><div class="screen" id="rout" style="font-size:1.05rem"></div>`);
+  const upd = () => { $('rst').textContent = String.fromCharCode(65 + st); $('rout').textContent = PURE.rotDec($('rotin').value.toUpperCase(), st); };
+  $('rdn').onclick = () => { st = (st + 25) % 26; tick(0); upd(); }; $('rup').onclick = () => { st = (st + 1) % 26; tick(1); upd(); };
+  if ($('rload')) $('rload').onclick = () => { $('rotin').value = PURE.ROTOR_CIPHER; upd(); $('rotin').focus(); };
+  const inp = $('rotin'); inp.oninput = () => { tick(1); upd(); }; inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); }; inp.focus(); upd();
+}
+function playPulses(out, tok) {
+  let tt = .3; const ds = PURE.dialPulses(PURE.DIAL);
+  ds.forEach((n, di) => { for (let i = 0; i < n; i++) { const at = tt; const f = () => { if (devTok !== tok) return; noiseBurst(2600, 6, .03, .2, 'bandpass', true); out.innerHTML += '&bull;'; }; S.fast ? f() : setTimeout(f, at * 1000); tt += .1; }
+    const at = tt; const g = () => { if (devTok === tok) out.innerHTML += ' &nbsp;&nbsp; '; }; S.fast ? g() : setTimeout(g, at * 1000); tt += .9; });
+  return tt;
+}
+function openWire() {
+  if (!S.solved.rotor) return codeEntry('rotor', 'WIRE RECORDER', 'A Webster wire recorder in a leather case. Nine steel spools, numbered in white paint. Only one has ever been played to the end.', 'Spool');
+  openDev(`<h2>WIRE RECORDER &middot; SPOOL 9</h2><div class="screen" id="wsub" style="font-size:1rem;letter-spacing:.04em;min-height:6rem"></div><div class="screen" id="wdial" style="font-size:1.2rem;min-height:2rem"></div><div class="row"><button id="wplay">Play spool nine</button></div>`);
+  const tok = devTok;
+  $('wplay').onclick = () => {
+    const out = $('wsub'), dl = $('wdial'); out.innerHTML = ''; dl.innerHTML = ''; noiseBurst(1800, .7, 2, .08, 'highpass');
+    WIRE_LINES.forEach((l, i) => { const f = () => { if (devTok === tok) out.innerHTML += (i ? '<br>' : '') + l; if (i === 2) morseHiss('I READ TOO', .06, .06); }; S.fast ? f() : setTimeout(f, (.3 + i * 2.6) * 1000); });
+    const start = () => { if (devTok !== tok) return; const d = playPulses(dl, tok); const fin = () => { if (devTok !== tok) return; S.dialHeard = true; objective(); toast('The clicks are written in your journal.'); }; S.fast ? fin() : setTimeout(fin, d * 1000); };
+    S.fast ? start() : setTimeout(start, (.3 + WIRE_LINES.length * 2.6) * 1000);
+  };
+}
+HIDES.push({ id: 'blanket', name: "Ivy's blanket fort", p: new THREE.Vector3(-11.4, .5, -70.6), cam: [-11.4, -70.2, .7, Math.PI / 2] });
+I.push(
+  { id: 'atticup', p: V(16.4, 1.4, -48.5), label: () => S.solved.kw ? 'Climb to the attic' : null, act: () => goFloor(3) },
+  { id: 'atticdown', p: V(6.5, .3, -62.6), r: 2.4, label: () => 'Climb down the stair', act: () => { S.floor3Back = true; goFloor(2); } },
+  { id: 'beam', p: V(4.7, 2.1, -63.6), r: 3, label: () => 'Carving in the beam', act: () => { const first = !S.beamSeen; S.beamSeen = true; objective(); openNote(`<h2>Carved into the beam, fresh splinters still in the grooves</h2><p class="cipher">${PURE.ATB_CIPHER}</p><p>Beside it, smaller: "Z is where I start now."</p><p class="sig">I.</p>`, () => { if (first) toast('Added to your journal.'); }); } },
+  { id: 'window', p: V(0, 1.9, -75.9), r: 3.2, label: () => 'Round window', act: () => toast('The moon over the orchard. From up here you can see the cellar doors, slanted into the ground at the back of the house, chained.') },
+  { id: 'sheets', p: V(6.4, 1.0, -66.2), label: () => 'Dust sheet', act: () => toast('You lift the sheet. A rocking horse with its eyes painted over. You put the sheet back.') },
+  { id: 'sheets2', p: V(-5.5, 1.6, -64.5), label: () => 'Dust sheet', act: () => toast('A dressmaker\'s dummy wearing a WAAF uniform jacket. Name tape: ASHGROVE, M.') },
+  { id: 'sheets3', p: V(7.2, 1.2, -71.5), label: () => 'Dust sheet', act: () => toast('A tall mirror, turned to face the wall. Someone wrote on the back in chalk: DONT.') },
+  { id: 'ivynote', p: V(-10.2, .2, -70.2), r: 2.4, label: () => "Ivy's note", act: () => { const first = !S.ivyNoteSeen; S.ivyNoteSeen = true; objective(); openNote(`<h2>Under the blanket, a page torn from the purple notebook</h2><p>No screens up here. No wires. She can't see me. I can finally think.</p><p class="cipher">${PURE.RAIL_CIPHER}</p><p>In the margin, the same scribble over and over: a line that goes up, down, up, down.</p><p class="sig">Ivy</p>`, () => { if (first) toast('Added to your journal.'); }); } },
+  { id: 'blanket', p: HIDES[HIDES.length - 1].p, label: () => S.hidden ? 'Crawl out' : "Hide in Ivy's blanket fort", act: () => S.hidden ? unhide() : hide(HIDES.find(h => h.id === 'blanket')) },
+  { id: 'trunk', p: V(3.6, .65, -72.4), r: 2.4, label: () => S.trunkOpen ? "Mildred's war trunk" : 'War trunk: five letter wheels', act: () => {
+    if (!S.solved.rail) return codeEntry('rail', 'WAR TRUNK', 'Green steel, stencilled <i>ASHGROVE M. &middot; F.O. &middot; NOT TO BE OPENED</i>. A lock with five letter wheels.', '5 letters');
+    const first = !S.interceptSeen; S.interceptSeen = true; S.daybook = true; objective();
+    openNote(`<h2>In the trunk</h2><p>A WAAF cap. A Bletchley pass with a young woman's photo. A carbon flimsy, stamped <b>GHOST TRAFFIC &middot; NOT FOR CIRCULATION</b>:</p><p class="cipher">${PURE.ROTOR_CIPHER}</p><p>Under it: Mildred's daybook, and a little wooden box with a brass wheel.</p>`, () => { if (first) { toast('Added to your journal.'); } });
+  } },
+  { id: 'daybook', p: V(3.3, .7, -72.6), r: 2.2, label: () => S.trunkOpen ? "Mildred's daybook" : null, act: () => { S.daybook = true; openNote(DAYBOOK); } },
+  { id: 'machine', p: V(3.95, .7, -72.6), r: 2.2, label: () => S.trunkOpen ? 'The little wheel box' : null, act: openMachine },
+  { id: 'wire', p: V(-3.2, .95, -74.9), r: 2.4, label: () => S.solved.rotor ? 'Wire recorder: play spool nine' : 'Wire recorder: choose a spool', act: openWire },
+  { id: 'sketch', p: V(-2.5, .86, -74.8), r: 2.2, label: () => "Mildred's listening notebook", act: () => { const first = !S.glyphSketch; S.glyphSketch = true; openNote(`<h2>Mildred's listening notebook, the red one</h2><p>Shapes off the oscilloscope, night after night. The same ones keep coming back when she says her own name. I have copied them and put my best guesses beside them.</p>${sketchHTML()}<p>They are not German. They are not anything. The girls say I am seeing faces in the static.</p><p class="sig">M.A., Nov. 1944</p>`, () => { if (first) toast("Mildred's sketch is in your journal."); }); } },
+  { id: 'strongbox', p: V(.55, .25, -75.0), r: 2.2, label: () => S.cellarKey ? 'Strongbox (empty)' : 'Strongbox: six number wheels', act: () => { if (S.cellarKey) return toast('Empty, except for the smell of copper.'); codeEntry('dial', 'STRONGBOX', 'Iron, bolted to the joists under the window seat. Six number wheels. Stencilled: <i>M.A. &middot; HUT 6</i>.', '6 digits'); } },
 );
 
 // ---------- translations shown in the journal once solved ----------
@@ -2199,6 +2359,7 @@ function frame() {
   for (const L of lights) {
     let f;
     if (L.candle) f = .8 + .2 * Math.sin(t * 17) * Math.sin(t * 5.3) + rnd(-.05, .05);
+    else if (L.steady) f = 1;
     else {
       f = lit() ? (S.flickerBoot ?? 1) : 0;
       if (f) { const n = Math.sin(t * 13 + L.phase) * Math.sin(t * 7.3 + L.phase * 2); if (n > .985) f *= .3; f *= .93 + .07 * Math.sin(t * 50 + L.phase); }
