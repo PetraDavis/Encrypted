@@ -3037,6 +3037,12 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     box(1.2, .9, .5, LM.obs, 154, .45, 73.2); const cs2 = screen(.8, .4, 256, 128); cs2.m.position.set(154, 1.15, 73.46); cs2.m.rotation.x = -.4; SC.colScr = cs2; solid(153.4, 72.95, 154.6, 73.45);
     box(1.0, .05, 1.0, M.iron, 151, 3.37, 73, scene, false); for (let i = 0; i < 6; i++) box(.6, .04, .06, M.steel, 151, .4 + i * .5, 72.15, scene, false);
     ll('ilocore', 154, 3.0, 76, .6, 9, 0x7fe0c8);
+    { // entry 20: tray on a pedestal beside the columns, soft teal glow
+      box(.36, .9, .36, M.steel, 152.5, .45, 74.9); box(.62, .04, .5, M.iron, 152.5, .92, 74.9, scene, false);
+      const pg = new THREE.Mesh(new THREE.PlaneGeometry(.3, .4), new THREE.MeshBasicMaterial({ color: 0xcff7ee })); pg.rotation.x = -Math.PI / 2; pg.rotation.z = .2; pg.position.set(152.5, .945, 74.9); scene.add(pg);
+      const gl = new THREE.Mesh(new THREE.PlaneGeometry(.8, .7), new THREE.MeshBasicMaterial({ color: 0x3dfce0, transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending })); gl.rotation.x = -Math.PI / 2; gl.position.set(152.5, .95, 74.9); scene.add(gl);
+      ll('ilocore', 152.5, 1.5, 74.9, .35, 2.5, 0x3dfce0); solid(152.3, 74.7, 152.7, 75.1);
+    }
     box(1.0, .04, 1.0, M.iron, 155.5, .02, 64.6, scene, false); glowBox(1.0, .02, .03, 155.5, .03, 64.1);
   }
   // ---------- the hollow body (scripted glimpse) and the chalk line ----------
@@ -3125,7 +3131,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     [/stuck to the shielding/, 141.4, 1.5, 63.95, 'Printout on the shielding'], [/master switch/, 143.75, 1.3, 66.1, 'Scratches by the master switch'], [/floor plate/, 138.2, .05, 66.8, 'A long line scratched into the floor'],
     [/bean trellis/, 106.2, 1.3, 47.4, 'Printout clipped to the bean trellis'], [/dry planting trough/, 109, .5, 51.2, 'Scratches in the dry trough'],
     [/beside the diagnostic couch/, 106.1, .9, 65.4, 'Printout beside the couch'], [/tucked under the stasis couch/, 107.4, .15, 65.5, 'Printout under the couch'], [/live readout on the stasis couch/, 107.4, 1.0, 68.1, 'Couch readout'], [/bandage packet/, 107.6, .2, 67.4, 'A bandage packet on the floor'], [/cracked mirror/, 111.9, 1.5, 66.5, 'Printout on the cracked mirror'],
-    [/tray under the memory columns/, 154, .6, 79.6, 'Tray under the columns'], [/folded small/, 151, .6, 73, 'A printout, folded small'], [/scorched/, 157.2, .9, 76, 'A scorched printout'],
+    [/tray under the memory columns/, 152.5, 1.0, 74.9, 'Tray beside the columns'], [/folded small/, 151, .6, 73, 'A printout, folded small'], [/scorched/, 157.2, .9, 76, 'A scorched printout'],
     [/burned into the floor/, 149.6, .05, 61.8, 'Words burned into the floor'], [/dais plate/, 149.0, .3, 59.6, 'Writing on the dais plate'],
   ];
   const ROOM_OF = loc => { const l = loc.toLowerCase(); for (const [k, re] of [['sealed', /sealed door/], ['ante', /antechamber/], ['quarters', /living/], ['lworkshop', /workshop/], ['relay', /relay shaft/], ['archive', /archive/], ['machine', /machine hall/], ['listening', /listening|observation/], ['power', /power core/], ['transmitter', /transmitter/]]) if (re.test(l)) return k; return 'spine'; };
@@ -3528,8 +3534,11 @@ function frame() {
     for (const b of L.bulbs) b.material.color.setRGB(f, f * .78, f * .5);
     if (L.shade) L.shade.material.emissive.setRGB(f * .5, f * .3, f * .12);
   }
-  let fl = flashOn ? 2.6 : 0;
-  if (flashOn && ((S.sighting && S.sighting < 4.4) || yd < 6) && Math.random() < .45) fl = .2;
+  const inLab = S.floor === -2; // Ysolde's lab: stronger, wider torch and thinner fog
+  let fl = flashOn ? (inLab ? 4.2 : 2.6) : 0;
+  flash.distance = inLab ? 30 : 20; flash.angle = inLab ? .56 : .42; flash.penumbra = inLab ? .7 : .55;
+  scene.fog.density += ((inLab ? .05 : .085) - scene.fog.density) * .1;
+  if (flashOn && ((S.sighting && S.sighting < 4.4) || yd < 6) && Math.random() < .45) fl = inLab ? .35 : .2;
   flash.intensity = fl;
   moon.intensity = 1.1 * (S.sighting && S.sighting > .9 && S.sighting < 4.4 ? .2 : 1);
   SCREENS.flame.scale.y = .8 + Math.random() * .4;
