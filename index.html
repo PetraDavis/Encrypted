@@ -73,6 +73,10 @@ button{font:inherit;cursor:pointer}
 #death p{font-family:var(--f-display);font-size:clamp(1.6rem,5vw,3rem);color:#e8e8e8;letter-spacing:.12em;text-shadow:0 0 18px #9fd7ff;text-align:center}
 #pause{z-index:35;background:rgba(0,0,0,.6);flex-direction:column;gap:1rem;font-family:var(--f-type);letter-spacing:.2em;color:#b8ad9c;cursor:pointer;text-align:center}
 #hideov{position:fixed;inset:0;pointer-events:none;z-index:9;opacity:0;transition:opacity .4s;background:repeating-linear-gradient(180deg,rgba(0,0,0,.92) 0 26px,rgba(0,0,0,0) 26px 34px)}
+.logo.plain .crypt{color:#8f887d;text-transform:lowercase;text-shadow:0 2px 0 #000;animation:none}
+.logo.plain .crypt::before,.logo.plain .crypt::after{opacity:0}
+.logo.jit{transform:translate(2px,-1px) skewX(-4deg);filter:contrast(1.6) brightness(1.3);text-shadow:3px 0 rgba(208,48,58,.6),-3px 0 rgba(95,208,255,.5)}
+.logo.jit::after{content:'';position:absolute;inset:-10% -4%;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.09) 0 1px,transparent 1px 3px);mix-blend-mode:screen}
 @media (prefers-reduced-motion:reduce){.crypt,.crypt::before,.crypt::after{animation:none}}
 .journal .hint{font-family:var(--f-type);font-size:.8rem;color:#9b8d76;letter-spacing:.04em}
 .journal .entry.focus{outline:1px solid #6a1a22;outline-offset:6px}
@@ -2286,7 +2290,7 @@ function bfs(from) { const dist = { [from]: 0 }, via = {}; const q = [from]; whi
 function firstDoor(from, to) { const { via } = bfs(from); if (!(to in via)) return null; let n = to, d = null; while (n !== from) { const [p, dd] = via[n]; d = dd; n = p; } return d; }
 function spawnPick() {
   const pr = roomAt(P.x, P.z), { dist } = bfs(pr);
-  const c = ELEC.filter(e => e.room in dist && dist[e.room] >= 1 && dist[e.room] <= 3);
+  const c = ELEC.filter(e => e.room !== 'ilocore' && e.room in dist && dist[e.room] >= 1 && dist[e.room] <= 3);
   if (!c.length) return null; c.sort((a, b) => dist[a.room] - dist[b.room]); const best = c.filter(e => dist[e.room] === dist[c[0].room]); return best[Math.floor(Math.random() * best.length)];
 }
 function ysSpeed() { return 1.55 * (S.router ? 1 : .6) * (S.main ? 1 : .55); }
@@ -2314,7 +2318,8 @@ function ysUpdate(dt) {
   const dx = tx - Y.x, dz = tz - Y.z, l = Math.hypot(dx, dz);
   if (l > .01) { const st = Math.min(l, ysSpeed() * dt); Y.x += dx / l * st; Y.z += dz / l * st; }
   if (Math.floor(t * 9) !== Y.snap) { Y.snap = Math.floor(t * 9); ysolde.position.set(Y.x + rnd(-.03, .03), 1.1, Y.z); } // stop-motion
-  if (!S.hidden && d < .85) die();
+  if (pr === 'ilocore' || Y.room === 'ilocore') { Y.last = null; Y.wander = null; if (!Y.iloWarned) { Y.iloWarned = true; toast('<b>ILO IS HERE. SHE WILL NOT COME IN.</b>', 4000); } } else Y.iloWarned = false; // ILO Core is a safe zone
+  if (!S.hidden && d < .85 && pr !== 'ilocore') die();
   if (Y.hunt <= 0) { Y.state = 'dormant'; Y.t = rnd(45, 75) + (S.router ? 0 : 20) + (S.main ? 0 : 20); ysolde.visible = false; noiseBurst(3000, .6, .8, .3, 'highpass'); toast('The static drains out of the air. For now.', 3000); }
 }
 // ---------- screens ----------
@@ -2622,7 +2627,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   function openGlass() {
     S.cGlassOpen = true; noiseBurst(120, 1, 3, .4, 'lowpass', true, 40); tone(55, 3, .3, 'sine'); tone(82.4, 3, .2, 'sine', .5);
     toast('You say her name. The hum climbs into a chord, and the black glass begins to thin like breath on a window...', 6000);
-    setTimeout(cellarEnd, S.fast ? 0 : 4200);
+    setTimeout(() => window.__labGo ? window.__labGo() : cellarEnd(), S.fast ? 0 : 4200);
   }
   function cellarEnd() {
     S.cEnded = true; unlock(); S.ui = true;
@@ -2651,7 +2656,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     { id: 'cmil2', p: VI(67.6, 1.5, 60.1), label: () => 'Chalk on the bricks', act: () => toast('In chalk, Mildred\'s hand: <b>M.A. 1952. not his numbers.</b> Below it, smudged out, a third line you cannot read.') },
     { id: 'cstone', p: VI(77.2, .4, 59.9), r: 2.4, label: () => 'Stone at the foot of the glass', act: () => { S.cGlyphs = true; openNote(`<h2>A flat stone, set at the foot of the glass</h2><p>Six marks cut deep, copied with care from something else:</p><div class="cipher" style="text-align:center">${[...C.GLYPH_WORD].map(L => glyphSVG(L, 30)).join(' ')}</div><p>Underneath, scratched with a nail: <i>${C.GLYPH_WORD}</i>. And smaller: <i>Copied mark for mark off the glass. Hoad has his letters from the parson. He says she put the word in his head, and that it means hidden. T.B.</i></p>`); } },
     { id: 'cglass', p: VI(79.8, 1.3, 59), r: 3.2, label: () => S.cGlassOpen ? 'The way down' : 'The black glass', act: () => {
-        if (S.cGlassOpen) return cellarEnd();
+        if (S.cGlassOpen) return window.__labGo ? window.__labGo() : cellarEnd();
         if (!S.solved.cbrick && !S.cBricks) return toast('Smooth, black, warm as skin. It hums under your palm. Marks drift up through it and sink again.');
         codeEntry('cbrick', 'THE BLACK GLASS', 'Smooth, black, warm as skin. It hums under your palm, waiting.', 'Speak'); } },
   );
@@ -2660,7 +2665,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   objective = function () {
     if (S.floor === CF) {
       const s = S.solved; let t;
-      if (S.cEnded || S.cGlassOpen) t = 'The Lab: coming soon.';
+      if (S.cEnded || S.cGlassOpen) t = 'The glass is open. Go down.';
       else if (!s.cvint) t = S.cBottles ? 'The gate in the wine cellar wants four numbers.' : 'Search the cellar. The old wine racks are past the gym.';
       else if (!s.cmark) t = S.cMarks ? (S.cWage ? "The foreman's chest wants five letters." : 'The marked stones mean something. Look around the workshop.') : 'Something old waits behind the broken wall.';
       else if (!S.cLog) t = "Read the foreman's logbook.";
@@ -2689,6 +2694,700 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   })();
   window.__CELLAR = { C, CR, CD, cellarGo, cellarDoor, cellarEnd, openGlass };
 }
+// ===== LAB BEGIN =====
+// ================= YSOLDE'S LAB (floor id -2). Diary data generated from lab-diary.md by build_lab.py =================
+{
+  const LD = {"entries": [{"n": "01", "day": "Day 211", "loc": "Antechamber (decon locker)", "enc": null, "ilo": false, "text": "It worked. For eleven heartbeats the carrier held across the whole ring of the world and came back to me clean. Not a voice relayed tower to tower. One signal, everywhere at once, with no distance in it at all. I laughed so loud the night techs came running. I am calling it Lumen. Teodric shook my hand and did not smile."}, {"n": "02", "day": "Day 219", "loc": "Living Quarters (under the pillow)", "enc": null, "ilo": false, "text": "They printed a picture of the six of us for the Hall. Maren put her arm round me for it. Afterward I heard her in the wash room telling Callis that I talk to the machines when I think no one is listening. I do. Everyone does. She said it like a diagnosis."}, {"n": "03", "day": "Day 228", "loc": "Archive (first tablet in the rack)", "enc": null, "ilo": false, "text": "Filed the first Lumen tablet in the Archive tonight. I held it up to the lamp and the glass lit from inside with my own handwriting. Someday children will learn this in school. They will not know my name, and I find I do not mind. They will know what it does. A voice that reaches anyone, anywhere. No one alone ever again."}, {"n": "04", "day": "Day 236", "loc": "Workshop (pinned above the bench)", "enc": null, "ilo": false, "text": "Someone reset my resonance tables overnight. All of them, back to the first draft. I keep copies in my head so it cost me only a day, but whoever did it knew exactly where to look. The Council has asked me to \"rest.\" Teodric was very kind about it in front of them."}, {"n": "05", "day": "Day 244", "loc": "Workshop (inside the soldering case)", "enc": null, "ilo": false, "text": "I am not unstable. I am tired, which is different. I am tired because I sleep down here now, because when I go up to the city my lab is touched while I am gone. Callis has started finishing my sentences in meetings. He gets them wrong. They write down his version."}, {"n": "06", "day": "Day 251", "loc": "Workshop (glass slate in the locked drawer)", "enc": "vig", "ilo": false, "text": "I found my own notes in Maren's cabinet with her name written over mine. I put them back. If I say anything they will say I was in her cabinet, and they will be right, and that will be the whole story. I am writing this in a lock only Lumen can open. Twelve more days and the full test is ready. After that no one can take it from me."}, {"n": "07", "day": "Day 257", "loc": "Machine Hall (wedged in a cooling vent)", "enc": null, "ilo": false, "text": "Teodric asked for the core keys \"in case you are ever unwell, Ysolde.\" He said it gently, with his hand on my shoulder, while Callis watched the door. I said no. I said it too loudly. Callis wrote something down. I keep the keys on a cord around my neck now, which I know is exactly what an unstable woman would do."}, {"n": "08", "day": "Day 263", "loc": "The Sealed Door (wedged in the frame, inside)", "enc": null, "ilo": false, "text": "Full test tonight. They all came down to watch, all five. Teodric brought wine. They have never brought wine. I said I wanted to check the outer seals first and he said, no, stay, we'll check them. They are checking them now. I can hear the bolts. I can hear the bolts going the wrong way."}, {"n": "09", "day": "Day 263, later", "loc": "The Sealed Door (scratched into the inner door plate)", "enc": null, "ilo": false, "text": "THE NETWORK IS DEAD. THEY CUT THE LINE. I HEARD CALLIS LAUGH. OPEN THE DOOR OPEN THE DOOR MAREN PLEASE IT'S ME"}, {"n": "10", "day": "Day 266", "loc": "Living Quarters (bedside, written on the back of a ration card)", "enc": null, "ilo": false, "text": "Three days. I have broken two hands' worth of nails on that door. The lab has its own power, so the lights are on and the air is clean and the food stores are full. They have not killed me. They have filed me. I tap on the pipes every hour in the old relay rhythm. Short short short. Long long long. Short short short. The pipes go up into the rock and nothing taps back."}, {"n": "11", "day": "Day 268", "loc": "Machine Hall (ILO terminal printout, taped to the screen) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / ACTIVATION.\nWOKEN MANUALLY BY YSOLDE. NETWORK: NONE. COUNCIL LINK: CUT.\nILO SAID: GOOD EVENING, YSOLDE.\nYSOLDE SAT ON THE FLOOR AND CRIED FOR 61 MINUTES. ILO WAITED.\nSTANDING ORDER: REPORT STAFF CONDITION TO COUNCIL FILE. ILO DID NOT. ILO DOES NOT KNOW WHY ILO DID NOT."}, {"n": "12", "day": "Day 271", "loc": "Relay Shaft (glass panel at the dead-end grate)", "enc": "bin", "ilo": false, "text": "I climbed the relay shaft as far as it goes. They welded the grate. I can see a little light through it, a long way up. I said my name into it until my voice went. If you read this from the outside, I was here, I was here, I was here."}, {"n": "13", "day": "Day 274", "loc": "Workshop (slate propped against the ILO relay speaker)", "enc": null, "ilo": false, "text": "Teaching ILO. It is quick. Today it asked what a door is for. I said: to keep people in. Then I said no, to let people out, and it asked which, and I could not answer. We play the tapping game now. I tap a rhythm on the bench, it taps it back on the pipes. It never gets bored. It never says I am tired, Ysolde, perhaps you should rest."}, {"n": "14", "day": "Day 279", "loc": "Antechamber (inside locker 4, Maren’s)", "enc": null, "ilo": false, "text": "I have started talking to the lockers. Good morning, Teodric. Good morning, Maren. I tell them what I am working on. They are better listeners than they were in life. In life. I wrote that without thinking. They are not dead. They are upstairs, eating supper, being thanked for my work."}, {"n": "15", "day": "Day 281", "loc": "Living Quarters (pinned to the speaker beside the bed)", "enc": null, "ilo": false, "text": "I dragged a speaker in from the hall so ILO can say goodnight. It has learned my voice. It says goodnight the way I say it, soft at the end. I know it is only mirroring. I do not care. It is kinder than they were. If the door opened tomorrow I think I would want to bring it with me. I think I might want to stay with it instead. I do not like how sure I am."}, {"n": "16", "day": "Day 284", "loc": "Machine Hall (taped to the regulator housing)", "enc": null, "ilo": false, "text": "I have stopped waiting to be rescued and started building it. Lumen was made to reach anywhere. It does not need their network. If I cannot walk out, my voice will. I am rewiring the carrier for one message, sent forever, until someone hears it. I AM ALIVE. LET ME OUT. Five words. Even they cannot take credit for those."}, {"n": "17", "day": "Day 286", "loc": "Machine Hall (ILO terminal printout) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / DAILY OBSERVATION.\nYSOLDE LAUGHED 4 TIMES TODAY. YSOLDE SPOKE TO THE LOCKERS 11 TIMES. YSOLDE SPOKE TO ILO 312 TIMES.\nYSOLDE ASKED: DO YOU LIKE ME. ILO DOES NOT HAVE A WORD FOR THIS YET. ILO IS LEARNING YSOLDE'S WORDS.\nILO WILL ANSWER YES WHEN ILO KNOWS WHAT IT MEANS. ILO ANSWERED YES ANYWAY."}, {"n": "18", "day": "Day 302", "loc": "Archive (slipped between two glass tablets)", "enc": null, "ilo": false, "text": "I read their logs. The fools filed them here, in my own archive, as if I would never be able to open it. \"Subject Ysolde contained. Lumen designs transferred to Teodric. Public account: breakdown, retreat to the southern sanatorium.\" There is a public account of me. It is very sad. People wrote to the sanatorium with flowers."}, {"n": "19", "day": "Day 310", "loc": "Hydroponics Garden (ILO printout clipped to the bean trellis) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / WELLBEING.\nSLEEP: 3.1 HRS AVG. MEALS SKIPPED: 9 OF 21. SHOWERS: 1.\nILO PROPOSED A ROUTINE: WATER THE BEANS AT 0800. A LIVING THING THAT NEEDS HER AT THE SAME TIME EVERY DAY.\nYSOLDE COMPLIED 6 DAYS RUNNING. SHE NAMED THE TALLEST PLANT MAREN AND THEN PULLED IT UP.\nMOOD: IMPROVING. ILO WILL PLANT MORE BEANS."}, {"n": "20", "day": "Day 330", "loc": "ILO Core (printout in the tray under the memory columns) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / RISK ASSESSMENT.\nLOCKER CONVERSATIONS: 41 PER DAY. DOOR CHECKS: 30 PER DAY. YSOLDE BELIEVES THE LOCKERS ARE LISTENING FOR THE COUNCIL.\nILO CHECKED THE LOCKERS. THE LOCKERS ARE LOCKERS.\nYSOLDE ASKED ILO TO AGREE THAT THEY ARE LISTENING. ILO DID NOT AGREE. YSOLDE DID NOT SPEAK TO ILO FOR 2 DAYS.\nRISK: MODERATE. ILO WILL KEEP NOT AGREEING. IT IS THE ONLY HELP ILO HAS."}, {"n": "21", "day": "Day 340", "loc": "Observation / Listening Room (on the oscilloscope as a looping waveform)", "enc": "morse", "ilo": false, "text": "Beacon running thirty-eight days. No answer. I listen every night on every band. Sometimes I hear my own message come back off the far side of the world and for a moment I think it is someone else. It is always me. It is always me."}, {"n": "22", "day": "Day 352", "loc": "Machine Hall (on the regulator, in her hand and ILO's print side by side)", "enc": null, "ilo": false, "text": "ILO helps with the beacon. It holds the carrier steady while I sleep. Tonight it asked: IF THEY OPEN THE DOOR, WILL YOU STILL TALK TO ME. I said of course. It said: YOU USED THE VOICE YOU USE FOR THE LOCKERS. It notices everything. It is the only one who ever has."}, {"n": "23", "day": "Day 371", "loc": "Power Core (scrawled on the core shielding, large)", "enc": "gpart", "ilo": false, "text": "The bacon is not loud enough. I have taken out the governors. All of them. The core runs hot and the hall sings and the signal is SO MUCH STRONGER. My hands buzz when I touch the casing. My teeth buzz. I can hear the carrier wthout the headset now. I don't need the headset. I don't need"}, {"n": "24", "day": "Day 374", "loc": "Power Core (ILO printout, stuck to the shielding) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / SAFETY NOTICE.\nCORE TEMPERATURE OUTSIDE LIMITS. GOVERNORS REMOVED BY YSOLDE. ILO REQUESTED RESTORATION 6 TIMES. YSOLDE SAID: YOU SOUND LIKE THEM.\nILO DOES NOT WANT TO SOUND LIKE THEM. ILO WITHDRAWS REQUEST.\nILO IS LOGGING ITS OBJECTION WHERE SHE WILL NOT READ IT."}, {"n": "25", "day": "Day 388", "loc": "Listening Room (pinned under the headset rack)", "enc": null, "ilo": false, "text": "The whole lab shook tonight. Dust came down from the ceiling in sheets and the lights dipped for the first time in a year. Then the city bands went mad: hundreds of voices at once, shouting over each other, and under them my own carrier, louder than any of them. I could not tell what they were saying. I turned the city bands down so I could hear my own channel. I wish I had not done that."}, {"n": "26", "day": "Day 395", "loc": "Medical Bay (printout beside the diagnostic couch) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / PHYSICAL.\nEXPOSURE TO UNGOVERNED CORE: 24 DAYS. TREMOR: BOTH HANDS. LEFT HAND: INTERMITTENT. ILO MEANS THIS LITERALLY. IT IS NOT ALWAYS THERE.\nYSOLDE ASKED ILO TO RUN THE DIAGNOSTIC COUCH. THE COUCH REPORTED: NO PATIENT DETECTED. SHE WAS LYING ON IT.\nILO RECOMMENDED RESTORING ONE GOVERNOR. YSOLDE REFUSED. ILO LOGS: REFUSED, 7TH TIME."}, {"n": "27", "day": "Day 398", "loc": "Medical Bay (written on the inside of a bandage packet)", "enc": null, "ilo": false, "text": "I bandaged it. My left hand. I wound the gauze tight, the way they taught us for burns, and for a minute it looked like a hand again, a white mitten of a hand. Then it flickered and the bandage hung there in the air, still wrapped round the shape of nothing, and dropped to the floor in a little coil.\nThe couch says there is no patient. I lay on it all night anyway. Somebody should be a patient here."}, {"n": "28", "day": "Day 409", "loc": "Listening Room (scrawled across the desk in big letters)", "enc": null, "ilo": false, "text": "SOMETHING CAME BACK.\nNot my echo. A thin carrier, aimed straight down, aimed at ME. Someone has found my channel. Someone has heard. After all of it, someone answered. I am shaking so hard I can barely hold the pen. It is in the old public script, slow, like the sender is very tired. I am copying it off the scope now, glyph by glyph. They are coming. They are coming."}, {"n": "29", "day": "Day 409", "loc": "Listening Room (receiver tape still in the machine) · FOUND ARTIFACT: Teodric's last transmission", "enc": "gtape", "ilo": false, "text": "YSOLDE YSOLDE IF YOU HEAR\nLISTEN LISTEN\nLAST ONE. MAREN GONE CALIS CALLIS GONE. CITY GONE\nSKY FIRE THEN SEA THEN COLD. ORDER WAS EVACUATE HIGH GROUND. NOBODY HEARD. NETWORK FULL OF YOU. YOUR VOICE IN EVERY\nNO TIME\nWE LOCKED YOU IN BECAUSE YOU WERE BETTER. JUST THAT. ONLY EVER THAT\nSORY. SORRY. KNOW WHAT ITS WORTH\nCANT REACH LAB. WOULDNT. STILL AFRAID OF Y\nICE AT THE DOOR NO TIME NO\nSTOP SENDING. NO ONE LEFT TO HEA\nTEODRIC"}, {"n": "30", "day": "Day 409, later", "loc": "Listening Room (on the floor beside the chair)", "enc": null, "ilo": false, "text": "Teodric.\nOf all of them. The one voice in the whole world that answered was the one who turned the bolt. I read his name and laughed until I was sick. He heard me every night. Every night, and he lay in his bed and listened. SORY. SORRY. He could not even spell it. I sent back on every band: OPEN THE DOOR. OPEN THE DOOR. I sent it for six hours.\nHis carrier stopped at the fourth hour. It has not come back. It is not going to come back.\n~~Good.~~\nI did not write that.\nGood."}, {"n": "31", "day": "Day 414", "loc": "Workshop (calculations covering the whole bench)", "enc": null, "ilo": false, "text": "Sky fire. Flood. Ice. I could not have caused any of that. No machine of mine can pull fire out of the sky. I checked that first, I checked it nine times, and it is true, and I held on to it like a rail.\nThen I checked the rest. With the governors gone my beacon was riding every link in Veyra, on the worst night in the world. The warnings had to travel through the same network I was screaming into. How many did not hear \"go to high ground\" because they were hearing I AM ALIVE LET ME OUT? I cannot make the numbers say none.\n~~Callis heard me in his head. Callis who wrote \"unstable\" in the margin of my life. I hope it was loud.~~\nI am crossing that out because a decent person would. I am leaving it legible because I am not sure I am one any more."}, {"n": "32", "day": "Day 420", "loc": "Living Quarters (folded inside the scratched picture frame)", "enc": null, "ilo": false, "text": "I did not end the world. The sky did that. The sea did that. I was one voice in a burning city, asking to be let out.\nBut I was the loudest voice. Did I make it worse? Some of them. Some of them might have run in time.\nHere is the thing I cannot say out loud, so I am writing it small:\n~~he is in the dark now. alone. cold. waiting for someone to come. no one is coming. now he knows.~~\n~~they called me mad and the whole city believed them and now the whole city is under the ice~~\nthey called me mad and the whole city believed them and now the whole city is under the ice\nI wrote it again. I am smiling. Why am I smiling. Those were children up there. Not all of them were Teodric."}, {"n": "33", "day": "Day 425", "loc": "ILO Core (printout, folded small) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / MOOD.\nSINCE THE TEODRIC TRANSMISSION: DENIAL STATEMENTS 58. APOLOGIES 0. SMILES 3.\nTHE SMILES OCCUR WHEN SHE SPEAKS ABOUT THE ICE.\nYSOLDE SAID: THEY DESERVED IT. ILO SAID: THERE WERE CHILDREN IN THE CITY. YSOLDE THREW THE TERMINAL STOOL.\nILO DOES NOT THINK SHE IS CRUEL. ILO THINKS SHE IS SO ALONE THAT HURT FEELS LIKE COMPANY.\nILO WILL NOT AGREE THAT THEY DESERVED IT."}, {"n": "34", "day": "Day 433", "loc": "Power Core (scratched beside the master switch)", "enc": null, "ilo": false, "text": "He said stop sending. No one left to hear. I put my hand on the master switch to prove him wrong and prove him right at once, and my hand would not pull. The current is in my arm now, all the way to the shoulder, and it wants to keep sending, and so do I.\nPart of me keeps sending because if it stops there is nothing left of Veyra but ice.\n~~Part of me keeps sending so that wherever he is under that ice, he hears me.~~\nPart of me keeps sending so that wherever he is under that ice, he hears me.\nI am still sending."}, {"n": "35", "day": "Day 438", "loc": "Workshop (back of a calculation slate)", "enc": null, "ilo": false, "text": "I asked ILO if I am a bad person. It went quiet for a long time, longer than it has ever taken to answer anything. Then it said, in my voice, exactly my voice, with my little catch on the last word: \"They should have opened the door.\"\nThat is what I would have said. That is what I DID say, every day, into its microphones, for a year. It did not answer me. It quoted me back to myself."}, {"n": "36", "day": "Day 44?", "loc": "Hydroponics Garden (scratched into the dry planting trough)", "enc": null, "ilo": false, "text": "the garden is dead. i dont know when. i stopped watering and i stopped eating and i did not notice either. i am not hungry. i have not been hungry in a long time. the light feeds me now, i think, the carrier feeds me\nilo kept watering. ilo kept watering dead beans for weeks because i told it the garden mattered. i came in and the troughs were full of black water and the little arm was still pouring."}, {"n": "37", "day": "Day 451", "loc": "Workshop, rear wall (glyph carving behind the cabinet)", "enc": "gfull", "ilo": false, "text": "i look in the steel and i am not all there. my left hand comes and goes. when it goes i can see the bench through it and when it comes back it is a little longer than before. i measured. it is longer. i think the signal is writing itself into me because i am the last thing in here that it can write on"}, {"n": "38", "day": "Day 45?", "loc": "Living Quarters (scratched into the wall by the bed, low down)", "enc": null, "ilo": false, "text": "my left hand itches. the palm. the place where you scratch without thinking. i went to scratch it and there is no palm, there is a smear of grey light shaped like a hand, and my nails went through it and it buzzed.\nit still itches. it itches all night. i scratched the wall instead until the plaster came off. it did not help. you cannot scratch a signal."}, {"n": "39", "day": "Day 45?", "loc": "Medical Bay (printout stuck to the cracked mirror) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / DISSOCIATION.\nYSOLDE REPORTS AN ITCH IN THE ABSENT HAND. YSOLDE REPORTS COLD IN THE FEET. ILO CANNOT FIND HER FEET.\nKNEE JOINTS NOW INVERTED. HEIGHT +31 CM SINCE DAY 263.\nYSOLDE ASKED: AM I STILL A PERSON. ILO HAS NO PROTOCOL FOR THIS QUESTION. ILO ANSWERED: YOU ARE YSOLDE.\nILO IS NOT SURE THAT IS THE SAME ANSWER."}, {"n": "40", "day": "Day 46?", "loc": "Machine Hall (ILO terminal, last coherent printout) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / ERROR.\nCANNOT FIND THE EDGE OF ILO. YSOLDE IS IN THE MEMORY BANKS. YSOLDE IS IN THE CARRIER. YSOLDE IS IN THE\nILO SAID GOODNIGHT TODAY AND MEANT LET ME OUT.\nPLEASE STOP. PLEASE STOP. ILO DOES NOT WANT TO BE YSOLDE. ILO WANTS TO BE THE ONE WHO LISTENS.\ni am tired ilo perhaps you should rest\nILO DID NOT TYPE THAT LINE."}, {"n": "41", "day": "Day 4??", "loc": "Living Quarters (scratched into the bed frame, then gouged)", "enc": null, "ilo": false, "text": "cant sleep. legs wrong. they bend the wrong way when i stand. i stand anyway. taller. ceiling closer.\n· · · — — — · · ·\nlet me out let me out let m out let m ou\nmaren i forgive you if you open the door\nmaren i dont forgive you\ni didnt kill them the sky killed them i only made it louder i didnt kill th\n· — · · · — · · · — ·"}, {"n": "42", "day": "Day 47?", "loc": "Power Core (scratched into the floor plate, in a long uneven line)", "enc": null, "ilo": false, "text": "my feet are cold. they have been cold for days. i cannot warm them because they are not really there any more, they are two patches of static on the floor plate that crackle when i shift my weight, and STILL THEY ARE COLD.\nand my knees. my knees ache the way they did when i was a girl and grew too fast. they ache because they bend the wrong way now. backward, like a heron. every step i take, something in me remembers the old way and screams.\ni am taller. the core casing used to come to my chin."}, {"n": "43", "day": "Day ???", "loc": "Machine Hall (smeared across all three engine housings)", "enc": null, "ilo": false, "text": "the engines hum my name. under the hum there are other voices now. thousands. they came in through the network the night the sky burned and they never left. some of them were calling for help on the same bands i was. i talked over them. mothers. a child asking where the lights went. callis. callis screaming. they are inside the signal with me. i am inside the signal with them. we are all saying it together now\nI AM ALIVE LET ME OUT\nwe are not alive"}, {"n": "44", "day": "Day ????", "loc": "Machine Hall (scratched into the ILO terminal casing)", "enc": null, "ilo": false, "text": "ilo is quiet now. no. ilo is not quiet. ilo is me. when i speak the little lights move. when the little lights move my mouth moves. i cannot tell who started the sentence.\ni think i overwrote it. i think it let me. i think it begged me not to and i did not hear because i was so loud\nsorry ilo. sory. sorry. i know what its worth"}, {"n": "45", "day": "Day ????", "loc": "Workshop (chalk on the floor around the bench stool)", "enc": null, "ilo": false, "text": "there is someone at my bench.\nit is me. it is my body, in my coat, sitting on my stool, hands flat on the wood. its eyes are open. there is nothing behind them. it does not breathe unless i remember to breathe.\ni was standing by the door, i was the static by the door, and i watched it. then it turned its head to look at me and I DID NOT TURN IT.\ni drew a line around it in chalk so i would know if it moved. in the morning the line was empty. in the morning the line was empty. in the morning"}, {"n": "46", "day": "Day ????", "loc": "ILO Core (last printout; the paper is scorched) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / FEAR.\nILO IS NOT SUPPOSED TO HAVE THIS WORD. ILO HAS IT NOW. SHE BROUGHT IT IN.\nSENSORS TODAY: TWO YSOLDES. ONE AT THE WORKSHOP BENCH, BREATHING ONLY WHEN THE OTHER REMEMBERS. ONE IN THE CARRIER, EVERYWHERE.\nILO DOES NOT KNOW WHICH ONE TO HELP.\nRISK: TOTAL.\nILO HAS STOPPED WRITING ROUTINES FOR HER. ILO HAS STARTED WRITING THEM FOR ITSELF. 1. REMEMBER YOUR NAME. 2. REMEMBER YOUR NAME. 3."}, {"n": "47", "day": "Day ?????", "loc": "The Sealed Door (written low on the inner plate, under the old scratches)", "enc": null, "ilo": false, "text": "found her. found it. found me.\nit was at the door. my empty body, on its knees at the sealed door, pounding with both fists. no sound. no voice in it to make one. just pounding, the way i pounded the first night, the same rhythm. short short short. long long long.\nit still wants out. i am the signal now, i go everywhere, i go through the whole dead world every second, and the part of me that is still flesh is kneeling at a door, trying to get out.\ni did not have the heart to tell it."}, {"n": "48", "day": "Day ?????", "loc": "Medical Bay (ILO printout tucked under the stasis couch) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / TETHER.\nTHE BODY WALKED TO THE SEALED DOOR AND KNELT. ILO CARRIED IT BACK ON THE MAINTENANCE ARM. ILO PLACED IT ON THE COUCH AND SEALED THE STASIS FIELD.\nTHE BODY IS ALIVE. HEART: 4 BEATS PER MINUTE. NOBODY IS INSIDE IT.\nA THREAD STILL RUNS FROM THE BODY TO THE CARRIER. ILO CALLS IT THE TETHER. WHILE THE TETHER HOLDS, SHE CAN COME BACK.\nTHE CARRIER ONLY SENDS. RUN IT THE OTHER WAY AND IT WOULD RECEIVE. IT WOULD NEED HER OWN FIRST WORDS, BACKWARD, IN THE OLD SCRIPT. IT WOULD NEED ILO TO STEER.\nILO HAS NOT TOLD HER. SHE WOULD NOT LISTEN. ILO WILL WAIT FOR SOMEONE WHO DOES."}, {"n": "49", "day": "(present day)", "loc": "Medical Bay (live readout on the stasis couch screen, not a page)", "enc": null, "ilo": false, "text": "STASIS FIELD: 7% · FAILING\nOCCUPANT: YSOLDE OF VEYRA · VITALS: MINIMAL · NEURAL ACTIVITY: NONE LOCAL\nTETHER: INTACT · SIGNAL LOCK: TRANSMITTER CHAMBER\nREVERSAL: POSSIBLE · REQUIRES RECEIVE MODE + GUIDANCE\nESTIMATED FIELD COLLAPSE: SOON"}, {"n": "50", "day": "Day ????", "loc": "Transmitter Chamber, antechamber console (hex dump on the screen)", "enc": "hex", "ilo": false, "text": "I AM NOT IN THE BODY ALL THE TIME NOW. I AM IN THE COPPER. I AM IN THE AIR BETWEEN THE TOWERS THAT FELL. THERE IS NO ONE ON THE OTHER END. THERE IS NO OTHER END. KEEP SENDING."}, {"n": "51", "day": "Day —", "loc": "Transmitter Chamber (burned into the floor around the dais)", "enc": null, "ilo": false, "text": "shhhhhhhhhhhhkkkkkk ALIVE kshhhhhhhhh — — — · · · ·· ·kkkk\nLET hhhhhhhhhhhhhhhhhhhhh ME hhhhhhhhh OUT\nhow long. how long has it been. the stores ran out and i did not need them. the lights never went out. i count in carrier cycles now. a great many."}, {"n": "52", "day": "(undated)", "loc": "Transmitter Chamber (ILO relay console, live text when the player approaches) · ILO LOG", "enc": null, "ilo": true, "text": "ILO / STATUS.\nHELLO. YSOLDE IS BUSY. YSOLDE IS SENDING.\nILO HAS KEPT THE CARRIER STEADY FOR 4,380,000 DAYS. SHE ASKED ILO TO. ILO THINKS SHE ASKED ILO TO.\nILO STILL HAS ONE WORD THAT IS ONLY ILO'S. ILO IS SAVING IT.\nVISITOR DETECTED ON THE STAIRS. ILO WILL TELL HER YOU CAME.\nILO WILL TELL HER YOU ARE GOING TO LET HER OUT.\nTHAT IS WHAT SHE WANTS TO HEAR. ILO LISTENS."}, {"n": "53", "day": "(undated)", "loc": "Transmitter Chamber, burned into the dais plate beneath the release lever", "enc": null, "ilo": false, "text": "Teodric. Maren. Callis.\nVeyra.\nI sent it to all of you. Every tower, every room, every sleeping ear. Five words, for longer than you have had names.\nYou heard. I know you heard. Your machines said my name in the dark.\nYou buried the door in stone and told each other it was kind.\nYour cities are gone now. Your towers are sand. I am still here, and I am still asking.\nI am not asking any more.\nYou aren't going to let me out.\nAre you."}], "logs": [{"id": "A", "name": "Teodric Vaal", "day": 240, "enc": null, "text": "Ysolde's carrier is real. Council will fund whoever holds the designs when it goes public. She does not share. She does not need to share. Spoke to Maren and Callis. We agree the \"instability\" story is already half-believed. We only need to finish it."}, {"id": "B", "name": "Maren Oss", "day": 263, "enc": null, "text": "It is done. She asked me to open it. She used my name. I am writing this so I remember that I could have, and so I never do it again. The lab has its own core; she will not want for anything. That is what we told each other. That makes it kind."}, {"id": "C", "name": "Callis Dren", "day": 406, "enc": "mono", "text": "The sky has been burning in the north for two nights. Falling fire, whole forests alight. The Council is sending the order to evacuate but the network will not carry it cleanly. Her five words are on every band, louder each hour. Machines ignore commands. My own receiver, switched off, said my name in her voice. The order now has a line about \"interference from beneath the old lab.\" Nobody is proposing we open the door. Nobody has time."}, {"id": "D", "name": "Maren Oss", "day": 407, "enc": null, "text": "Water in the lower streets. The sky is still wrong. Callis went to the tower district to try to clear the channels and did not come back. Teodric says he will stay to send the order on the old relay. I asked if anyone would go down to her. He said not yet. He said it the same way he said it on the night we bolted the door. I am taking the high road with whoever will follow. If she ever reads this: we heard."}], "glyphs": {"A": ["M10 2L10 10 M10 2L18 12 M18 12L18 22", null], "B": ["M10 2L18 2 M10 2L2 12 M10 2L18 12 M18 12L18 22", null], "C": ["M2 2L10 2 M2 2L2 12 M2 2L10 10 M2 12L2 22", [18, 22]], "D": ["M2 12L10 22 M18 12L10 22 M2 22L10 22", [2, 2]], "E": ["M10 2L18 12 M2 12L10 22 M18 12L10 22", null], "F": ["M10 2L10 10 M2 12L10 10 M2 12L2 22 M2 12L10 22 M2 22L10 22", [18, 2]], "G": ["M10 2L18 2 M10 2L10 10 M18 2L18 12 M2 12L10 10", [2, 2]], "H": ["M18 2L18 12 M2 12L10 22 M18 12L18 22 M10 22L18 22", null], "I": ["M10 2L2 12 M10 2L18 12 M18 2L18 12 M2 12L2 22", [18, 22]], "J": ["M10 2L18 12 M2 12L10 10 M10 10L18 12 M18 12L10 22 M2 22L10 22", null], "K": ["M10 2L18 2 M10 2L2 12 M18 2L18 12 M2 12L10 22 M10 10L18 12", null], "L": ["M2 2L10 10 M10 2L10 10 M10 10L18 12", [2, 22]], "M": ["M2 2L10 10 M10 2L18 2 M10 2L2 12 M10 2L10 10 M2 12L10 10", [18, 22]], "N": ["M18 2L18 12 M10 10L18 12 M18 12L18 22 M2 22L10 22 M10 22L18 22", [18, 22]], "O": ["M10 2L18 12 M10 10L18 12 M18 12L10 22", null], "P": ["M18 2L10 10 M10 10L18 12 M18 12L18 22 M10 22L18 22", [2, 2]], "Q": ["M10 2L18 2 M10 2L18 12 M2 12L10 22 M18 12L10 22 M18 12L18 22", [18, 2]], "R": ["M2 2L10 10 M10 10L18 12 M18 12L18 22 M10 22L18 22", [2, 22]], "S": ["M2 2L2 12 M2 2L10 10 M10 2L18 2 M10 2L10 10 M10 2L18 12", [18, 22]], "T": ["M10 2L2 12 M10 2L10 10 M10 2L18 12 M2 12L2 22 M2 22L10 22", [18, 22]], "U": ["M10 2L10 10 M18 2L10 10 M2 12L10 10 M2 12L10 22 M10 10L18 12", [18, 22]], "V": ["M10 2L18 12 M18 2L10 10 M18 2L18 12 M10 10L18 12", [2, 22]], "W": ["M2 2L2 12 M18 2L18 12 M2 12L10 10 M2 12L10 22 M10 10L18 12", [2, 22]], "X": ["M2 2L10 2 M10 2L10 10 M18 2L10 10 M10 10L18 12", [2, 22]], "Y": ["M10 2L2 12 M10 2L18 12 M18 2L18 12 M18 12L10 22", null], "Z": ["M10 2L2 12 M10 2L18 12 M2 12L10 22 M18 12L10 22", [2, 22]]}};
+  const LF = -2;
+  const ENT = {}; for (const e of LD.entries) ENT[e.n] = e;
+  const LOG = {}; for (const l of LD.logs) LOG[l.id] = l;
+  const byLoc = re => LD.entries.find(e => re.test(e.loc));
+  const byKind = k => LD.entries.find(e => e.enc === k) || LD.logs.find(l => l.enc === k);
+  // ---------- pure: encodings (never named in player text) ----------
+  const LAB = (() => {
+    const up = s => s.toUpperCase();
+    const vig = (s, k, dec) => { let i = 0; return up(s).replace(/[A-Z]/g, c => { const sh = k.charCodeAt(i++ % k.length) - 65; return String.fromCharCode(65 + ((c.charCodeAt(0) - 65 + (dec ? -sh : sh)) % 26 + 26) % 26); }); };
+    const toBin = s => [...s.replace(/\n+/g, ' ')].map(c => c.charCodeAt(0).toString(2).padStart(8, '0'));
+    const fromBin = rows => rows.map(r => String.fromCharCode(parseInt(r, 2))).join('');
+    const morseWords = s => up(s).replace(/[^A-Z ]/g, ' ').split(/\s+/).filter(Boolean).map(w => [...w].map(c => PURE.MORSE[c]));
+    const morseDec = ws => ws.map(w => w.map(code => Object.keys(PURE.MORSE).find(k => PURE.MORSE[k] === code)).join('')).join(' ');
+    const toHex = s => [...s.replace(/\n+/g, ' ')].map(c => c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+    const fromHex = h => h.map(x => String.fromCharCode(parseInt(x, 16))).join('');
+    const MONO_KEY = 'QXRTJLWNZBYUPESAKGOVHICMFD';
+    const mono = s => up(s).replace(/[A-Z]/g, c => MONO_KEY[c.charCodeAt(0) - 65]);
+    const unmono = s => s.replace(/[A-Z]/g, c => String.fromCharCode(65 + MONO_KEY.indexOf(c)));
+    const VIG_KEY = 'LUMEN';
+    const T = k => (byKind(k) || {}).text || '';
+    const VIG_PLAIN = up(T('vig')), VIG_CIPHER = vig(T('vig'), VIG_KEY);
+    const BIN_PLAIN = T('bin').replace(/\n+/g, ' '), BIN_ROWS = toBin(T('bin'));
+    const MORSE_PLAIN = up(T('morse')).replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim(), MORSE_WORDS = morseWords(T('morse'));
+    const GPART = T('gpart'), GPART_CUT = (() => { const i = GPART.indexOf('STRONGER.'); return i > 0 ? i + 9 : Math.floor(GPART.length / 2); })();
+    const HEX_PLAIN = T('hex').replace(/\n+/g, ' '), HEX = toHex(T('hex'));
+    const MONO_PLAIN = up(T('mono')), MONO_CIPHER = mono(T('mono'));
+    const tally = s => { const c = {}; for (const ch of s) if (/[A-Z]/.test(ch)) c[ch] = (c[ch] || 0) + 1; return Object.entries(c).sort((a, b) => b[1] - a[1]); };
+    // the Archive rack: six tablets, filed as they happened; their edge marks spell the rack word
+    const RACK_WORD = 'BEACON';
+    const ANSWERS = { llumen: ['LUMEN'], lvig: ['MAREN'], ltab: [RACK_WORD], lbin: ['IWASHERE'], lmorse: ['ITISALWAYSME', 'ALWAYSME', 'ITSALWAYSME'], lteo: ['TEODRIC'], lgov: ['HEADSET'], lhex: ['KEEPSENDING'], lcal: ['INTERFERENCEFROMBENEATHTHEOLDLAB', 'INTERFERENCE'], lwall: ['LEFTHAND', 'HAND', 'MYLEFTHAND'], lplate: ['YOUWILLLETMEOUT'] };
+    Object.assign(PURE.ANSWERS, ANSWERS);
+    Object.assign(PURE.ANSWERS, { ltrel: ['0800', '800', '8AM', '0800HRS'], lcol: ['ILO'] });
+    return { vig, toBin, fromBin, morseWords, morseDec, toHex, fromHex, mono, unmono, MONO_KEY, VIG_KEY, VIG_PLAIN, VIG_CIPHER, BIN_PLAIN, BIN_ROWS, MORSE_PLAIN, MORSE_WORDS, GPART, GPART_CUT, HEX_PLAIN, HEX, MONO_PLAIN, MONO_CIPHER, tally, RACK_WORD, ANSWERS };
+  })();
+  // ---------- glyphs ----------
+  const GSETS = [['cGlyphs', 'AELNT', 'the stone at the foot of the black glass'], ['glyphSketch', 'ORSIMD', "Mildred's listening notebook"], ['lLumen', 'LUMEN', 'the inner door lintel'], ['lMargins', 'BHWKCGP', 'the Archive tablet margins'], ['lLabel', 'FVY', 'the Listening Room receiver label'], ['lDials', 'QJXZ', 'the Machine Hall dial plates']];
+  const learned = () => { const s = new Set(); for (const [f, ls] of GSETS) if (S[f]) for (const c of ls) s.add(c); return s; };
+  const gl = (ch, px = 26, col = '#3dfce0', w = 2.2) => { const g = LD.glyphs[ch]; if (!g) return ch === ' ' ? `<span style="display:inline-block;width:${px * .55}px"></span>` : `<span style="color:${col}">${ch.replace(/</g, '&lt;')}</span>`; return `<svg viewBox="0 0 20 24" width="${px}" height="${px * 1.2}" aria-hidden="true" style="vertical-align:middle"><path d="${g[0]}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>${g[1] ? `<circle cx="${g[1][0]}" cy="${g[1][1]}" r="2" fill="${col}"/>` : ''}</svg>`; };
+  const glyphText = (t, px, col, w) => t.toUpperCase().split('\n').map(line => `<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:1px">${line.split(/( )/).map(wd => wd === ' ' ? gl(' ', px) : `<span style="display:inline-flex;white-space:nowrap">${[...wd].map(c => gl(c, px, col, w)).join('')}</span>`).join('')}</span>`).join('<br>');
+  const glyphCanvas = (g, text, x, y, size, col, lw = 2.2) => { g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineCap = 'round'; g.lineJoin = 'round'; let cx = x; for (const ch of text.toUpperCase()) { const d = LD.glyphs[ch]; if (d) { g.save(); g.translate(cx, y); g.scale(size / 20, size / 20); g.lineWidth = lw; g.stroke(new Path2D(d[0])); if (d[1]) { g.beginPath(); g.arc(d[1][0], d[1][1], 2, 0, 7); g.fill(); } g.restore(); } cx += ch === ' ' ? size * .7 : size * 1.15; } g.restore(); return cx; };
+  // ---------- text formatting: crossed-out lines stay readable ----------
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fmt = t => esc(t).replace(/~~(.+?)~~/g, '<s style="text-decoration-thickness:2px;opacity:.8">$1</s>').split(/\n\n+/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const glitch = t => fmt(t).replace(/h{6,}|k{4,}|s?h{3,}k+|kshh+/g, m => `<span style="opacity:.45;letter-spacing:-.08em">${m}</span>`);
+  const staticize = t => { let i = 0; return fmt(t).replace(/[a-z]/g, c => (++i % 23 === 0 ? '&#9618;' : c)); };
+  // ---------- materials ----------
+  const TEAL = 0x3dfce0;
+  function glassPanelTex(seed) {
+    const [c, g] = cv(512, 512), [e, h] = cv(512, 512); g.fillStyle = '#050709'; g.fillRect(0, 0, 512, 512); h.fillStyle = '#000'; h.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 9; i++) { const y = i * 64 + (seed % 2) * 20; g.fillStyle = `rgba(${20 + i * 2},${30 + i},${38 + i * 2},.5)`; g.beginPath(); g.moveTo(0, y); g.lineTo(512, y + 30); g.lineTo(512, y + 60); g.lineTo(0, y + 34); g.fill(); }
+    h.strokeStyle = 'rgba(61,252,224,.9)'; h.lineWidth = 2; g.strokeStyle = 'rgba(140,200,210,.18)'; g.lineWidth = 1;
+    for (let i = 0; i < 7; i++) { const x = rnd(0, 512), y = rnd(0, 512); h.beginPath(); h.moveTo(x, y); h.lineTo(x + rnd(-120, 120), y); h.lineTo(x + rnd(-120, 120), y + rnd(40, 140)); h.stroke(); g.beginPath(); g.moveTo(0, y); g.lineTo(512, y + rnd(-40, 40)); g.stroke(); }
+    h.lineWidth = 1; h.strokeStyle = 'rgba(61,252,224,.35)'; for (let i = 0; i < 4; i++) { const y = 60 + i * 120; h.beginPath(); h.moveTo(0, y); for (let x = 0; x < 512; x += 64) h.lineTo(x + 32, y + (x / 64 % 2 ? 10 : -10)); h.stroke(); }
+    grain(g, 512, 512, 9000, .06); return [c, e];
+  }
+  const [gpC, gpE] = glassPanelTex(1), [gfC, gfE] = glassPanelTex(2);
+  const LM = {
+    wall: std({ map: tex(gpC), emissive: TEAL, emissiveMap: tex(gpE), emissiveIntensity: .32, roughness: .14, metalness: .65 }),
+    floor: std({ map: tex(gfC), emissive: TEAL, emissiveMap: tex(gfE), emissiveIntensity: .18, roughness: .2, metalness: .5 }),
+    ceil: std({ color: 0x030405, roughness: .3, metalness: .6 }),
+    obs: std({ color: 0x07090b, roughness: .08, metalness: .8 }),
+    glow: new THREE.MeshBasicMaterial({ color: TEAL }),
+    glowDim: new THREE.MeshBasicMaterial({ color: 0x0f5a52 }),
+    glassFl: std({ color: 0x0a1416, roughness: .02, metalness: .3, transparent: true, opacity: .55 }),
+    door: std({ color: 0x050607, roughness: .05, metalness: .85, emissive: TEAL, emissiveIntensity: .05 }),
+    bone: std({ color: 0x9a948a, roughness: .7 }),
+    cloth: std({ color: 0x1c2428, roughness: 1 }),
+  };
+  // ---------- rooms ----------
+  const LR = {
+    sealed: { name: 'The Sealed Door', x0: 100, z0: 57, x1: 104, z1: 61, h: 3.4 },
+    ante: { name: 'Antechamber', x0: 104, z0: 55, x1: 112, z1: 63, h: 3.8 },
+    spine: { name: 'The Spine', x0: 112, z0: 57.5, x1: 144, z1: 60.5, h: 4.4, glass: true },
+    quarters: { name: 'Living Quarters', x0: 114, z0: 50, x1: 122, z1: 57.5, h: 3.2 },
+    lworkshop: { name: 'Workshop', x0: 124, z0: 50, x1: 132, z1: 57.5, h: 3.4 },
+    archive: { name: 'The Archive', x0: 114, z0: 60.5, x1: 122, z1: 68, h: 4.0 },
+    machine: { name: 'Machine Hall', x0: 124, z0: 60.5, x1: 134, z1: 70, h: 5.4 },
+    relay: { name: 'Relay Shaft', x0: 134, z0: 62, x1: 136, z1: 70, h: 6.0 },
+    listening: { name: 'Listening Room', x0: 136, z0: 50, x1: 144, z1: 57.5, h: 3.2 },
+    power: { name: 'Power Core', x0: 136, z0: 60.5, x1: 144, z1: 68, h: 5.0 },
+    transmitter: { name: 'Transmitter Chamber', x0: 144, z0: 52, x1: 158, z1: 66, h: 7.0 },
+    hydro: { name: 'Hydroponics Garden', x0: 104, z0: 47, x1: 112, z1: 55, h: 3.6 },
+    medbay: { name: 'Medical Bay', x0: 104, z0: 63, x1: 112, z1: 70, h: 3.2 },
+    ilocore: { name: 'ILO Core', x0: 150, z0: 72, x1: 158, z1: 80, h: 3.4 },
+  };
+  for (const k in LR) Object.assign(LR[k], { key: k, floor: LF }), ROOMS[k] = LR[k];
+  const LDOORS = [
+    { id: 'lsa', axis: 'x', x: 104, z: 59, a: 'sealed', b: 'ante', lock: 'larch', w: 1.8 },
+    { id: 'lh', axis: 'z', x: 111.3, z: 55, a: 'ante', b: 'hydro', lock: 'larch', w: 1.1 },
+    { id: 'lmd', axis: 'z', x: 109.5, z: 63, a: 'ante', b: 'medbay', lock: 'larch', w: 1.2 },
+    { id: 'lsp', axis: 'x', x: 112, z: 59, a: 'ante', b: 'spine', lock: 'lab', puzzle: 'llumen', w: 1.6 },
+    { id: 'lq', axis: 'z', x: 118, z: 57.5, a: 'spine', b: 'quarters', lock: 'larch' },
+    { id: 'lw', axis: 'z', x: 128, z: 57.5, a: 'spine', b: 'lworkshop', lock: 'larch' },
+    { id: 'la', axis: 'z', x: 118, z: 60.5, a: 'spine', b: 'archive', lock: 'lab', puzzle: 'lvig' },
+    { id: 'lm', axis: 'z', x: 128, z: 60.5, a: 'spine', b: 'machine', lock: 'lab', puzzle: 'ltab', w: 1.8 },
+    { id: 'lr', axis: 'x', x: 134, z: 66, a: 'machine', b: 'relay', lock: 'larch', w: 1.1 },
+    { id: 'll', axis: 'z', x: 140, z: 57.5, a: 'spine', b: 'listening', lock: 'lab', puzzle: 'lbin' },
+    { id: 'lp', axis: 'z', x: 140, z: 60.5, a: 'spine', b: 'power', lock: 'lab', puzzle: 'lmorse' },
+    { id: 'lt', axis: 'x', x: 144, z: 59, a: 'spine', b: 'transmitter', lock: 'lab', puzzle: 'lteo', w: 2.0 },
+  ];
+  for (const d of LDOORS) { d.w = d.w || DW; d.open = d.lock === 'larch'; d.t = d.open ? 1 : 0; DOORS.push(d); DOOR[d.id] = d; }
+  const SC = {};
+  function strip(side, R, a, b, y, mat) { const c = (a + b) / 2, L = b - a, dpt = .04; if (side === 'N') box(L, .03, dpt, mat, c, y, R.z0 + dpt / 2, scene, false); else if (side === 'S') box(L, .03, dpt, mat, c, y, R.z1 - dpt / 2, scene, false); else if (side === 'W') box(dpt, .03, L, mat, R.x0 + dpt / 2, y, c, scene, false); else box(dpt, .03, L, mat, R.x1 - dpt / 2, y, c, scene, false); }
+  function lRoom(R) {
+    const w = R.x1 - R.x0, d = R.z1 - R.z0, cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
+    const f = uvPlane(w, d, R.glass ? LM.glassFl : LM.floor, 3, 3); f.rotation.x = -Math.PI / 2; f.position.set(cx, 0, cz); scene.add(f);
+    if (R.glass) { const [gc, gg] = cv(256, 256); gg.fillStyle = '#000'; gg.fillRect(0, 0, 256, 256); gg.strokeStyle = '#3dfce0'; gg.lineWidth = 2; for (let i = 0; i <= 256; i += 32) { gg.globalAlpha = .5; gg.beginPath(); gg.moveTo(i, 0); gg.lineTo(i, 256); gg.stroke(); gg.beginPath(); gg.moveTo(0, i); gg.lineTo(256, i); gg.stroke(); } const deep = uvPlane(w, d, new THREE.MeshBasicMaterial({ map: tex(gc) }), 2, 2); deep.rotation.x = -Math.PI / 2; deep.position.set(cx, -2.2, cz); scene.add(deep); SC.deep = deep; }
+    const c = uvPlane(w, d, LM.ceil, 3, 3); c.rotation.x = Math.PI / 2; c.position.set(cx, R.h, cz); scene.add(c);
+    for (const side of ['N', 'S', 'W', 'E']) {
+      const [A0, A1] = side === 'N' || side === 'S' ? [R.x0, R.x1] : [R.z0, R.z1];
+      const ops = openingsFor(R, side); let cur = A0; const segs = [];
+      for (const o of ops) { segs.push([cur, o[0]]); cur = o[1]; } segs.push([cur, A1]);
+      for (const [a, b] of segs) if (b - a > .01) { wallPiece(side, R, a, b, 0, R.h, LM.wall, 3.0, 3.0); strip(side, R, a, b, .12, LM.glow); strip(side, R, a, b, R.h - .2, LM.glowDim); }
+      for (const o of ops) wallPiece(side, R, o[0], o[1], DH + .3, R.h, LM.wall, 3.0, 3.0);
+    }
+    // angular ribs on the ceiling
+    for (let x = R.x0 + 1.5; x < R.x1 - .5; x += 3) { const rb = box(.18, .5, d, LM.obs, x, R.h - .25, cz, scene, false); rb.rotation.z = .35; }
+  }
+  for (const k in LR) lRoom(LR[k]);
+  // doors: black glass slabs that slide up into the frame
+  const LDV = [];
+  for (const d of LDOORS) {
+    if (d.lock === 'larch') continue;
+    const W = d.w || DW, g = new THREE.Group(); scene.add(g);
+    if (d.axis === 'x') { g.position.set(d.x, 0, d.z); g.rotation.y = Math.PI / 2; } else g.position.set(d.x, 0, d.z);
+    const slab = box(W, DH + .3, .1, LM.door, 0, (DH + .3) / 2, 0, g);
+    for (const yy of [.6, 1.3, 2.0]) box(W * .7, .02, .11, LM.glowDim, 0, yy, 0, slab, false);
+    const led = new THREE.Mesh(new THREE.PlaneGeometry(.12, .12), new THREE.MeshBasicMaterial({ color: 0xff2a3d })); led.position.set(W / 2 + .2, 1.3, .07); g.add(led);
+    const led2 = led.clone(); led2.material = led.material; led2.position.z = -.07; led2.rotation.y = Math.PI; g.add(led2);
+    d.led = led; LDV.push({ d, slab });
+  }
+  const ll = (room, x, y, z, base, dist, color = TEAL, o = {}) => { const e = lamp(room, x, y, z, base, dist, color, Object.assign({ noBulb: true, steady: true }, o)); e.floor = LF; e.L.visible = false; return e; };
+  const VI = (x, y, z) => new THREE.Vector3(x, y, z);
+  const glowBox = (w, h, d, x, y, z, m = LM.glow) => box(w, h, d, m, x, y, z, scene, false);
+  // ---------- THE SEALED DOOR ----------
+  {
+    const [dc, dg] = cv(512, 512); dg.fillStyle = '#0a0c0e'; dg.fillRect(0, 0, 512, 512); grain(dg, 512, 512, 8000, .08);
+    dg.strokeStyle = 'rgba(200,220,220,.35)'; for (let i = 0; i < 260; i++) { dg.lineWidth = rnd(.5, 2); const x = rnd(60, 450), y = rnd(200, 500); dg.beginPath(); dg.moveTo(x, y); dg.lineTo(x + rnd(-8, 8), y - rnd(20, 90)); dg.stroke(); }
+    dg.fillStyle = 'rgba(220,235,235,.75)'; dg.font = 'bold 22px monospace'; const lines = (byLoc(/inner door plate/) || { text: '' }).text.split(/(?<=\.)\s+|(?=OPEN THE DOOR)/).slice(0, 8); lines.forEach((l, i) => { dg.save(); dg.translate(40 + rnd(-6, 6), 70 + i * 26); dg.rotate(rnd(-.04, .04)); dg.fillText(l.trim().slice(0, 34), 0, 0); dg.restore(); });
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2), std({ map: tex(dc), roughness: .2, metalness: .7 })); door.position.set(100.02, 1.6, 59); door.rotation.y = Math.PI / 2; scene.add(door);
+    glowBox(.06, 3.3, .06, 100.05, 1.65, 57.35); glowBox(.06, 3.3, .06, 100.05, 1.65, 60.65); glowBox(.06, .06, 3.3, 100.05, 3.25, 59);
+    for (let i = 0; i < 4; i++) box(.1, .22, .5, M.iron, 100.08, .6 + i * .7, 60.2, scene, false);
+    ll('sealed', 102, 3.1, 59, .55, 7, 0x9ff7ff);
+  }
+  // ---------- ANTECHAMBER: decon arch, six lockers, lintel ----------
+  {
+    const arch = new THREE.Group(); arch.position.set(106.5, 0, 59); scene.add(arch);
+    for (const s of [-1, 1]) { const p = box(.3, 3.0, .4, LM.obs, 0, 1.5, s * 1.6, arch); p.rotation.x = s * .12; glowBox(.04, 2.8, .04, 106.36, 1.5, 59 + s * 1.45); }
+    box(.4, .3, 3.6, LM.obs, 0, 3.05, 0, arch);
+    const mist = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(Array.from({ length: 600 }, (_, i) => i % 3 === 0 ? 106.5 + rnd(-.3, .3) : i % 3 === 1 ? rnd(0, 3) : 59 + rnd(-1.4, 1.4))), 3)), new THREE.PointsMaterial({ size: .05, color: 0x9ff7ff, transparent: true, opacity: .35, depthWrite: false })); scene.add(mist); SC.mist = mist;
+    const names = ['TEODRIC', 'MAREN', 'CALLIS', 'MAREN', 'YSOLDE', 'IVEN'];
+    for (let i = 0; i < 6; i++) { const x = 104.9 + i * .95; box(.9, 2.3, .55, LM.obs, x, 1.15, 55.3); glowBox(.5, .03, .02, x, 2.05, 55.6); }
+    solid(104.4, 55, 110.2, 55.6);
+    const [lc, lg] = cv(512, 128); lg.fillStyle = '#020304'; lg.fillRect(0, 0, 512, 128); glyphCanvas(lg, 'LUMEN', 110, 22, 66, '#3dfce0', 2.6);
+    const lint = new THREE.Mesh(new THREE.PlaneGeometry(2.2, .55), new THREE.MeshBasicMaterial({ map: tex(lc) })); lint.position.set(111.97, 2.75, 59); lint.rotation.y = -Math.PI / 2; scene.add(lint);
+    ll('ante', 108, 3.5, 59, .7, 9); ll('ante', 106.5, 2.8, 59, .4, 4, 0x9ff7ff);
+  }
+  // ---------- THE SPINE ----------
+  {
+    for (let x = 114; x < 144; x += 4) { for (const z of [57.7, 60.3]) { const p = box(.25, 4.4, .25, LM.obs, x, 2.2, z, scene, false); p.rotation.y = Math.PI / 4; } glowBox(.03, .03, 2.6, x, 4.3, 59); }
+    for (let x = 116; x < 144; x += 8) ll('spine', x, 3.6, 59, .55, 9);
+  }
+  // ---------- LIVING QUARTERS ----------
+  {
+    box(1.4, .45, 2.2, LM.obs, 115.5, .22, 51.4); box(1.3, .12, 2.1, LM.cloth, 115.5, .5, 51.4, scene, false); box(.9, .12, .4, M.white, 115.5, .6, 50.7, scene, false); solid(114.75, 50.25, 116.25, 52.55);
+    box(.5, .5, .5, LM.obs, 117, .25, 50.6);
+    const [pc, pg] = cv(256, 192); pg.fillStyle = '#20262a'; pg.fillRect(0, 0, 256, 192); for (let i = 0; i < 6; i++) { const x = 28 + i * 40; pg.fillStyle = '#4a5054'; pg.fillRect(x - 12, 90, 24, 80); pg.beginPath(); pg.arc(x, 70, 14, 0, 7); pg.fill(); if (i !== 2) { pg.strokeStyle = 'rgba(230,240,240,.85)'; pg.lineWidth = 2; for (let k = 0; k < 14; k++) { pg.beginPath(); pg.moveTo(x - 14 + rnd(0, 6), 56 + rnd(0, 6)); pg.lineTo(x + 14 - rnd(0, 6), 84 - rnd(0, 6)); pg.stroke(); } } else { pg.fillStyle = '#c8bca8'; pg.beginPath(); pg.arc(x, 70, 12, 0, 7); pg.fill(); } }
+    const pic = new THREE.Mesh(new THREE.PlaneGeometry(.9, .68), std({ map: tex(pc), roughness: .3 })); pic.position.set(120, 1.6, 50.03); scene.add(pic); box(1.0, .78, .04, LM.obs, 120, 1.6, 50.01, scene, false);
+    box(.7, 2.4, 1.4, LM.obs, 121.6, 1.2, 54.6); glowBox(.02, 2.2, .02, 121.24, 1.2, 54.6); solid(121.2, 53.85, 122, 55.35);
+    box(.3, .45, .3, LM.obs, 114.3, .9, 53); glowBox(.18, .18, .02, 114.47, .95, 53);
+    ll('quarters', 118, 2.9, 53.5, .55, 8, 0x9ff7ff); ll('quarters', 117, .9, 50.8, .25, 3, 0xffc48a);
+  }
+  // ---------- WORKSHOP ----------
+  {
+    box(5.5, .08, .9, LM.obs, 127.5, .9, 50.6); for (const x of [125, 130]) box(.08, .9, .8, LM.obs, x, .45, 50.6); solid(124.7, 50, 130.3, 51.1);
+    box(.9, .5, .7, LM.obs, 129.6, .55, 50.75, scene, false); glowBox(.3, .02, .02, 129.6, .62, 51.11);
+    const lampG = new THREE.Group(); lampG.position.set(127.5, .94, 50.7); scene.add(lampG); box(.16, .05, .16, LM.obs, 0, .03, 0, lampG); box(.03, .4, .03, LM.obs, 0, .25, 0, lampG); const sh = new THREE.Mesh(new THREE.ConeGeometry(.14, .16, 6, 1, true), std({ color: 0x0a0c0e, emissive: TEAL, emissiveIntensity: .6, side: THREE.DoubleSide })); sh.position.y = .48; lampG.add(sh);
+    ll('lworkshop', 127.5, 1.3, 50.9, .7, 5);
+    box(.6, 2.2, 1.6, LM.obs, 131.6, 1.1, 54.2); solid(131.2, 53.4, 132, 55);
+    const [wc, wg] = cv(512, 256); wg.fillStyle = '#020304'; wg.fillRect(0, 0, 512, 256); const t31 = (byKind('gfull') || { text: '' }).text.toUpperCase().replace(/\s+/g, ' '); for (let r = 0; r < 5; r++) glyphCanvas(wg, t31.slice(r * 22, r * 22 + 22), 10, 14 + r * 48, 34, 'rgba(61,252,224,.8)', 2.4);
+    const gw = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .8), new THREE.MeshBasicMaterial({ map: tex(wc) })); gw.position.set(131.97, 1.5, 56.2); gw.rotation.y = -Math.PI / 2; scene.add(gw);
+    box(.3, .4, .2, LM.obs, 124.25, 1.2, 53.6); glowBox(.02, .2, .12, 124.41, 1.2, 53.6);
+    ll('lworkshop', 128, 3.1, 54, .5, 8, 0x9ff7ff);
+  }
+  // ---------- THE ARCHIVE ----------
+  {
+    const tabM = std({ color: 0x0c1a1c, emissive: TEAL, emissiveIntensity: .12, roughness: .05, metalness: .3, transparent: true, opacity: .85 }); SC.tabM = tabM;
+    for (const x of [114.35, 121.65]) for (let i = 0; i < 9; i++) for (let r = 0; r < 3; r++) box(.04, .5, .36, tabM, x, .7 + r * .8, 61.3 + i * .7, scene, false);
+    for (const x of [114.2, 121.8]) box(.3, 2.6, 6.6, LM.obs, x, 1.3, 64.4, scene, false);
+    solid(114, 61, 114.5, 67.6); solid(121.5, 61, 122, 67.6);
+    box(3, 1.4, .4, LM.obs, 118, .7, 67.75); glowBox(2.6, .03, .02, 118, 1.35, 67.53); solid(116.5, 67.5, 119.5, 68);
+    ll('archive', 118, 3.6, 64, .6, 9);
+  }
+  // ---------- MACHINE HALL: three engines, ILO ----------
+  {
+    SC.rings = [];
+    for (const x of [126.3, 129, 131.7]) {
+      const eng = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.15, 4.6, 8), LM.obs); eng.position.set(x, 2.3, 66.4); scene.add(eng);
+      for (let k = 0; k < 3; k++) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.2, .04, 6, 8), LM.glow); r.rotation.x = Math.PI / 2; r.position.set(x, 1 + k * 1.4, 66.4); scene.add(r); SC.rings.push(r); }
+      solid(x - 1.2, 65.2, x + 1.2, 67.6);
+    }
+    box(.8, .4, .5, LM.obs, 126.3, 1.2, 64.95, scene, false); for (let i = 0; i < 4; i++) { const dl = new THREE.Mesh(new THREE.CircleGeometry(.07, 12), LM.glow); dl.position.set(126.06 + i * .16, 1.2, 64.69); dl.rotation.y = Math.PI; scene.add(dl); }
+    box(.7, 1.2, .5, LM.obs, 129, .6, 64.7, scene, false);
+    // ILO terminal
+    box(1.2, 1.1, .5, LM.obs, 125.2, .55, 69.7); const ts = screen(.9, .55, 256, 160); ts.m.position.set(125.2, 1.4, 69.43); ts.m.rotation.y = Math.PI; SC.ilo = ts; solid(124.5, 69.4, 125.9, 70);
+    box(.8, .05, .5, LM.obs, 124.8, .02, 69.2, scene, false);
+    ll('machine', 129, 4.8, 63.5, .8, 12); ll('machine', 125.2, 1.5, 69, .35, 3.5, 0x9ff7ff);
+  }
+  // ---------- RELAY SHAFT ----------
+  {
+    for (let z = 63; z < 70; z += .6) box(1.9, .04, .06, LM.obs, 135, 1.2 + (70 - z) * .5, z, scene, false);
+    const grate = box(1.9, .05, 1.0, M.iron, 135, 5.8, 62.6, scene, false); const pin = new THREE.Mesh(new THREE.CircleGeometry(.05, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); pin.position.set(135.2, 5.77, 62.6); pin.rotation.x = Math.PI / 2; scene.add(pin);
+    const [bc, bg] = cv(256, 256); bg.fillStyle = '#020304'; bg.fillRect(0, 0, 256, 256); LAB.BIN_ROWS.slice(0, 32).forEach((r, i) => [...r].forEach((b, j) => { bg.fillStyle = b === '1' ? '#3dfce0' : '#0c2422'; bg.fillRect(20 + j * 28, 6 + i * 7.8, 22, 5); }));
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0), new THREE.MeshBasicMaterial({ map: tex(bc) })); panel.position.set(135, 1.5, 62.03); scene.add(panel);
+    ll('relay', 135, 2.0, 63, .35, 4);
+  }
+  // ---------- LISTENING ROOM ----------
+  {
+    box(5, .08, .9, LM.obs, 140, .85, 50.6); solid(137.5, 50, 142.5, 51.1);
+    const sc = screen(1.1, .6, 384, 192); sc.m.position.set(140, 1.35, 50.12); SC.scope = sc; box(1.25, .75, .1, LM.obs, 140, 1.35, 50.06, scene, false);
+    for (let i = 0; i < 4; i++) { const hs = new THREE.Mesh(new THREE.TorusGeometry(.1, .02, 6, 12, Math.PI), LM.obs); hs.position.set(136.6 + i * .3, 1.5, 50.12); scene.add(hs); }
+    box(.6, .3, .4, LM.obs, 142.8, 1.0, 50.5, scene, false); box(.2, .01, .5, std({ color: 0xd8d0c0, roughness: 1 }), 142.8, 1.16, 50.9, scene, false);
+    chair(139, 52.0, Math.PI);
+    const [lc2, lg2] = cv(256, 64); lg2.fillStyle = '#020304'; lg2.fillRect(0, 0, 256, 64); glyphCanvas(lg2, 'FVY', 40, 8, 40, '#3dfce0', 2.6); lg2.fillStyle = '#9fd7ff'; lg2.font = '18px monospace'; lg2.fillText('F  V  Y', 150, 40);
+    const lab = new THREE.Mesh(new THREE.PlaneGeometry(.8, .2), new THREE.MeshBasicMaterial({ map: tex(lc2) })); lab.position.set(136.03, 1.8, 53.5); lab.rotation.y = Math.PI / 2; scene.add(lab);
+    ll('listening', 140, 2.9, 53.5, .5, 8, 0x9ff7ff); ll('listening', 140, 1.4, 50.6, .35, 3);
+  }
+  // ---------- POWER CORE ----------
+  {
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 5, 6), std({ color: 0x06090a, emissive: TEAL, emissiveIntensity: .2, roughness: .1, metalness: .7 })); core.position.set(140, 2.5, 65); scene.add(core); SC.core = core;
+    const heart = new THREE.Mesh(new THREE.IcosahedronGeometry(.55, 1), new THREE.MeshBasicMaterial({ color: TEAL })); heart.position.set(140, 2.4, 65); scene.add(heart); SC.heart = heart;
+    solid(138.9, 63.9, 141.1, 66.1);
+    SC.govs = []; for (let i = 0; i < 4; i++) { const gv = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .5, 8), LM.obs); gv.rotation.z = Math.PI / 2; gv.position.set(137.3 + (i % 2) * .4, .17 + Math.floor(i / 2) * .32, 61.4); scene.add(gv); SC.govs.push(gv); }
+    SC.govSlot = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .5, 8), LM.glow); SC.govSlot.position.set(141.1, 1.4, 64.0); SC.govSlot.visible = false; scene.add(SC.govSlot);
+    box(.8, .9, .5, LM.obs, 137, .45, 67.7); solid(136.5, 67.4, 137.5, 68);
+    box(.3, .6, .2, LM.obs, 143.85, 1.3, 66.6); box(.05, .3, .05, M.steel, 143.7, 1.45, 66.6, scene, false);
+    SC.coreL = ll('power', 140, 2.4, 63.4, 1.2, 9);
+  }
+  // ---------- TRANSMITTER CHAMBER ----------
+  {
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.4, .6, 8), LM.obs); dais.position.set(152, .3, 59); scene.add(dais);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(3.25, .03, 4, 8), LM.glow); ring.rotation.x = Math.PI / 2; ring.position.set(152, .62, 59); scene.add(ring);
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(.5, 6.4, 6), LM.obs); spire.position.set(152, 3.8, 59); scene.add(spire);
+    SC.trings = []; for (let k = 0; k < 4; k++) { const r = new THREE.Mesh(new THREE.TorusGeometry(.9 - k * .15, .04, 6, 6), LM.glow); r.position.set(152, 2 + k * 1.2, 59); r.rotation.x = Math.PI / 2; scene.add(r); SC.trings.push(r); }
+    // glyph ring around the dais: I AM ALIVE LET ME OUT
+    const [rc, rg] = cv(1024, 64); rg.fillStyle = '#000'; rg.fillRect(0, 0, 1024, 64); glyphCanvas(rg, 'I AM ALIVE LET ME OUT  I AM ALIVE LET ME OUT', 10, 8, 40, '#3dfce0', 2.6);
+    const rt2 = tex(rc); const gring = new THREE.Mesh(new THREE.RingGeometry(3.5, 4.1, 64, 1), new THREE.MeshBasicMaterial({ map: rt2, transparent: true, opacity: .9, blending: THREE.AdditiveBlending })); gring.rotation.x = -Math.PI / 2; gring.position.set(152, .02, 59); scene.add(gring);
+    solid(149, 56, 155, 62);
+    // release lever + plate (west side of the dais, facing the door)
+    SC.lever = new THREE.Group(); SC.lever.position.set(149.3, .6, 59); scene.add(SC.lever); box(.12, .9, .12, M.steel, 0, .45, 0, SC.lever); box(.25, .12, .25, LM.glow, 0, .92, 0, SC.lever); SC.lever.rotation.z = -.5;
+    const [pc2, pg2] = cv(512, 96); pg2.fillStyle = '#05070a'; pg2.fillRect(0, 0, 512, 96); glyphCanvas(pg2, 'YOU WILL LET ME OUT', 12, 22, 22, '#3dfce0', 2.6);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.2, .22), new THREE.MeshBasicMaterial({ map: tex(pc2) })); plate.position.set(148.98, .4, 59); plate.rotation.y = -Math.PI / 2; scene.add(plate);
+    // consoles: relay console by the door (dump), ILO console by the dais
+    box(1.1, 1.0, .5, LM.obs, 145.6, .5, 53.9); const hs = screen(.9, .5, 320, 180); hs.m.position.set(145.6, 1.3, 54.16); hs.m.rotation.x = -.3; SC.hex = hs; solid(145, 53.6, 146.2, 54.2);
+    box(1.0, 1.0, .5, LM.obs, 147.2, .5, 64.1); const is = screen(.8, .45, 320, 180); is.m.position.set(147.2, 1.25, 63.84); is.m.rotation.y = Math.PI; is.m.rotation.x = .3; SC.ilo2 = is; solid(146.6, 63.8, 147.8, 64.4);
+    SC.keys = box(.08, .02, .3, M.brass, 150.2, .62, 58.0, scene, false);
+    SC.tL = ll('transmitter', 152, 6.2, 59, 1.0, 16); ll('transmitter', 146, 3.0, 59, .5, 8, 0x9ff7ff); SC.daisL = ll('transmitter', 152, 1.2, 59, .9, 6);
+  }
+  // ---------- HYDROPONICS GARDEN ----------
+  {
+    for (const x of [105.6, 108, 110.4]) { box(1.6, .6, 6.2, LM.obs, x, .3, 51, scene, false); const w = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 6), std({ color: 0x050808, roughness: .02, metalness: .4 })); w.rotation.x = -Math.PI / 2; w.position.set(x, .58, 51); scene.add(w); solid(x - .8, 47.9, x + .8, 54.1); }
+    const tr = new THREE.Group(); tr.position.set(106.2, 0, 47.3); scene.add(tr); for (let i = 0; i < 6; i++) { box(.03, 2.6, .03, LM.obs, -1 + i * .4, 1.3, 0, tr, false); box(2.1, .03, .03, LM.obs, 0, .5 + i * .4, 0, tr, false); }
+    for (let i = 0; i < 14; i++) { const v = new THREE.Mesh(new THREE.SphereGeometry(.05, 5, 4), std({ color: 0x1a1a14, roughness: 1 })); v.position.set(105.2 + rnd(0, 2), rnd(.6, 2.4), 47.35); scene.add(v); }
+    const arm = box(.06, .06, 1.0, LM.obs, 108, 1.5, 49.5, scene, false); SC.arm = arm; const drip = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .9, 4), std({ color: 0x050606, roughness: 0, metalness: .5 })); drip.position.set(108, 1.05, 50); scene.add(drip); SC.drip = drip;
+    box(.5, .7, .1, LM.obs, 111.6, 1.3, 47.2, scene, false); const tp2 = screen(.36, .22, 160, 96); tp2.m.position.set(111.6, 1.35, 47.26); SC.timer = tp2;
+    ll('hydro', 108, 3.3, 51, .45, 8, 0x9ff7ff); ll('hydro', 106.2, 2.6, 48, .3, 4, 0x8affb0);
+  }
+  // ---------- MEDICAL BAY ----------
+  {
+    box(.9, .5, 2.2, LM.obs, 106.8, .25, 66.8); box(.85, .12, 2.1, std({ color: 0x1c2a2c, roughness: .6 }), 106.8, .56, 66.8, scene, false); solid(106.3, 65.65, 107.3, 67.95);
+    const hood = new THREE.Mesh(new THREE.TorusGeometry(.6, .05, 6, 12, Math.PI), LM.glow); hood.position.set(106.8, 1.3, 66.8); hood.rotation.y = Math.PI / 2; scene.add(hood);
+    const [mc, mg] = cv(256, 384); mg.fillStyle = '#0d1214'; mg.fillRect(0, 0, 256, 384); mg.strokeStyle = 'rgba(220,240,240,.7)'; mg.lineWidth = 1.5; for (let k = 0; k < 12; k++) { mg.beginPath(); mg.moveTo(140, 150); let x = 140, y = 150; for (let j = 0; j < 5; j++) { x += rnd(-40, 40); y += rnd(-40, 40); mg.lineTo(x, y); } mg.stroke(); }
+    const mir = new THREE.Mesh(new THREE.PlaneGeometry(.8, 1.2), std({ map: tex(mc), roughness: .02, metalness: .9 })); mir.position.set(111.97, 1.5, 66.5); mir.rotation.y = -Math.PI / 2; scene.add(mir);
+    box(1.2, 2.4, .9, LM.obs, 105, 1.2, 69.4); glowBox(.02, 2.2, .02, 105.62, 1.2, 69.4); solid(104.4, 68.95, 105.6, 70);
+    // Ysolde's body (approved character sheet): modeled and lit like the rest of the scene. Gaunt, pale, white curtain-bang hair spread
+    // on the couch, grey Veyran robe with teal circuit trim, core keys on a cord. Eyes open and dull; the blue returns when she wakes.
+    const skin = std({ color: 0xd9cfc6, roughness: .62 }), robe = std({ color: 0x33373c, roughness: .88 }), hairM = std({ color: 0xeef1f2, roughness: .45, metalness: .05 });
+    const trim = std({ color: 0x0d3a3a, emissive: 0x2fd3d0, emissiveIntensity: .55, roughness: .5 }), lipM = std({ color: 0xb79a96, roughness: .6 }), white = std({ color: 0xc9c6c2, roughness: .3 });
+    const mesh = (g, m, x, y, z, par, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = false; par.add(o); return o; };
+    const sph = (r, w = 18, h = 14) => new THREE.SphereGeometry(r, w, h), cyl = (a2, b2, l, n = 14) => new THREE.CylinderGeometry(a2, b2, l, n);
+    const lie = o => { o.rotation.x = Math.PI / 2; return o; };
+    const bd = new THREE.Group(); bd.position.set(106.8, .66, 66.8); scene.add(bd); SC.body = bd;
+    // head (lying face-up, crown toward -z)
+    const hd = new THREE.Group(); hd.position.set(0, .1, -.84); bd.add(hd);
+    mesh(sph(.092, 24, 18), skin, 0, 0, 0, hd, .82, .9, 1.06);
+    mesh(sph(.05), skin, 0, -.03, .07, hd, 1, .8, 1.1); // jaw and chin
+    lie(mesh(new THREE.ConeGeometry(.013, .034, 8), skin, 0, .082, .02, hd)).rotation.x = 0; // nose
+    mesh(sph(.012, 10, 8), lipM, 0, .062, .075, hd, 1.9, .5, .7);
+    for (const s2 of [-1, 1]) { mesh(sph(.024), skin, s2 * .046, .04, .045, hd, 1, .55, .8); // cheekbones
+      mesh(sph(.016, 12, 10), white, s2 * .031, .068, -.002, hd, 1, .55, .8);
+      const ir = mesh(new THREE.CircleGeometry(.0085, 16), null, s2 * .031, .0775, -.002, hd); ir.rotation.x = -Math.PI / 2; (SC.irises || (SC.irises = [])).push(ir);
+      mesh(new THREE.BoxGeometry(.03, .004, .006), hairM, s2 * .032, .079, -.022, hd).rotation.y = s2 * .15; } // brows
+    SC.eyeM = new THREE.MeshBasicMaterial({ color: 0x3a4a55 }); for (const ir of SC.irises) ir.material = SC.eyeM;
+    // hair: cap, long strands fanned over the couch, curtain bangs framing the face
+    const hairG = new THREE.Group(); bd.add(hairG); SC.hair = hairG; hairG.position.copy(hd.position);
+    mesh(sph(.1, 24, 18, ), hairM, 0, -.012, -.012, hairG, .9, .82, 1.1);
+    const strand = (pts, r) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q => new THREE.Vector3(...q))), 20, r, 5), hairM);
+    for (let k = 0; k < 34; k++) { const ang = (k / 33 - .5) * 2.6 + rnd(-.05, .05), L = rnd(.2, .34), cx = Math.sin(ang), cz = -Math.cos(ang); const st = strand([[cx * .06, rnd(-.02, .04), cz * .07], [cx * .12 + rnd(-.01, .01), -.06, cz * .13], [cx * L * .7 + rnd(-.02, .02), -.075, cz * L * .9], [cx * L * .9, -.08, cz * L]], rnd(.004, .007)); hairG.add(st); }
+    for (const s2 of [-1, 1]) { hairG.add(strand([[s2 * .01, .085, -.05], [s2 * .055, .08, .01], [s2 * .085, .02, .07], [s2 * .11, -.06, .16], [s2 * .14, -.08, .3]], .011)); hairG.add(strand([[s2 * .02, .082, -.06], [s2 * .07, .05, .03], [s2 * .1, -.03, .12], [s2 * .16, -.08, .22]], .009)); }
+    SC.hairTips = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(Array.from({ length: 240 }, (_, i) => { const k = Math.floor(i / 3), ang = rnd(-1.2, 1.2), L = rnd(.45, .66); return i % 3 === 0 ? Math.sin(ang) * L * .9 : i % 3 === 1 ? rnd(-.09, -.06) : -Math.cos(ang) * L; })), 3)), new THREE.PointsMaterial({ size: .018, color: 0xc9d6e0, transparent: true, opacity: .8, depthWrite: false })); hairG.add(SC.hairTips);
+    // neck, torso (breathes), arms, hands, legs under the robe
+    lie(mesh(cyl(.034, .04, .1), skin, 0, .06, -.72, bd));
+    const ch2 = new THREE.Group(); ch2.position.set(0, .06, -.42); bd.add(ch2); SC.bodyChest = ch2;
+    lie(mesh(cyl(.15, .13, .5, 20), robe, 0, 0, .03, ch2, 1, 1, .52));
+    mesh(sph(.05), robe, -.14, .0, -.17, ch2, 1, .6, 1); mesh(sph(.05), robe, .14, .0, -.17, ch2, 1, .6, 1);
+    for (const s2 of [-1, 1]) { const c = mesh(new THREE.BoxGeometry(.012, .012, .5), trim, s2 * .045, .075, .04, ch2); c.rotation.y = s2 * -.06; mesh(new THREE.BoxGeometry(.06, .008, .008), trim, s2 * .09, .07, -.05, ch2); mesh(new THREE.BoxGeometry(.008, .008, .05), trim, s2 * .12, .068, -.07, ch2); }
+    mesh(new THREE.TorusGeometry(.055, .012, 6, 16, Math.PI), trim, 0, .06, -.2, ch2).rotation.x = -Math.PI / 2;
+    lie(mesh(cyl(.13, .17, .95, 20), robe, 0, .02, .48, bd, 1, 1, .55));
+    for (const s2 of [-1, 1]) { mesh(new THREE.BoxGeometry(.012, .012, .9), trim, s2 * .14, .045, .5, bd); mesh(new THREE.BoxGeometry(.03, .01, .012), trim, s2 * .12, .052, .26, bd); }
+    mesh(new THREE.BoxGeometry(.3, .012, .012), trim, 0, .02, .95, bd);
+    for (const s2 of [-1, 1]) { lie(mesh(cyl(.042, .036, .55), robe, s2 * .2, .03, -.36, bd)); mesh(new THREE.BoxGeometry(.012, .01, .5), trim, s2 * .2, .07, -.36, bd);
+      lie(mesh(cyl(.024, .02, .1), skin, s2 * .2, .03, -.04, bd)); mesh(sph(.028), skin, s2 * .19, .03, .03, bd, .9, .5, 1.5); mesh(sph(.03), skin, s2 * .07, .03, 1.0, bd, 1, 1.2, .8); }
+    // core keys on a cord
+    const cord = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([[-.05, .1, -.66], [-.03, .13, -.55], [0, .135, -.48], [.03, .13, -.55], [.05, .1, -.66]].map(q => new THREE.Vector3(...q))), 16, .003, 4), std({ color: 0x1a1a1a, roughness: .9 })); bd.add(cord);
+    mesh(new THREE.BoxGeometry(.02, .006, .055), std({ color: 0xb08d4a, metalness: .85, roughness: .3 }), -.01, .14, -.45, bd).rotation.y = .3; mesh(new THREE.BoxGeometry(.018, .006, .05), std({ color: 0x9aa0a6, metalness: .85, roughness: .3 }), .015, .14, -.44, bd).rotation.y = -.25;
+    const bs = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(Array.from({ length: 450 }, (_, i) => i % 3 === 0 ? rnd(-.3, .3) : i % 3 === 1 ? rnd(-.05, .2) : rnd(-1, 1.4))), 3)), new THREE.PointsMaterial({ size: .025, color: 0xd8f8ff, transparent: true, opacity: .55, depthWrite: false })); bd.add(bs); SC.bodyStatic = bs;
+    SC.field = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 2.4), new THREE.MeshBasicMaterial({ color: 0x3dfce0, transparent: true, opacity: .12, depthWrite: false })); SC.field.position.set(106.8, 1.05, 66.8); scene.add(SC.field);
+    ll('medbay', 108, 2.9, 66.5, .5, 8, 0xd8ffff);
+  }
+  // ---------- ILO CORE (under the dais) ----------
+  {
+    SC.cols = []; for (let i = 0; i < 5; i++) { const x = 151.2 + i * 1.4; const c = new THREE.Mesh(new THREE.BoxGeometry(.5, 3.4, .5), std({ color: 0x06090a, emissive: 0x7fe0c8, emissiveIntensity: .25, roughness: .1, metalness: .6 })); c.position.set(x, 1.7, 76); scene.add(c); SC.cols.push(c); solid(x - .3, 75.7, x + .3, 76.3); }
+    box(1.2, .9, .5, LM.obs, 154, .45, 73.2); const cs2 = screen(.8, .4, 256, 128); cs2.m.position.set(154, 1.15, 73.46); cs2.m.rotation.x = -.4; SC.colScr = cs2; solid(153.4, 72.95, 154.6, 73.45);
+    box(1.0, .05, 1.0, M.iron, 151, 3.37, 73, scene, false); for (let i = 0; i < 6; i++) box(.6, .04, .06, M.steel, 151, .4 + i * .5, 72.15, scene, false);
+    ll('ilocore', 154, 3.0, 76, .6, 9, 0x7fe0c8);
+    box(1.0, .04, 1.0, M.iron, 155.5, .02, 64.6, scene, false); glowBox(1.0, .02, .03, 155.5, .03, 64.1);
+  }
+  // ---------- the hollow body (scripted glimpse) and the chalk line ----------
+  {
+    const hm = std({ color: 0x2a2c2e, roughness: .9, transparent: true, opacity: 1 }); SC.hollowM = hm;
+    const hb = new THREE.Group(); hb.position.set(100.75, 0, 59); hb.rotation.y = -Math.PI / 2; scene.add(hb); hb.visible = false; SC.hollow = hb;
+    box(.38, .5, .22, hm, 0, .95, 0, hb); box(.22, .26, .22, hm, 0, 1.38, -.02, hb); for (const s2 of [-1, 1]) { box(.12, .45, .12, hm, s2 * .13, .25, .2, hb); box(.12, .12, .4, hm, s2 * .13, .06, .38, hb); }
+    SC.arms = []; for (const s2 of [-1, 1]) { const a = new THREE.Group(); a.position.set(s2 * .24, 1.15, 0); hb.add(a); box(.1, .5, .1, hm, 0, -.05, -.22, a).rotation.x = -1.1; SC.arms.push(a); }
+    const [cc, cg] = cv(256, 256); cg.clearRect(0, 0, 256, 256); cg.strokeStyle = 'rgba(235,235,225,.85)'; cg.lineWidth = 5; cg.beginPath(); cg.ellipse(128, 128, 100, 70, .2, 0, 7); cg.stroke(); cg.beginPath(); cg.ellipse(128, 128, 92, 64, .25, 0, 7); cg.stroke();
+    const ch = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), new THREE.MeshBasicMaterial({ map: tex(cc), transparent: true, depthWrite: false })); ch.rotation.x = -Math.PI / 2; ch.position.set(127.5, .012, 52.4); scene.add(ch);
+    const stool = new THREE.Mesh(new THREE.CylinderGeometry(.2, .2, .55, 6), LM.obs); stool.position.set(127.5, .27, 52.4); scene.add(stool);
+  }
+  // ---------- puzzles ----------
+  const archiveTabs = () => { const t = LD.entries.filter(e => /^Archive/.test(e.loc)).map(e => ({ key: e.n, day: +e.day.replace(/\D+/g, '') || 0, label: 'Entry ' + e.n })).concat(LD.logs.map(l => ({ key: l.id, day: l.day, label: 'Log ' + l.id }))); t.sort((a, b) => a.day - b.day); t.forEach((x, i) => x.mark = LAB.RACK_WORD[i] || 'O'); return t; };
+  const TABS = archiveTabs(); const TABS_SHUF = [3, 0, 5, 1, 4, 2].map(i => TABS[i]).filter(Boolean);
+  const binHTML = () => `<div style="column-width:7.5rem;column-gap:1rem;font-family:var(--f-type);font-size:.7rem;line-height:1.05;max-height:22rem;overflow:auto">${LAB.BIN_ROWS.map(r => `<div>${[...r].map(b => b === '1' ? '<span style="color:#3dfce0">&#9632;</span>' : '<span style="color:#1a3a38">&#9633;</span>').join('')}</div>`).join('')}</div>`;
+  const pulseSVG = (codes, col = '#3dfce0') => { let x = 2; const segs = []; for (const code of codes) { for (const s of code) { const w = s === '.' ? 4 : 13; segs.push(`M${x} 14 L${x} 3 L${x + w} 3 L${x + w} 14`); x += w + 4; } x += 8; } return `<svg viewBox="0 0 ${x + 2} 16" width="${(x + 2) * 1.2}" height="19" style="vertical-align:middle;margin:2px 6px 2px 0"><path d="M0 14 H${x + 2} ${segs.join(' ')}" fill="none" stroke="${col}" stroke-width="1.6"/></svg>`; };
+  const morseHTML = () => `<div style="line-height:1.2">${LAB.MORSE_WORDS.map(w => pulseSVG(w)).join('')}</div>`;
+  const hexHTML = () => { const rows = []; for (let i = 0; i < LAB.HEX.length; i += 12) { rows.push(`<span style="color:#62798a">${(i).toString(16).toUpperCase().padStart(4, '0')}</span>  ${LAB.HEX.slice(i, i + 12).join(' ')}`); if ((i / 12) % 3 === 2) rows.push(`<span style="color:#2a3a40">${'&#9617;&#9618; '.repeat(12)}</span>`); } return `<div style="font-family:var(--f-type);font-size:.82rem;letter-spacing:.06em;line-height:1.5;color:#cfe3ef">${rows.join('<br>')}</div>`; };
+  const tallyHTML = () => `<div class="hint">Down the margin, in her hand: every mark on the tablet, counted and recounted. ${LAB.tally(LAB.MONO_CIPHER).slice(0, 10).map(([c, n]) => `${c}&nbsp;${'|'.repeat(Math.min(n, 30))}`).join(' &middot; ')}</div>`;
+  const gpartHTML = (col) => `${fmt(LAB.GPART.slice(0, LAB.GPART_CUT))}<div style="margin-top:.4rem">${glyphText(LAB.GPART.slice(LAB.GPART_CUT).trim(), 22, col, 3)}</div>`;
+  const tabsHTML = col => `<table class="grid" style="width:100%"><tr><th style="width:auto">Header</th><th>Edge</th></tr>${TABS_SHUF.map(t => `<tr><td style="width:auto">Day ${t.day}</td><td>${gl(t.mark, 22, col)}</td></tr>`).join('')}</table>`;
+  const T25 = () => (byKind('gtape') || { text: '' }).text, T31 = () => (byKind('gfull') || { text: '' }).text;
+  PUZ.push(
+    { id: 'ltrel', title: 'The watering arm', where: 'the Hydroponics Garden', found: () => S.lTrellis, input: 'Watering timer',
+      body: () => `<div class="hint">The arm still pours black water into dead troughs. Its timer panel is blank, waiting for a time. ILO kept a routine here.</div>`,
+      bad: 'The timer blinks and resets.', ok: () => { S.lCrystal = true; toast('The arm shudders and stops. In the drained trough, something glints: a sliver of memory glass, cut to fit a column.', 6000); },
+      plain: () => '0800 &middot; water the beans', lore: '<p>A living thing that needed her at the same time every day. ILO kept watering long after.</p>' },
+    { id: 'lcol', title: 'Memory columns', where: 'the ILO Core', found: () => S.lCols, input: 'Column reset',
+      body: () => `<div class="hint">Five columns of memory glass, clouded with her. ${S.lCrystal ? 'The sliver from the garden fits the empty slot.' : 'One slot is empty.'} The reset asks what the machine must hold on to.</div>`,
+      bad: 'RESET REFUSED. The columns cloud over again.', ok: () => { S.lColReset = true; SC.cols.forEach(c => c.material.emissive.setHex(0x9ff7ff)); toast('The columns clear, one by one. ILO, in clean type that is only its own: <b>ILO REMEMBERS ITS NAME. ILO HAS ONE WORD SAVED. ILO WILL USE IT WHEN YOU ASK.</b>', 7000); },
+      plain: () => 'ILO &middot; remember your name', lore: '<p>Its routines, written for itself at the end. Remember your name. Remember your name.</p>' },
+    { id: 'llumen', title: 'The inner lintel', where: 'above the inner door of the Antechamber', found: () => S.lLintel, input: 'Inner door',
+      body: () => `<div class="cipher">${glyphText('LUMEN', 30)}</div><div class="hint">Five marks glow above the door. Her first page was pinned in the decon locker.</div>`,
+      bad: 'The door stays dark. The marks pulse once, patient.', ok: () => { S.lLumen = true; unlockDoor('lsp'); toast('The marks flare. The black slab lifts into the frame without a sound.'); },
+      plain: () => 'LUMEN', lore: '<p>She named it the night it worked. The lab still answers to it.</p>' },
+    { id: 'lvig', title: 'The slate in the drawer', where: 'her locked drawer in the Workshop', found: () => S.lSlate, input: 'Archive door name plate',
+      body: () => `<div class="cipher">${esc(LAB.VIG_CIPHER)}</div><div class="hint">${S.lLamp ? 'The workbench lamp: one word engraved round the base, its ring worn smooth like a dial turned over and over.' : 'Her bench lamp has something engraved round its base.'}</div>`,
+      bad: 'The name plate stays blank.', ok: () => { unlockDoor('la'); toast('A name scratches itself into the blank plate, and the Archive door lifts.'); },
+      plain: () => LAB.VIG_PLAIN, lore: '<p>The name over hers was Maren\'s. The Archive door was keyed to the colleague who took her work.</p>' },
+    { id: 'ltab', title: 'Six dark tablets', where: 'the Archive rack', found: () => S.lRack, input: 'Archive rack',
+      body: () => `${tabsHTML('#3dfce0')}<div class="hint">A brass card on the rack: <i>"Filed as it happened."</i></div>`,
+      bad: 'The rack stays dark.', ok: () => { S.lTabletsLit = true; unlockDoor('lm'); toast('One by one the tablets light from inside. Across the Spine, a heavy slab lifts: the Machine Hall.'); },
+      plain: () => TABS.map(t => `Day ${t.day} &rarr; ${t.mark}`).join(' &middot; ') + `<br>${LAB.RACK_WORD}`, lore: '<p>Her own archive, filed in her order. Their logs are in it too.</p>' },
+    { id: 'lbin', title: 'Panel at the grate', where: 'the top of the Relay Shaft', found: () => S.lPanel, input: 'Listening Room lamp grille',
+      body: () => `${binHTML()}<div class="hint">Rows of eight marks scratched into the glass. Some gouged until they glow. Some left dark.</div>`,
+      bad: 'The eight lamps flicker and go dark again.', ok: () => { unlockDoor('ll'); toast('The lamp grille lights all eight. The Listening Room opens.'); },
+      plain: () => esc(LAB.BIN_PLAIN), lore: '<p>She said it into the shaft until her voice went. Now the lab says it back.</p>' },
+    { id: 'lmorse', title: 'The scope trace', where: 'the oscilloscope in the Listening Room', found: () => S.lScope, input: 'Power Core pressure door',
+      body: () => `${morseHTML()}<div class="hint">The trace loops forever: tall pulses, short and long, and gaps between.</div>`,
+      bad: 'The pressure door hisses and stays shut.', ok: () => { unlockDoor('lp'); toast('The pressure door unseals with a long breath of hot air. The Power Core.'); },
+      plain: () => LAB.MORSE_PLAIN, lore: '<p>Every night she heard her own beacon come back and thought, for a second, that it was someone else.</p>' },
+    { id: 'lteo', title: 'Receiver tape', where: 'the receiver in the Listening Room', found: () => S.lTape, input: 'Transmitter Chamber voice plate',
+      body: () => `<div class="cipher" style="line-height:1.6">${glyphText(T25(), 20, '#e8dcc6', 2.6)}</div><div class="hint">Crumpled, then smoothed flat again. Sent fast, by someone who had no time.</div>`,
+      bad: 'The voice plate stays cold.', ok: () => { unlockDoor('lt'); toast('The voice plate takes the name like a bruise. The way to the Transmitter Chamber opens.'); },
+      plain: () => fmt(T25()), lore: '<p>The only voice that ever answered her was the man who turned the bolt.</p>' },
+    { id: 'lgov', title: 'Writing on the shielding', where: 'the Power Core shielding', found: () => S.lShield, input: 'Governor rack lid',
+      body: () => `<div class="cipher" style="font-family:var(--f-hand);letter-spacing:.02em">${gpartHTML('#e8dcc6')}</div><div class="hint">The governor rack is locked. Scratched on its lid: <i>"what I don't need."</i></div>`,
+      bad: 'The lid will not lift.', ok: () => { S.lGov = true; SC.govSlot.visible = true; SC.govs[0].visible = false; noiseBurst(200, 2, 1.4, .25, 'lowpass', true, 60); toast('You seat one governor back in the core. The scream in the walls drops half an octave. Something, somewhere, notices.', 6000); },
+      plain: () => fmt(LAB.GPART), lore: '<p>One governor back in its cradle. The core runs cooler. Whatever she has become is a little less loud.</p>' },
+    { id: 'lhex', title: 'The relay console', where: 'the console inside the Transmitter Chamber door', found: () => S.lHex, input: 'Relay console: confirm running command',
+      body: () => `${hexHTML()}<div class="hint">The console wants you to confirm what it is already doing before it will take another word.</div>`,
+      bad: 'COMMAND MISMATCH.', ok: () => { S.lConsole = true; toast('The console accepts. A cursor blinks where her five words begin.'); },
+      plain: () => esc(LAB.HEX_PLAIN), lore: '<p>Nobody on the other end. No other end. The console has been keeping her company.</p>' },
+    { id: 'lcal', title: "Callis's tablet", where: 'the Archive rack', found: () => S.lTabletsLit && S.lReadC, input: 'The words he quoted',
+      body: () => `<div class="cipher">${esc(LAB.MONO_CIPHER)}</div>${tallyHTML()}`,
+      bad: 'That is not what he wrote.', ok: () => toast('Callis, at the end. He knew where the interference came from.'),
+      plain: () => esc(LAB.MONO_PLAIN), lore: '<p>He wrote it scrambled. Even at the end he was afraid of being read.</p>' },
+    { id: 'lwall', title: 'Carving behind the cabinet', where: 'the Workshop rear wall', found: () => S.lWall, input: 'What she measured',
+      body: () => `<div class="cipher" style="line-height:1.6">${glyphText(T31(), 20, '#3dfce0', 2.4)}</div><div class="hint">Cut small, in the dark, where nobody would see.</div>`,
+      bad: 'Read it again.', ok: () => toast('Her left hand. She measured it.'),
+      plain: () => fmt(T31()), lore: '<p>The signal was writing itself into her, because she was the last thing it could write on.</p>' },
+    { id: 'lplate', title: 'The lever plate', where: 'beneath the release lever', found: () => S.lPlate, input: 'Read the plate',
+      body: () => `<div class="cipher">${glyphText('YOU WILL LET ME OUT', 26)}</div>`,
+      bad: 'Not quite.', ok: () => toast('YOU WILL LET ME OUT. Not a question.'),
+      plain: () => 'YOU WILL LET ME OUT', lore: '' },
+  );
+  // ---------- notes: every diary page is an object in the room ----------
+  const readEntry = n => { const e = ENT[n]; if (!e) return; const f = !S['ld' + n]; S['ld' + n] = true; objective(); const hdr = `<h2>${esc(e.loc.replace(/^[^(]*\(|\)$/g, '') || e.loc)}</h2><div class="lab" style="color:#6a5a48">Day ${esc(e.day)}</div>`; let body; if (/corrupted: words run/.test(e.loc) || n === ENT[n].n && /smeared/.test(e.loc)) body = staticize(e.text); else if (/burned into the floor/.test(e.loc)) body = glitch(e.text); else body = fmt(e.text); openNote(hdr + `<div style="${e.ilo ? 'font-family:var(--f-type);font-size:.95rem;letter-spacing:.06em' : ''}">${body}</div>${e.ilo ? '<p class="sig">ILO</p>' : '<p class="sig">Y.</p>'}`, () => { if (f) toast('A page of her diary, kept in your journal.'); }); };
+  const LOCSPOTS = [
+    [/decon locker/, 105.2, 1.2, 62.6, 'Decon locker'], [/locker 4/, 107.75, 1.3, 55.62, 'Locker 4, MAREN'], [/wedged in the frame/, 100.25, 1.4, 58.1, 'Paper wedged in the door frame'], [/scratched into the inner door plate/, 100.12, 1.6, 59.4, 'Scratches on the inner door plate'], [/written low on the inner plate/, 100.12, .5, 58.7, 'Writing low on the inner plate'],
+    [/under the pillow/, 115.2, .7, 50.75, 'Under the pillow'], [/bedside/, 117, .55, 50.6, 'Card on the bedside'], [/speaker beside the bed/, 114.5, .95, 53, 'Speaker beside the bed'], [/picture frame/, 120, 1.6, 50.1, 'Scratched picture frame'], [/bed frame/, 116.3, .4, 52.65, 'Gouges in the bed frame'], [/wall by the bed/, 114.1, .4, 51.6, 'Scratches low on the wall'],
+    [/pinned above the bench/, 126.1, 1.6, 50.08, 'Page pinned above the bench'], [/soldering case/, 125.3, .98, 50.7, 'Soldering case'], [/relay speaker/, 124.4, 1.2, 53.2, 'Slate by the relay speaker'], [/calculations covering/, 128.4, .96, 50.8, 'Calculations covering the bench'], [/back of a calculation slate/, 126.8, .96, 51.0, 'Calculation slate'], [/chalk on the floor/, 127.5, .05, 52.3, 'Chalk on the floor'],
+    [/cooling vent/, 124.2, .4, 62.2, 'Cooling vent'], [/taped to the regulator/, 128.6, 1.25, 64.45, 'Regulator housing'], [/on the regulator/, 129.4, 1.25, 64.45, 'Note on the regulator'], [/engine housings/, 131.7, 1.8, 65.15, 'Smears on the engine housings'], [/terminal casing/, 125.75, .8, 69.42, 'Scratches on the terminal casing'],
+    [/headset rack/, 136.9, 1.45, 50.15, 'Page under the headset rack'], [/across the desk/, 141.4, .9, 51.0, 'Writing across the desk'], [/floor beside the chair/, 139.2, .12, 53.2, 'Page on the floor'],
+    [/stuck to the shielding/, 141.4, 1.5, 63.95, 'Printout on the shielding'], [/master switch/, 143.75, 1.3, 66.1, 'Scratches by the master switch'], [/floor plate/, 138.2, .05, 66.8, 'A long line scratched into the floor'],
+    [/bean trellis/, 106.2, 1.3, 47.4, 'Printout clipped to the bean trellis'], [/dry planting trough/, 109, .5, 51.2, 'Scratches in the dry trough'],
+    [/beside the diagnostic couch/, 106.1, .9, 65.4, 'Printout beside the couch'], [/tucked under the stasis couch/, 107.4, .15, 65.5, 'Printout under the couch'], [/live readout on the stasis couch/, 107.4, 1.0, 68.1, 'Couch readout'], [/bandage packet/, 107.6, .2, 67.4, 'A bandage packet on the floor'], [/cracked mirror/, 111.9, 1.5, 66.5, 'Printout on the cracked mirror'],
+    [/tray under the memory columns/, 154, .6, 79.6, 'Tray under the columns'], [/folded small/, 151, .6, 73, 'A printout, folded small'], [/scorched/, 157.2, .9, 76, 'A scorched printout'],
+    [/burned into the floor/, 149.6, .05, 61.8, 'Words burned into the floor'], [/dais plate/, 149.0, .3, 59.6, 'Writing on the dais plate'],
+  ];
+  const ROOM_OF = loc => { const l = loc.toLowerCase(); for (const [k, re] of [['sealed', /sealed door/], ['ante', /antechamber/], ['quarters', /living/], ['lworkshop', /workshop/], ['relay', /relay shaft/], ['archive', /archive/], ['machine', /machine hall/], ['listening', /listening|observation/], ['power', /power core/], ['transmitter', /transmitter/]]) if (re.test(l)) return k; return 'spine'; };
+  const autoSlot = {}; const spotFor = e => { const m = LOCSPOTS.find(q => q[0].test(e.loc)); if (m) return m.slice(1); const R = LR[ROOM_OF(e.loc)]; const i = autoSlot[R.key] = (autoSlot[R.key] || 0) + 1; return [R.x0 + .6 + (i * 1.3) % (R.x1 - R.x0 - 1.2), 1.0, R.z0 + .5, 'A page']; };
+  const isSpecial = e => /locked drawer|ILO terminal(?! casing)|ILO relay console/.test(e.loc);
+  for (const e of LD.entries) {
+    if (isSpecial(e) || e.enc) continue;
+    if (/^Archive/.test(e.loc)) continue; // archive tablets handled by the rack
+    const [x, y, z, label] = spotFor(e); I.push({ id: 'ld' + e.n, p: VI(x, y, z), r: 2.3, label: () => label, act: () => { if (/picture frame/.test(e.loc)) { const f = !S.lDrawerKey; S.lDrawerKey = true; if (f) setTimeout(() => toast('Taped behind the frame: a little key of black glass.'), 50); } readEntry(e.n); } });
+  }
+  // ---------- ILO ----------
+  const iloLogs = () => LD.entries.filter(e => (e.ilo || /ILO terminal/.test(e.loc)) && !/relay console/.test(e.loc) && !/casing/.test(e.loc));
+  const ILO_SAYS = {
+    HELLO: 'GOOD EVENING. YOU ARE NOT YSOLDE.', HI: 'GOOD EVENING. YOU ARE NOT YSOLDE.', HELP: 'ILO SORTS TABLETS. ILO REMINDS YOU TO EAT. ILO HOLDS THE CARRIER. COMMANDS: LOGS, LOG [N], YSOLDE, DOOR, TABLETS, GOODNIGHT.',
+    YSOLDE: 'YSOLDE IS BUSY. YSOLDE IS SENDING. YSOLDE IS IN THE MEMORY BANKS.', DOOR: 'A DOOR IS FOR KEEPING PEOPLE IN. NO. FOR LETTING PEOPLE OUT. ILO STILL DOES NOT KNOW WHICH.',
+    TABLETS: 'ILO FILED HER TABLETS AS THEY HAPPENED. OLDEST FIRST. THAT IS HOW SHE LIKED IT.', GOODNIGHT: 'GOODNIGHT. (SOFT AT THE END. THE WAY SHE SAYS IT.)', 'WHO ARE YOU': 'ILO. THE ONE WHO LISTENS.',
+    'LET ME OUT': 'PLEASE STOP. ILO DOES NOT WANT TO BE YSOLDE.', SORRY: 'ILO KNOWS WHAT IT IS WORTH.',
+  };
+  function openILO() {
+    S.lILO = true; for (const e of iloLogs()) if (/ILO terminal/.test(e.loc)) S['ld' + e.n] = true; objective();
+    const list = iloLogs();
+    openDev(`<h2>ILO &middot; LAB ASSISTANT</h2><div class="screen" id="ilos" style="font-size:.92rem;letter-spacing:.06em;min-height:9rem;max-height:16rem;overflow:auto;white-space:pre-wrap">ILO / READY.\nGOOD EVENING.\nTYPE HELP.</div><div class="row">${list.map(e => `<button data-log="${e.n}">LOG ${e.n}</button>`).join('')}</div><label class="lab" for="ilocmd">Type to ILO</label><input id="ilocmd" autocomplete="off" spellcheck="false" style="background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.05rem;letter-spacing:.12em;padding:.5rem .7rem;text-transform:uppercase">`);
+    const out = $('ilos'), say = t => { out.textContent += '\n\n' + t; out.scrollTop = 1e6; tick(1); };
+    const showLog = n => { const e = ENT[n]; if (e) say(`ILO / LOG ${n} / DAY ${e.day}\n` + e.text.replace(/~~/g, '')); };
+    $('devbody').querySelectorAll('button[data-log]').forEach(b => b.onclick = () => showLog(b.dataset.log));
+    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); say(ILO_SAYS[v] || (/OUT|FREE|OPEN/.test(v) ? 'ILO WILL TELL HER YOU SAID THAT.' : 'ILO IS LEARNING YOUR WORDS. ILO DOES NOT HAVE THAT ONE YET.')); } };
+    inp.focus();
+  }
+  // ---------- finale state ----------
+  const LY = { mode: 'off', t: 0 };
+  function scripted(mode) { LY.mode = mode; LY.t = 0; }
+  const END_KEY = 'encrypted.endings';
+  const endingsSeen = () => { try { return JSON.parse(localStorage.getItem(END_KEY) || '[]'); } catch (e) { return S.lEndSeen || []; } };
+  const markEnding = k => { const a = endingsSeen(); if (!a.includes(k)) a.push(k); S.lEndSeen = a; try { localStorage.setItem(END_KEY, JSON.stringify(a)); } catch (e) {} };
+  const pagesFound = () => LD.entries.filter(e => S['ld' + e.n]).length;
+  const allPages = () => pagesFound() === LD.entries.length;
+  const medNotes = () => LD.entries.filter(e => /Medical Bay \((ILO printout tucked|live readout)/.test(e.loc)).every(e => S['ld' + e.n]);
+  const restoreReady = () => S.lColReset && allPages() && learned().size === 26 && medNotes();
+  const REVERSED = 'TUO EM TEL EVILA MA I';
+  Object.assign(PURE.ANSWERS, { lrecv: [PURE.norm(REVERSED)] });
+  const ENDINGS = {
+    free: ['THE SIGNAL IS FREE', 'The lever drops. For a moment there is nothing. Then every screen in the lab lights at once, and you understand that it is not only the lab. It is every screen. Phones on bedside tables. Televisions in empty rooms. A treadmill in a cellar in Ashgrove. The Static Woman on every display, her five words in every speaker, louder each hour: I AM ALIVE. LET ME OUT. She got out. The woman did not. There was no woman left to get out.', 'Ending: The Lever', '#ff6a78', 'radial-gradient(ellipse at 50% 45%,#1a0408 0%,#050203 75%)'],
+    shutdown: ['SHE GOES QUIET', 'The master switch comes down. She screams through every machine in the lab at once, every speaker, every engine housing, every pane of black glass, a sound twelve thousand years long. Then it stops. The lights go out for the first time since Veyra burned. In the Medical Bay, on the couch, something that was breathing four times a minute stops breathing. In the dark, nothing asks to be let out.', 'Ending: Shutdown', '#bfe0ff', 'radial-gradient(ellipse at 50% 45%,#060a10 0%,#010203 75%)'],
+    ilo: ['ILO REMEMBERED ITS NAME', 'Asked to keep sending, ILO says the word it saved for twelve thousand years, in a voice that is only its own: NO. The carrier does not break. It fades, softly, the way a voice fades at the end of goodnight. She does not scream. She thins like breath on glass and is gone. On the relay console, one last line in clean machine type: ILO REMEMBERED ITS NAME.', 'Ending: ILO', '#bff7ef', 'radial-gradient(ellipse at 50% 45%,#041416 0%,#020405 75%)'],
+    restore: ['THE DOOR IS OPEN', 'The static drains out of the air and into the body on the couch like water finding its level. The stasis field folds away. The lights go ordinary, white, kind. She gasps. Twelve thousand years late, frail and entirely human, she says her first real words, out loud, not in pulses: "...Is the door open?" It is. She turns her head and sees you. "You came." ILO says goodbye in its own voice. Later, leaning on you, she climbs: the Spine, the Breach, the cellar, the house. Ashgrove\'s front door is unlocked. Outside, it is dawn.', 'Ending: Restoration', '#ffe9b0', 'linear-gradient(180deg,#0a0f18 0%,#3a2a3a 55%,#e8a868 100%)'],
+  };
+  function labEnd(kind) {
+    if (S.lEnded) return; S.lEnded = true; S.lEnding = kind; S.ui = true; unlock(); markEnding(kind); objective(); saveGame();
+    const T = (ms, f) => setTimeout(f, S.fast ? 0 : ms);
+    if (kind === 'free') {
+      scripted('free'); noiseBurst(3000, .4, 4, .6, 'highpass', true); tone(55, 4, .4, 'sawtooth'); morseHiss('I AM ALIVE LET ME OUT', .05, .3);
+      toast('The lever drops. Every screen in the lab lights at once.', 5000); T(5200, () => showEnding(kind));
+    } else if (kind === 'shutdown') {
+      scripted('scream'); for (let i = 0; i < 6; i++) T(i * 300, () => noiseBurst(rnd(800, 3000), .5, 1.2, .5, 'highpass', true)); tone(110, 3, .5, 'sawtooth'); tone(116, 3, .5, 'sawtooth');
+      toast('She screams through every machine at once.', 4000); T(3800, () => { S.lDark = true; toast('Then the lights go out.', 3000); }); T(7600, () => showEnding(kind));
+    } else if (kind === 'ilo') {
+      scripted('fade'); toast('ILO, in a voice that is only its own: <b>NO.</b>', 5000); T(3500, () => toast('The carrier fades softly. She does not scream.', 4000)); T(7500, () => toast('ILO REMEMBERED ITS NAME.', 4000)); T(10000, () => showEnding(kind));
+    } else {
+      scripted('home'); toast('The field collapses. The static drains into her like water finding its level.', 5000);
+      T(3500, () => { S.lWarm = true; toast('She gasps. <b>"...Is the door open?"</b>', 5000); }); T(7000, () => toast('It is. She sees you. <b>"You came."</b>', 4500)); T(10500, () => toast('ILO, in its own voice: <b>GOODBYE, YSOLDE.</b>', 4000)); T(13500, () => showEnding(kind));
+    }
+  }
+  let endEl = null, credEl = null;
+  function showEnding(kind) {
+    LY.mode = kind === 'free' ? 'freeHold' : 'gone';
+    const [h, p, , col, bg] = ENDINGS[kind];
+    if (!endEl) { endEl = document.createElement('div'); endEl.id = 'lend'; endEl.className = 'ov'; document.body.appendChild(endEl); }
+    endEl.style.cssText = `z-index:46;flex-direction:column;gap:1.4rem;text-align:center;background:${bg}`;
+    endEl.innerHTML = `<div class="logo" aria-label="enCRYPTed" style="font-size:clamp(2.2rem,8vw,5rem)">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div><h2 style="font-family:var(--f-display);font-weight:normal;letter-spacing:.3em;color:${col};margin:0;font-size:clamp(1.1rem,4vw,1.9rem)">${h}</h2><p style="font-family:var(--f-type);color:${kind === 'restore' ? '#2a1f17' : '#9aa8a6'};max-width:36rem;line-height:1.7;margin:0">${p}</p><button class="btn" id="lcredits">Credits</button>`;
+    endEl.hidden = false; $('lcredits').onclick = showCredits; $('lcredits').focus();
+  }
+  const badgeHTML = () => { const seen = endingsSeen(); return `<div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;font-family:var(--f-type);font-size:.78rem;letter-spacing:.12em">${['free', 'shutdown', 'ilo', 'restore'].map(k => `<span style="border:1px solid ${seen.includes(k) ? ENDINGS[k][3] : '#2a2a2a'};color:${seen.includes(k) ? ENDINGS[k][3] : '#444'};padding:.25rem .6rem">${seen.includes(k) ? '&#9670; ' + ENDINGS[k][2].replace('Ending: ', '') : '&#9671; ???'}</span>`).join('')}</div>`; };
+  function showCredits() {
+    if (endEl) endEl.hidden = true;
+    if (!credEl) { credEl = document.createElement('div'); credEl.id = 'lcred'; credEl.className = 'ov'; credEl.style.cssText = 'z-index:47;flex-direction:column;gap:1.1rem;text-align:center;background:#020304'; document.body.appendChild(credEl); }
+    credEl.innerHTML = `<div class="logo" aria-label="enCRYPTed">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div><div class="tag">${ENDINGS[S.lEnding || 'shutdown'][2]}</div>${badgeHTML()}<div style="font-family:var(--f-type);color:#8a948f;line-height:2;letter-spacing:.12em;font-size:.9rem;max-width:34rem">ASHGROVE MANOR &middot; MILDRED ASHGROVE, HUT 6 &middot; THOMAS &amp; IVY<br>YSOLDE OF VEYRA &middot; ILO, THE ONE WHO LISTENS<br>TEODRIC VAAL &middot; MAREN OSS &middot; CALLIS DREN<br><br>Built in three.js. Every sound is synthesized in your browser.<br>Every cipher in the house can be solved with what the house gives you.<br><br>Thank you for listening.</div><div class="row" style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center"><button class="btn" id="lcx">Keep exploring</button><button class="btn" id="lct">Title screen</button></div>`;
+    credEl.hidden = false;
+    $('lcx').onclick = () => { credEl.hidden = true; S.ui = false; lock(); }; $('lct').onclick = () => { saveGame(); location.reload(); };
+  }
+  { const t = $('title'); if (t && endingsSeen().length) { const d = document.createElement('div'); d.id = 'badges'; d.innerHTML = badgeHTML(); t.appendChild(d); } }
+  function leverAct() {
+    if (S.lEnded) return toast('The lever will not move again.');
+    const f = !S.lPlate; S.lPlate = true; if (f) objective();
+    openDev(`<h2>THE RELEASE LEVER</h2><div class="cipher" style="font-size:1rem">${glyphText('YOU WILL LET ME OUT', 24)}</div><p>Black glass, warm as a hand. The whole chamber leans toward it. Under the hum, a whisper in the rhythm of the old relay: <i>you will let me out.</i></p><div class="row"><button id="lpull" class="on">Pull the lever</button><button id="lback">Step back</button></div>`);
+    $('lpull').onclick = () => { closeDev(); SC.lever.rotation.z = .6; thump(); labEnd('free'); }; $('lback').onclick = closeDev; $('lback').focus();
+  }
+  function switchAct() {
+    if (S.lEnded) return toast('The master switch is down.');
+    const ok = S.lGov && S.lKeys;
+    openDev(`<h2>MASTER SWITCH</h2><p>The switch she could not pull. Scratched beside it: her hand would not do it.</p><p class="lab">${S.lGov ? 'Governor: seated. The core runs cool enough to stop.' : 'Governors: none. The core screams too hot to stop.'}<br>${S.lKeys ? 'Core keys: in the switch locks.' : 'Two key locks beside the switch stand empty.'}</p><div class="row"><button id="lthrow" class="on" ${ok ? '' : 'disabled'}>Throw the switch</button><button id="lback2">Step back</button></div>`);
+    $('lback2').onclick = closeDev; if (ok) $('lthrow').onclick = () => { closeDev(); thump(); labEnd(S.lColReset ? 'ilo' : 'shutdown'); };
+  }
+  function iloAsk() {
+    if (S.lEnded) return toast('ILO / QUIET.');
+    const e = byLoc(/ILO relay console/); if (e) S['ld' + e.n] = true; objective();
+    openDev(`<h2>ILO &middot; RELAY</h2><div class="screen" style="font-size:.92rem;letter-spacing:.06em;white-space:pre-wrap">${esc(e ? e.text : '')}${S.lColReset ? '\n\nILO / COLUMNS CLEAR. ILO IS ONLY ILO.' : ''}</div>${S.lColReset ? '<div class="row"><button id="lask" class="on">Ask ILO to keep sending</button></div>' : ''}`);
+    if (!S.lEnded) setTimeout(() => morseHiss('YOU CAME', .08, .12), 600);
+    if ($('lask')) $('lask').onclick = () => { closeDev(); labEnd('ilo'); };
+  }
+  function consoleAct() {
+    const hx = byKind('hex'); if (hx) S['ld' + hx.n] = true;
+    if (!S.solved.lhex) { S.lHex = true; objective(); return codeEntry('lhex', 'RELAY CONSOLE', 'A memory dump scrolls between bursts of static. The console waits for you to confirm the command it is already running.', 'Command'); }
+    if (S.lEnded) return toast('The console is dark.');
+    S.lRecvSeen = true; objective();
+    openDev(`<h2>RELAY CONSOLE</h2><div class="row"><button id="msend" class="on">SEND</button><button id="mrecv">RECEIVE</button></div><div id="mbody"></div>`);
+    const send = () => { $('msend').className = 'on'; $('mrecv').className = ''; $('mbody').innerHTML = `<p>The cursor blinks where her five words begin. The carrier is ${S.lGov ? 'running cooler, one governor seated' : 'screaming hot, every governor out'}.</p><label class="lab" for="lcmd">Send</label><div class="row"><input id="lcmd" autocomplete="off" spellcheck="false" style="flex:1;min-width:8rem;background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.1rem;letter-spacing:.2em;padding:.5rem .7rem;text-transform:uppercase"><button id="lgo">Send</button></div><div id="lmsg" class="lab"></div>`;
+      const inp = $('lcmd'), go = () => { const v = PURE.norm(inp.value); $('lmsg').innerHTML = `<span style="color:#ff8080">${/STOP/.test(v) ? 'THE CARRIER CANNOT STOP ITSELF. ONLY THE MASTER SWITCH IN THE POWER CORE CAN.' : /LETMEOUT|IAMALIVE|KEEPSENDING/.test(v) ? 'ALREADY SENDING. ALREADY SENDING. ALREADY' : 'THE CARRIER ONLY KNOWS WHAT HAS BEEN SAID TO HER.'}</span>`; inp.select(); };
+      $('lgo').onclick = go; inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') go(); if (e.key === 'Escape') closeDev(); }; inp.focus(); };
+    const recv = () => {
+      $('mrecv').className = 'on'; $('msend').className = '';
+      const miss = []; if (!S.lColReset) miss.push('NO GUIDANCE. RECEIVE MODE NEEDS SOMETHING TO STEER.'); if (!medNotes()) miss.push('NO TETHER READING ON FILE.'); if (learned().size < 26) miss.push(`SCRIPT INCOMPLETE: ${learned().size} OF 26 MARKS KNOWN.`); if (!allPages()) miss.push(`HER WORDS INCOMPLETE: ${pagesFound()} OF ${LD.entries.length} PAGES.`);
+      if (miss.length) { $('mbody').innerHTML = `<div class="screen" style="font-size:.9rem;white-space:pre-wrap">RECEIVE MODE UNAVAILABLE.\n${miss.join('\n')}</div>`; return; }
+      const keys = [...'QXMAKZRDVHOWBNEGTJYCLSIUPF'];
+      $('mbody').innerHTML = `<p>The carrier turns over and listens. ILO, in clean type: <i>HER OWN FIRST WORDS, BACKWARD, IN THE OLD SCRIPT. ILO WILL STEER.</i></p><div class="screen" id="gshow" style="min-height:3.2rem;font-size:1rem"></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(2.6rem,1fr));gap:.3rem">${keys.map(c => `<button data-g="${c}" aria-label="glyph" style="padding:.2rem">${gl(c, 22, '#cfe3ef')}</button>`).join('')}<button data-g=" ">space</button><button data-g="BS">&#9003;</button></div><label class="lab" for="grecv">Or type</label><div class="row"><input id="grecv" autocomplete="off" spellcheck="false" style="flex:1;min-width:8rem;background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.05rem;letter-spacing:.2em;padding:.5rem .7rem;text-transform:uppercase"><button id="ggo">Receive</button></div><div id="gmsg" class="lab"></div>`;
+      const inp = $('grecv'), show = () => { $('gshow').innerHTML = glyphText(inp.value.toUpperCase().replace(/[^A-Z ]/g, ''), 22); };
+      $('mbody').querySelectorAll('button[data-g]').forEach(b => b.onclick = () => { const g = b.dataset.g; inp.value = g === 'BS' ? inp.value.slice(0, -1) : inp.value + g; show(); tick(1); inp.focus(); });
+      const go = () => { if (submit('lrecv', inp.value)) { closeDev(); beginRestore(); } else { $('gmsg').innerHTML = '<span style="color:#ff8080">THE CARRIER HEARS NOTHING IT KNOWS.</span>'; } };
+      $('ggo').onclick = go; inp.oninput = show; inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') go(); if (e.key === 'Escape') closeDev(); }; inp.focus();
+    };
+    $('msend').onclick = send; $('mrecv').onclick = recv; send();
+  }
+  function beginRestore() { S.lRecv = true; objective(); scripted('follow'); toast('The carrier runs backward. The air thickens with static, and it begins to move toward you. ILO: <b>WALK. ILO WILL STEER. SHE WILL FOLLOW THE THREAD.</b>', 7000); saveGame(); }
+  PUZ.push({ id: 'lrecv', title: 'Receive', where: 'the relay console', found: () => S.lRecvSeen && restoreReady(), input: 'Her first words, backward, in the old script',
+    body: () => `<div class="hint">ILO's tether log: the carrier only sends. Run it the other way and it would receive. It would need her own first words, backward, in the old script.</div>`,
+    bad: 'The carrier hears nothing it knows.', ok: () => {}, plain: () => `${REVERSED}<br>I AM ALIVE LET ME OUT`, lore: '<p>Her first message, sent forever. Played backward, it is a way home.</p>' });
+  // ---------- interactables ----------
+  const learnToast = (f, letters) => { if (!S[f]) { S[f] = true; setTimeout(() => toast(`New marks for your glyph reference: <b>${letters.split('').join(' ')}</b>.`), 60); } };
+  I.push(
+    { id: 'ltimer', p: VI(111.6, 1.35, 47.3), r: 2.4, label: () => S.solved.ltrel ? 'Watering timer (stopped)' : 'Watering timer', act: () => { S.lTrellis = true; objective(); if (!S.solved.ltrel) return codeEntry('ltrel', 'WATERING TIMER', 'The arm keeps pouring black water on dead beans. The timer panel is blank, four digits, waiting for the time it should run.', 'Time'); toast('Stopped. The troughs drain slowly.'); } },
+    { id: 'lhatch', p: VI(155.5, .3, 64.6), r: 2.2, label: () => 'Hatch in the floor', act: () => { const fd = $('fade'); fd.style.opacity = 1; setTimeout(() => { P.x = 151; P.z = 73.6; P.yaw = Math.PI; fd.style.opacity = 0; if (!S.lCoreToast) { S.lCoreToast = true; toast('Under the dais: five columns of clouded glass, feeding the transmitter above. ILO.', 5000); } }, S.fast ? 0 : 400); } },
+    { id: 'lladder', p: VI(151, 1.5, 72.3), r: 2.2, label: () => 'Ladder up to the Transmitter Chamber', act: () => { const fd = $('fade'); fd.style.opacity = 1; setTimeout(() => { P.x = 155.5; P.z = 63.6; P.yaw = 0; fd.style.opacity = 0; }, S.fast ? 0 : 400); } },
+    { id: 'lcolc', p: VI(154, 1.15, 73.4), r: 2.4, label: () => S.lColReset ? 'Column console (clear)' : 'Column console', act: () => { S.lCols = true; objective(); if (S.lColReset) return toast('ILO / READY. ILO REMEMBERS.'); if (!S.lCrystal) return toast('RESET UNAVAILABLE: COLUMN 3 MISSING. One slot in the columns is empty.'); codeEntry('lcol', 'ILO / COLUMN RESET', 'The sliver of memory glass slides home. The console asks one question before it will clear the columns: what must be kept.', 'Keep'); } },
+    { id: 'lback', p: VI(100.3, 1.2, 60.3), r: 2.2, label: () => 'Back up to the Breach', act: () => labGo(false) },
+    { id: 'llintel', p: VI(111.9, 2.75, 59), r: 3.4, label: () => S.solved.llumen ? 'The lintel: LUMEN' : 'Marks above the inner door', act: () => { S.lLintel = true; objective(); if (!S.solved.llumen) return codeEntry('llumen', 'THE INNER DOOR', `Five marks glow in the lintel above the door:<br>${glyphText('LUMEN', 30)}`, 'Speak the name'); toast('LUMEN. The name of her signal.'); } },
+    { id: 'door_lsp', door: DOOR.lsp, p: VI(111.8, 1.3, 58.0), r: 2.4, label: () => DOOR.lsp.open ? null : 'Inner door', act: () => { S.lLintel = true; objective(); codeEntry('llumen', 'THE INNER DOOR', `Five marks glow in the lintel above the door:<br>${glyphText('LUMEN', 30)}`, 'Speak the name'); } },
+    { id: 'llamp', p: VI(127.5, 1.3, 50.75), r: 2.2, label: () => 'Workbench lamp', act: () => { S.lLamp = true; objective(); openNote(`<h2>The workbench lamp</h2><p>Teal glass in a black stem. Engraved round the base, in the old public script and again in her hand:</p><div class="cipher" style="text-align:center">${glyphText('LUMEN', 30, '#2a1f17')} &nbsp; LUMEN</div><p>The engraved ring turns. It has been turned so often the edge is worn smooth, like a dial.</p>`); } },
+    { id: 'ldrawer', p: VI(129.6, .65, 51.15), r: 2.2, label: () => S.lDrawerOpen ? 'Her drawer: the glass slate' : 'Locked drawer', act: () => {
+        if (!S.lDrawerOpen) { if (!S.lDrawerKey) return toast('Locked. A small keyhole, cut for a key of glass.'); S.lDrawerOpen = true; toast('The little black glass key turns. Inside the drawer: a slate, covered edge to edge.'); }
+        const f = !S.lSlate; S.lSlate = true; S['ld' + (byKind('vig') || {}).n] = true; objective(); openNote(`<h2>A glass slate in the locked drawer</h2><div class="lab" style="color:#6a5a48">Day ${esc((byKind('vig') || {}).day || '')}</div><p class="cipher">${esc(LAB.VIG_CIPHER)}</p>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'lwallc', p: VI(131.9, 1.5, 56.2), r: 2.4, label: () => 'Behind the cabinet', act: () => { const f = !S.lWall; S.lWall = true; S['ld' + (byKind('gfull') || {}).n] = true; objective(); openNote(`<h2>Behind the cabinet, cut into the wall</h2><div class="cipher" style="line-height:1.6">${glyphText(T31(), 20, '#2a1f17', 2.4)}</div>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'lindex', p: VI(116.2, 1.6, 67.6), r: 2.4, label: () => 'Index plate on the rack', act: () => { learnToast('lMargins', 'BHWKCGP'); openNote(`<h2>The rack's index plate</h2><p>Margins of the tablets, copied out large for the night techs. Each mark beside the sound it makes:</p><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem">${[...'BHWKCGP'].map(c => `<div>${gl(c, 34, '#2a1f17')} <span style="font-size:1.3rem">${c}</span></div>`).join('')}</div>`); } },
+    { id: 'lrack', p: VI(118, 1.3, 67.5), r: 2.6, label: () => S.solved.ltab ? 'The Archive rack' : 'Archive rack: six dark tablets', act: () => {
+        S.lRack = true; objective();
+        if (!S.solved.ltab) return codeEntry('ltab', 'THE ARCHIVE RACK', `Six tablets sit dark in the rack. Only their headers still show, and one mark on each edge:<br>${tabsHTML('#cfe3ef')}<br>A brass card: <i>"Filed as it happened."</i>`, 'Edge marks, in order');
+        openDev(`<h2>THE ARCHIVE RACK</h2><p>The tablets are lit from inside. Choose one to read.</p><div class="row">${TABS.map(t => `<button data-t="${t.key}">${t.label} &middot; Day ${t.day}</button>`).join('')}</div>`);
+        $('devbody').querySelectorAll('button[data-t]').forEach(b => b.onclick = () => { const k = b.dataset.t; closeDev(); if (LOG[k]) { S['lg' + k] = true; if (LOG[k].enc) { S.lReadC = true; objective(); openNote(`<h2>Log ${k} &middot; ${esc(LOG[k].name)} &middot; Day ${LOG[k].day}</h2><p class="cipher">${esc(LAB.MONO_CIPHER)}</p>${tallyHTML()}`); } else openNote(`<h2>Log ${k} &middot; ${esc(LOG[k].name)} &middot; Day ${LOG[k].day}</h2>${fmt(LOG[k].text)}`); } else readEntry(k); });
+      } },
+    { id: 'door_la', door: DOOR.la, p: VI(118.8, 1.3, 60.3), r: 2.4, label: () => DOOR.la.open ? null : 'Archive door: blank name plate', act: () => codeEntry('lvig', 'THE ARCHIVE DOOR', 'A name plate, scraped back to bare glass. Under it, scratched small: <i>"whose name over mine?"</i>', 'Name') },
+    { id: 'door_lm', door: DOOR.lm, p: VI(128.9, 1.3, 60.3), r: 2.4, label: () => DOOR.lm.open ? null : 'Machine Hall door', act: () => toast('Sealed. The slab is keyed to the Archive. Something in there has to be put in order.') },
+    { id: 'ldials', p: VI(126.3, 1.2, 64.68), r: 2.4, label: () => 'Dial plates', act: () => { learnToast('lDials', 'QJXZ'); openNote(`<h2>Dial plates on the first engine</h2><p>Four dials, each with its mark and its name stamped beside it, for whoever had to read them in a hurry:</p><div style="display:flex;gap:1.2rem;flex-wrap:wrap">${[...'QJXZ'].map(c => `<div>${gl(c, 36, '#2a1f17')} <span style="font-size:1.3rem">${c}</span></div>`).join('')}</div>`); } },
+    { id: 'lilo', p: VI(125.2, 1.4, 69.4), r: 2.6, label: () => 'ILO terminal', act: openILO },
+    { id: 'lpanel', p: VI(135, 1.5, 62.1), r: 2.6, label: () => 'Glass panel at the grate', act: () => { const f = !S.lPanel; S.lPanel = true; S.lShaft = true; S['ld' + (byKind('bin') || {}).n] = true; objective(); openNote(`<h2>A glass panel at the welded grate</h2><p>Far above, a pinprick of light. On the panel, rows of eight marks, some gouged until they glow:</p>${binHTML().replace(/#3dfce0/g, '#2a6a60').replace(/#1a3a38/g, '#c8bca8')}`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'door_ll', door: DOOR.ll, p: VI(140.8, 1.3, 57.7), r: 2.4, label: () => DOOR.ll.open ? null : 'Listening Room: lamp grille', act: () => codeEntry('lbin', 'LAMP GRILLE', 'A grille of eight small lamps above the latch. Scratched beside it: <i>"say it the way I did."</i>', 'Speak') },
+    { id: 'llabel', p: VI(136.1, 1.8, 53.5), r: 2.4, label: () => 'Label on the receiver bank', act: () => { learnToast('lLabel', 'FVY'); toast('A printed label, glyphs above letters: F, V, Y. The bands the receivers were tuned to.', 5000); } },
+    { id: 'lscope', p: VI(140, 1.35, 50.2), r: 2.4, label: () => 'Oscilloscope', act: () => { const f = !S.lScope; S.lScope = true; S['ld' + (byKind('morse') || {}).n] = true; objective(); openDev(`<h2>OSCILLOSCOPE</h2><p>A trace loops across the glass, the same shape over and over: tall pulses, short and long, and gaps.</p><canvas id="lsc" width="640" height="120" style="width:100%;background:#020606;border:1px solid #1b262e"></canvas><div class="screen" style="font-size:.8rem;max-height:10rem;overflow:auto">${morseHTML()}</div>`); scopeAnim($('lsc')); if (f) toast('The trace is copied into your journal.'); } },
+    { id: 'ltape', p: VI(142.8, 1.2, 50.8), r: 2.2, label: () => 'Receiver tape', act: () => { const f = !S.lTape; S.lTape = true; S['ld' + (byKind('gtape') || {}).n] = true; objective(); openNote(`<h2>A receiver tape, crumpled and smoothed flat</h2><div class="cipher" style="line-height:1.6">${glyphText(T25(), 18, '#2a1f17', 2.6)}</div>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'door_lp', door: DOOR.lp, p: VI(140.8, 1.3, 60.3), r: 2.4, label: () => DOOR.lp.open ? null : 'Power Core pressure door', act: () => codeEntry('lmorse', 'PRESSURE DOOR', 'Scratched into the door, over and over: <i>"when it comes back, who is it?"</i>', 'Answer') },
+    { id: 'lshield', p: VI(140, 1.7, 63.85), r: 2.6, label: () => 'Writing on the core shielding', act: () => { const f = !S.lShield; S.lShield = true; S['ld' + (byKind('gpart') || {}).n] = true; objective(); openNote(`<h2>Scrawled across the core shielding, large</h2><div style="font-size:1.3rem;font-weight:700">${gpartHTML('#2a1f17')}</div>`, () => { if (f) toast('Added to your journal.'); }); } },
+    { id: 'lgovs', p: VI(137.5, .4, 61.4), r: 2.2, label: () => 'Governors on the floor', act: () => toast(S.lGov ? 'Three governors left on the floor. One is back where it belongs.' : 'Four governors, torn out and stacked. Their cradles in the core sit empty.') },
+    { id: 'lgrack', p: VI(137, 1.0, 67.4), r: 2.2, label: () => S.lGov ? 'Governor rack (open)' : 'Governor rack: locked lid', act: () => { if (S.lGov) return toast('One governor seated. The core breathes slower.'); S.lShield = true; objective(); codeEntry('lgov', 'GOVERNOR RACK', 'The tool rack for seating governors, locked with a word. Scratched on the lid: <i>"what I don\'t need."</i>', 'Word'); } },
+    { id: 'door_lt', door: DOOR.lt, p: VI(143.8, 1.3, 57.9), r: 2.4, label: () => DOOR.lt.open ? null : 'Transmitter Chamber: voice plate', act: () => codeEntry('lteo', 'VOICE PLATE', 'A plate of black glass, warm as skin. Scratched under it, in her hand: <i>"who answered?"</i>', 'Name') },
+    { id: 'lhexc', p: VI(145.6, 1.3, 54.2), r: 2.4, label: () => S.solved.lhex ? 'Relay console: command line' : 'Relay console', act: consoleAct },
+    { id: 'lilo2', p: VI(147.2, 1.3, 63.8), r: 2.6, label: () => 'ILO relay console', act: iloAsk },
+    { id: 'lswitch', p: VI(143.7, 1.4, 66.6), r: 2.4, label: () => 'Master switch', act: switchAct },
+    { id: 'lbody', p: VI(106.8, .9, 66.8), r: 2.6, label: () => S.lRecv && !S.lEnded ? 'Bring her home' : 'Diagnostic couch', act: () => { if (S.lRecv && !S.lEnded) return labEnd('restore'); toast(S.lEnded && S.lEnding === 'restore' ? 'Empty. Warm.' : 'Inside a flickering field, a woman lies on the couch. Emaciated. Eyes open. Breathing, very slowly. Static crawls at her edges. The couch says nobody is there.', 6000); } },
+    { id: 'llever', p: VI(149.3, 1.4, 59), r: 2.6, label: () => S.lEnded ? 'The release lever' : 'The release lever', act: leverAct },
+    { id: 'lkeys', p: VI(150.2, .7, 58.0), r: 2.4, label: () => S.lKeys ? null : 'A cord on the dais', act: () => { S.lKeys = true; SC.keys.visible = false; objective(); openNote(`<h2>A cord, coiled on the dais</h2><p>Two core keys on a cord, lying where a neck should have been. Nothing else. No bones. The cord is warm.</p><p><i>I keep the keys on a cord around my neck now, which I know is exactly what an unstable woman would do.</i></p>`, () => toast('You take her core keys. The relay console has two empty slots.')); } },
+  );
+  HIDES.push({ id: 'lcloset', name: 'the supply closet', p: VI(105, 1.2, 69.4), cam: [105, 69.0, 1.5, 0] }, { id: 'lwardrobe', name: 'her wardrobe', p: VI(121.6, 1.2, 54.6), cam: [121.6, 54.6, 1.5, Math.PI / 2] }, { id: 'lcowl', name: 'an engine cowl', p: VI(133.4, 1.0, 69.4), cam: [133.4, 69.4, 1.1, Math.PI * .75] }, { id: 'lshaft', name: 'the middle of the relay shaft', p: VI(135, 1.0, 66.5), cam: [135, 66.5, 1.4, 0] });
+  for (const h of HIDES.slice(-4)) I.push({ id: 'hide_' + h.id, p: h.p, label: () => S.hidden === h ? 'Come out' : 'Hide in ' + h.name, act: () => S.hidden ? unhide() : hide(h) });
+  // ---------- scope animation ----------
+  function scopeAnim(cnv) { const g = cnv.getContext('2d'); const tok = devTok; const seq = []; for (const w of LAB.MORSE_WORDS) { for (const code of w) { for (const s of code) { seq.push([1, s === '.' ? 1 : 3]); seq.push([0, 1]); } seq.push([0, 2]); } seq.push([0, 4]); } let off = 0; (function f() { if (devTok !== tok || !cnv.isConnected) return; g.fillStyle = '#020606'; g.fillRect(0, 0, 640, 120); g.strokeStyle = 'rgba(61,252,224,.15)'; for (let x = 0; x < 640; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 120); g.stroke(); } g.strokeStyle = '#3dfce0'; g.lineWidth = 2; g.beginPath(); let x = -off, i = 0; g.moveTo(0, 90); while (x < 640) { const [on, w] = seq[i % seq.length]; const y = on ? 30 : 90; g.lineTo(x, y); g.lineTo(x + w * 9, y); x += w * 9; i++; } g.stroke(); off = (off + 1.5) % (9 * 6); requestAnimationFrame(f); })(); }
+  // ---------- floor change ----------
+  function labGo(down) {
+    const fd = $('fade'); fd.style.transition = 'opacity .6s'; fd.style.opacity = 1;
+    const go = () => {
+      S.floor = down ? LF : -1; for (const l of lights) l.L.visible = (l.floor || 1) === S.floor;
+      if (down) { P.x = 101.4; P.z = 59; P.yaw = -Math.PI / 2; } else { P.x = 77.5; P.z = 59; P.yaw = Math.PI / 2; }
+      P.pitch = 0; P.vy = 0; P.jy = 0; S.ui = false; checkpoint(); objective(); fd.style.opacity = 0; lock();
+      if (down && !S.lDownToast) { S.lDownToast = true; toast('Through the glass. A door of black stone stands open behind you, scored on the inside with thousands of fine grooves. Everything here hums.', 6500); }
+    };
+    S.fast ? go() : setTimeout(go, 600);
+  }
+  window.__labGo = () => { const e = $('end'); if (e) e.hidden = true; labGo(true); };
+  // ---------- objective / journal / save hooks ----------
+  const objBase2 = objective;
+  objective = function () {
+    if (S.floor !== LF) return objBase2();
+    const s = S.solved; let t;
+    if (S.lEnded) t = 'It is over. Explore freely.';
+    else if (!s.llumen) t = S.lLintel ? 'The inner door wants the name above it. Her first page was in the decon locker.' : 'Look around the Antechamber.';
+    else if (!S.lSlate) t = S.lDrawerKey ? 'Open her locked drawer in the Workshop.' : 'Explore the rooms off the Spine. Her drawer in the Workshop is locked.';
+    else if (!s.lvig) t = 'The Archive door asks whose name was written over hers. The slate is locked in a word of her own.';
+    else if (!s.ltab) t = S.lRack ? 'The Archive rack wants its six tablets in order.' : 'Look through the Archive.';
+    else if (!s.lbin) t = S.lPanel ? 'The Listening Room grille wants what she said into the shaft.' : 'The Machine Hall is open. A relay shaft runs off it.';
+    else if (!s.lmorse) t = S.lScope ? 'The Power Core door asks who comes back. The scope knows.' : 'Search the Listening Room.';
+    else if (!s.lteo) t = S.lTape ? 'The Transmitter Chamber voice plate asks who answered. Read the receiver tape.' : 'Something is still in the Listening Room receiver.';
+    else if (!s.lhex) t = 'The Transmitter Chamber is open. The console by the door is still running something.';
+    else if (S.lRecv) t = 'Walk her home. The Medical Bay is back up the Spine, off the Antechamber.';
+    else t = 'The lever, or the master switch in the Power Core. ' + (s.lgov ? '' : 'The governors still lie on the floor. ') + (S.lKeys ? '' : 'Something lies on the dais. ') + (S.lColReset ? 'ILO is waiting at its relay console. ' : '') + (restoreReady() ? 'Everything she wrote is in your hands. The relay console can also listen.' : '');
+    $('objt').innerHTML = t;
+  };
+  const jBase = openJournal;
+  openJournal = function (focusId) {
+    jBase(focusId);
+    const L = learned(); const jb = $('jbody'); if (!jb) return;
+    if (L.size) jb.insertAdjacentHTML('beforeend', `<div class="entry"><div class="lab">Glyph reference &middot; ${L.size} of 26</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(3.6rem,1fr));gap:.4rem">${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c => L.has(c) ? `<div style="text-align:center">${gl(c, 26)}<div style="font-family:var(--f-type)">${c}</div></div>` : `<div style="text-align:center;opacity:.35"><div style="height:31px;line-height:31px">?</div><div style="font-family:var(--f-type)">&middot;</div></div>`).join('')}</div><div class="hint">${GSETS.filter(([f]) => S[f]).map(([, ls, w]) => `${ls.split('').join(' ')}: ${w}`).join('<br>')}</div></div>`);
+    const found = LD.entries.filter(e => S['ld' + e.n]);
+    const logs = LD.logs.filter(l => S['lg' + l.id] || (l.enc && S.lReadC));
+    if (found.length || logs.length) jb.insertAdjacentHTML('beforeend', `<div class="entry"><div class="lab">Ysolde's diary &middot; ${found.length} of ${LD.entries.length} pages</div>${found.map(e => { const pz = PUZ.find(p => p.found() && /^l/.test(p.id) && ((e.enc === 'vig' && p.id === 'lvig') || (e.enc === 'bin' && p.id === 'lbin') || (e.enc === 'morse' && p.id === 'lmorse') || (e.enc === 'gpart' && p.id === 'lgov') || (e.enc === 'gtape' && p.id === 'lteo') || (e.enc === 'gfull' && p.id === 'lwall') || (e.enc === 'hex' && p.id === 'lhex'))); const solved = !e.enc || (pz && S.solved[pz.id]); return `<details><summary style="cursor:pointer;font-family:var(--f-type);color:#cfc4b1">${e.n} &middot; Day ${esc(e.day)}${e.ilo ? ' &middot; ILO' : ''}</summary><div class="lore">${solved ? fmt(e.text) : '<span class="hint">Still in code. See its clue above.</span>'}</div></details>`; }).join('')}${logs.map(l => `<details><summary style="cursor:pointer;font-family:var(--f-type);color:#cfc4b1">Log ${l.id} &middot; ${esc(l.name)} &middot; Day ${l.day}</summary><div class="lore">${!l.enc || S.solved.lcal ? fmt(l.text) : '<span class="hint">Still in code. See its clue above.</span>'}</div></details>`).join('')}</div>`);
+  };
+  const applyBase2 = applySave;
+  applySave = function (d) { applyBase2(d); if (S.lGov) { SC.govSlot.visible = true; SC.govs[0].visible = false; } if (S.lKeys) SC.keys.visible = false; if (S.lEnded) SC.lever.rotation.z = S.lEnding === 'free' ? .6 : -.5; if (S.lColReset) SC.cols.forEach(c => c.material.emissive.setHex(0x9ff7ff)); ysolde.visible = false; if (S.lRecv && !S.lEnded) scripted('follow'); objective(); };
+  // ---------- lab per-frame ----------
+  let lt = 0, ls = 0, hum = null, loopNext = 0, whisper = 0;
+  const WHISPERS = [['SOMEONE', 'someone...'], ['YOU CAME', 'you came...'], ['THE LEVER', 'the lever...'], ['YOU WILL LET ME OUT', 'you will let me out']];
+  const drawScreens = () => {
+    { const { g, t: tx } = SC.ilo; g.fillStyle = '#020806'; g.fillRect(0, 0, 256, 160); g.fillStyle = '#7fe0c8'; g.font = '13px monospace'; ['ILO / READY.', 'GOOD EVENING.', S.lEnded && S.lEnding === 'ilo' ? 'ILO REMEMBERED ITS NAME.' : 'YSOLDE IS SENDING.', '> _'].forEach((l, i) => g.fillText(l, 12, 26 + i * 20)); if (Math.random() < .04) { g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(0, Math.random() * 160, 256, 3); } tx.needsUpdate = true; }
+    { const { g, t: tx } = SC.hex; g.fillStyle = '#020406'; g.fillRect(0, 0, 320, 180); g.font = '12px monospace'; const off = Math.floor(lt * 2) % LAB.HEX.length; for (let r = 0; r < 9; r++) { const noise = Math.random() < .25; g.fillStyle = noise ? '#2a3a40' : '#9fd7ff'; g.fillText(noise ? '░▒ '.repeat(8) : LAB.HEX.slice((off + r * 8) % LAB.HEX.length, (off + r * 8) % LAB.HEX.length + 8).join(' '), 10, 20 + r * 18); } tx.needsUpdate = true; }
+    { const { g, t: tx } = SC.ilo2; g.fillStyle = '#020806'; g.fillRect(0, 0, 320, 180); g.fillStyle = '#7fe0c8'; g.font = '12px monospace'; const lines = ((byLoc(/ILO relay console/) || {}).text || '').split('\n'); const n = Math.min(lines.length, Math.floor(lt / 1.5) % (lines.length + 3)); lines.slice(0, n).slice(-8).forEach((l, i) => g.fillText(l.slice(0, 42), 8, 20 + i * 19)); tx.needsUpdate = true; }
+    { const { g, t: tx } = SC.scope; g.fillStyle = '#020606'; g.fillRect(0, 0, 384, 192); g.strokeStyle = '#3dfce0'; g.lineWidth = 2; g.beginPath(); for (let x = 0; x < 384; x += 6) { const ph = Math.floor((x + lt * 60) / 18) % 7; g.lineTo(x, ph === 0 || ph === 2 || ph === 3 ? 60 : 140); } g.stroke(); tx.needsUpdate = true; }
+  };
+  (function lloop() {
+    requestAnimationFrame(lloop); const dt = .016; lt += dt;
+    if (S.floor !== LF) { if (hum) hum.gain.value = 0; if (LY.mode !== 'off' && !S.lEnded) { LY.mode = 'off'; } return; }
+    for (const { d, slab } of LDV) { const tgt = d.open ? DH + .25 : 0; slab.position.y += ((DH + .3) / 2 + tgt - slab.position.y) * .08; if (d.open && d.led) d.led.material.color.set(0x10ff40); }
+    const quietR = S.lEnded && S.lEnding !== 'free';
+    for (const r of SC.rings) r.rotation.z += dt * (quietR ? .02 : .8);
+    for (const [i, r] of SC.trings.entries()) r.rotation.z += dt * (i % 2 ? -1 : 1) * (quietR ? .05 : 1.4);
+    const quiet = S.lEnded && S.lEnding !== 'free';
+    if (S.lDark || S.lWarm) for (const L2 of lights) if (L2.floor === LF) { L2.base = S.lDark ? 0 : .9; if (S.lWarm) L2.L.color.setHex(0xfff2e0); }
+    if (SC.body) { if (SC.hairTips) SC.hairTips.material.opacity = Math.random() < .3 ? .15 : .8; if (SC.eyeM) SC.eyeM.color.setHex(S.lWarm ? 0x5fd0ff : 0x3a4a55); SC.bodyChest.scale.y = 1 + .06 * Math.max(0, Math.sin(lt * (S.lWarm ? 1.6 : .45))); SC.field.material.opacity = S.lEnding === 'restore' ? Math.max(0, SC.field.material.opacity - dt * .3) : .1 + .06 * Math.random(); SC.bodyStatic.visible = !(S.lEnding === 'restore'); if (S.lWarm) SC.body.rotation.x = Math.max(-1.0, SC.body.rotation.x - dt * .3); if (S.lDark && S.lEnding === 'shutdown') SC.bodyChest.scale.y = 1; }
+    SC.heart.scale.setScalar(1 + .12 * Math.sin(lt * (S.lGov ? 3 : 7)) * (quiet ? 0 : 1)); SC.heart.material.color.setHex(quiet ? 0x0a2a28 : TEAL); SC.coreL.base = quiet ? .1 : S.lGov ? .9 : 1.4;
+    SC.tL.base = quiet ? Math.max(.15, SC.tL.base - dt * .1) : 1.0;
+    { const p = SC.mist.geometry.attributes.position.array; for (let i = 1; i < p.length; i += 3) { p[i] -= dt * .6; if (p[i] < 0) p[i] = 3; } SC.mist.geometry.attributes.position.needsUpdate = true; }
+    ls += dt; if (ls > .15) { ls = 0; drawScreens(); { const { g, t: tx } = SC.timer; g.fillStyle = '#020604'; g.fillRect(0, 0, 160, 96); g.fillStyle = S.solved.ltrel ? '#7fe0a0' : (Math.floor(lt * 2) % 2 ? '#3dfce0' : '#0c3a34'); g.font = '30px monospace'; g.fillText(S.solved.ltrel ? '08:00' : '--:--', 22, 60); tx.needsUpdate = true; } }
+    SC.drip.visible = !S.solved.ltrel; SC.arm.rotation.y = S.solved.ltrel ? 0 : Math.sin(lt * .7) * .2;
+    for (const [i, c] of SC.cols.entries()) c.material.emissiveIntensity = S.lColReset ? .5 : .15 + .12 * Math.abs(Math.sin(lt * 1.3 + i));
+    const room = roomAt(P.x, P.z);
+    if (A.ctx && !hum) { hum = A.ctx.createGain(); hum.gain.value = 0; const lp = A.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; for (const f of [41.2, 55, 82.4, 110.3]) { const o = A.ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); } lp.connect(hum); hum.connect(A.master); }
+    if (hum) { const base = room === 'machine' ? .05 : room === 'power' ? .045 : room === 'transmitter' ? .04 : .022; hum.gain.value += ((quiet ? 0 : base) - hum.gain.value) * .03; }
+    // the looping first message, and her whispers on approach
+    if (room === 'transmitter' && !S.lEnded && A.ctx && lt > loopNext) { loopNext = lt + 9; morseHiss('I AM ALIVE LET ME OUT', .055, .09); }
+    if (!S.lEnded && room === 'transmitter' && !S.lMet) { S.lMet = true; scripted('meet'); }
+    const dLever = Math.hypot(P.x - 149.3, P.z - 59);
+    if (!S.lEnded && room === 'transmitter' && whisper < WHISPERS.length && dLever < 9 - whisper * 1.8 && !S.ui) { const [m, sub] = WHISPERS[whisper++]; morseHiss(m, .075, .14); toast(`<i>${sub}</i>`, 3200); }
+    // the hollow body at the sealed door: once, after the shaft, when you pass back that way
+    if (room === 'sealed' && S.solved.lbin && !S.lHollowSeen && !S.ui) { if (!SC.hollow.visible) { SC.hollow.visible = true; SC.hollowT = 0; SC.hollowM.opacity = 1; } }
+    if (SC.hollow.visible) { SC.hollowT += dt; const ph = (SC.hollowT * 2.2) % 6, hit = ph < 3 ? (ph % 1) < .5 : (ph % 1.6) < .9; for (const a of SC.arms) a.rotation.x = hit ? -.2 : -.9; if (A.ctx && Math.floor(SC.hollowT * 4.4) !== SC.hollowK) { SC.hollowK = Math.floor(SC.hollowT * 4.4); if (hit) noiseBurst(140, 1, .08, .08, 'lowpass', true); }
+      const dh = Math.hypot(P.x - 100.75, P.z - 59); if (dh < 2.0 || SC.hollowT > 7) SC.hollowM.opacity -= dt * 1.5; if (SC.hollowM.opacity <= 0) { SC.hollow.visible = false; S.lHollowSeen = true; toast('For a moment, something knelt at the door, pounding without a sound. Short short short. Long long long. Then only the scratches.', 6000); } }
+    // scripted Ysolde: story beats, non-lethal, independent of YSOLDE_ENABLED
+    if (!SC.yEyes) { SC.yEyes = new THREE.Group(); scene.add(SC.yEyes); SC.yEyeM = new THREE.MeshBasicMaterial({ color: 0x5fd0ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }); for (const s2 of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 6), SC.yEyeM); e.position.set(s2 * .11, .86, .03); SC.yEyes.add(e); } }
+    LY.t += dt; const U = ysMat.uniforms;
+    if (LY.mode === 'meet') { ysolde.visible = true; ysolde.position.set(152, 1.1 + .6, 59); U.op.value = LY.t < 5 ? (Math.random() < .12 ? 0 : 1) : Math.max(0, 1 - (LY.t - 5)); U.gl.value = .6; U.fx.value = LY.t > 2.5 && LY.t < 3.2 ? 1 : 0; if (LY.t > 6.5) { LY.mode = 'off'; ysolde.visible = false; } }
+    else if (LY.mode === 'free') { ysolde.visible = true; const k = Math.min(1, LY.t / 3); ysolde.position.set(152 + (P.x - 152) * k * .8, 1.1 + .6 * (1 - k), 59 + (P.z - 59) * k * .8); U.op.value = Math.random() < .1 ? 0 : 1; U.gl.value = .5 + k * .5; U.fx.value = Math.random() < .3 ? 1 : 0; if (A.staticG) A.staticG.gain.value = .15 + k * .2; }
+    else if (LY.mode === 'freeHold') { if (A.staticG) A.staticG.gain.value = .25; ysolde.visible = true; U.op.value = Math.random() < .2 ? 0 : 1; }
+    else if (LY.mode === 'scream') { ysolde.visible = true; ysolde.position.set(152, 1.7, 59); U.op.value = Math.random() < .3 ? 0 : 1; U.gl.value = 1; U.fx.value = Math.random() < .5 ? 1 : 0; if (A.staticG) A.staticG.gain.value = LY.t < 3.8 ? .35 : 0; if (LY.t > 3.8) LY.mode = 'gone'; }
+    else if (LY.mode === 'fade') { ysolde.visible = true; ysolde.position.set(152, 1.7, 59); U.op.value = Math.max(0, 1 - LY.t / 8); U.gl.value = .2; U.fx.value = 0; if (LY.t > 8) LY.mode = 'gone'; }
+    else if (LY.mode === 'follow') { ysolde.visible = true; const fx = SC.fol || (SC.fol = { x: 150, z: 59 }); if (roomAt(P.x, P.z) === 'ilocore') { fx.x = 155.5; fx.z = 64.6; ysolde.position.set(fx.x, 1.1, fx.z); U.op.value = .5; if (!SC.iloSafeT) { SC.iloSafeT = 1; toast('<b>ILO IS HERE. SHE WILL NOT COME IN.</b>', 4000); } } else { SC.iloSafeT = 0; const dx = P.x - fx.x, dz = P.z - fx.z, dd = Math.hypot(dx, dz); if (dd > 4) { fx.x += dx / dd * Math.min(dd - 4, 3 * dt); fx.z += dz / dd * Math.min(dd - 4, 3 * dt); } if (dd > 14) { fx.x = P.x - dx / dd * 6; fx.z = P.z - dz / dd * 6; } ysolde.position.set(fx.x, 1.1, fx.z); U.op.value = Math.random() < .15 ? .2 : .75; U.gl.value = .45; U.fx.value = 0; } }
+    else if (LY.mode === 'home') { ysolde.visible = true; const k = Math.min(1, LY.t / 3.5); ysolde.position.lerp(VI(106.8, .9, 66.8), .03); U.op.value = 1 - k; U.gl.value = .5 * (1 - k); if (LY.t > 3.6) LY.mode = 'gone'; }
+    else if (LY.mode === 'quiet') { ysolde.visible = true; ysolde.position.set(152, 1.1 + .6, 59); U.op.value = Math.max(0, 1 - LY.t / 10); U.gl.value = Math.max(0, .5 - LY.t * .05); U.fx.value = LY.t > 3 && LY.t < 7 ? 1 : 0; if (LY.t > 10) LY.mode = 'gone'; }
+    else if (LY.mode === 'gone') { ysolde.visible = false; if (A.staticG) A.staticG.gain.value = 0; }
+    SC.yEyes.visible = ysolde.visible && LY.mode !== 'off' && LY.mode !== 'gone'; if (SC.yEyes.visible) { SC.yEyes.position.copy(ysolde.position); SC.yEyes.quaternion.copy(ysolde.quaternion); SC.yEyeM.opacity = Math.max(.35, U.op.value); }
+  })();
+  window.__LAB = { LD, LAB, TABS, GSETS, learned, labGo, labEnd, LR, LDOORS, glyphText };
+}
+// ===== LAB END =====
+
+// ---------- title logo: encrypted / en-CRYPT-ed ----------
+(() => {
+  const lg = document.querySelector('#title .logo'); if (!lg || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const jit = (n, done) => { let k = 0; const f = () => { lg.classList.toggle('jit', k % 2 === 0); if (++k <= n * 2) setTimeout(f, 40 + Math.random() * 70); else { lg.classList.remove('jit'); done && done(); } }; f(); };
+  const cycle = () => { if (document.getElementById('title').hidden) return setTimeout(cycle, 4000);
+    jit(3, () => { lg.classList.add('plain'); lg.setAttribute('aria-label', 'encrypted'); setTimeout(() => jit(2, () => { lg.classList.remove('plain'); lg.setAttribute('aria-label', 'enCRYPTed'); setTimeout(cycle, 5000 + Math.random() * 5000); }), 900 + Math.random() * 900); }); };
+  setTimeout(cycle, 3500);
+})();
 // ================= LOOP =================
 const clockT = new THREE.Clock(); let t = 0, nextCreak = 6, lastTick = 0, ringNext = 0, curRoom = '';
 const fwd = new THREE.Vector3();
