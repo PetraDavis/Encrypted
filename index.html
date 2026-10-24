@@ -131,7 +131,7 @@ button{font:inherit;cursor:pointer}
   <canvas id="tnoise"></canvas>
   <div class="logo" aria-label="enCRYPTed">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div>
   <div class="tag">Ashgrove Manor · bought at government auction · power off since the accident</div>
-  <button class="btn" id="start">Enter</button>
+  <button class="btn" id="cont" hidden>Continue</button><button class="btn" id="start">Enter</button><div class="tag" id="savenote" hidden></div>
   <div class="keys"><b>WASD</b> move &nbsp; <b>Mouse</b> look &nbsp; <b>E</b> interact &nbsp; <b>F</b> flashlight &nbsp; <b>Space</b> jump &nbsp; <b>C</b> crouch &nbsp; <b>J</b> journal<br>Headphones recommended.</div>
 </div>
 
@@ -691,11 +691,11 @@ $('back').onclick=()=>{playing=false;setT((Math.round(vt*FPS)-1)/FPS);};
 $('seek').oninput=e=>setT(+e.target.value);
 $('speed').onchange=e=>{speed=+e.target.value;resetAudioCursor();};
 $('mute').onclick=()=>{muted=!muted;$('mute').textContent=muted?'Sound off':'Sound on';};
-addEventListener('keydown',e=>{if(document.getElementById('ivy').hidden)return;if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;if(e.code==='Space'){e.preventDefault();toggle();}else if(e.key===',')$('back').click();else if(e.key==='.')$('fwd').click();});
-window.__ivy={setT,poses,SEM};
-return {draw,stop:()=>{playing=false;sync();},setT};
+addEventListener('keydown',e=>{if(document.getElementById('ivy').hidden)return;if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;if(e.code==='Space'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)toggle();}else if(e.key===',')$('back').click();else if(e.key==='.')$('fwd').click();});
+window.__ivy={setT,poses,SEM,MSG,WORDS,HELP,POSEB};
 document.fonts?.ready.then(draw);
 setT(1.2);requestAnimationFrame(loop);
+return {draw,stop:()=>{playing=false;sync();},play:()=>{if(!playing)toggle();},setT,isPlaying:()=>playing,time:()=>vt,audio:()=>ac&&ac.state};
 })();
 </script>
 <script>
@@ -1701,7 +1701,7 @@ const PUZ = [
 function submit(id, val) {
   const p = PUZ.find(q => q.id === id); if (!p || S.solved[id]) return true;
   if (!PURE.check(id, val)) { tone(110, .25, .2, 'square'); return false; }
-  S.solved[id] = true; tone(880, .3, .15); p.ok(); objective(); checkpoint(); return true;
+  S.solved[id] = true; tone(880, .3, .15); p.ok(); objective(); checkpoint(); saveGame(); return true;
 }
 // ---------- overlays ----------
 let noteCb;
@@ -1719,7 +1719,7 @@ function openJournal(focusId) {
   for (const p of found) {
     h += `<div class="entry${p.id === focusId ? ' focus' : ''}" id="je_${p.id}"><h3>${p.title}</h3><div class="lab">${p.where}</div>${p.body()}`;
     if (!S.solved[p.id]) h += `<label class="lab" for="ans_${p.id}">${p.input}</label><div class="row"><input id="ans_${p.id}" data-id="${p.id}" autocomplete="off" placeholder="answer"><button class="go" data-id="${p.id}">Enter</button></div><div id="msg_${p.id}"></div>`;
-    else h += `<div class="ok">Solved: ${PURE.ANSWERS[p.id][0]}</div><div class="lore">${p.lore}</div>`;
+    else h += `${p.plain ? `<div class="lab">Translation</div><div class="cipher" style="color:#bfe3c8">${p.plain()}</div>` : ''}<div class="ok">Solved: ${PURE.ANSWERS[p.id][0]}</div><div class="lore">${p.lore}</div>`;
     h += `</div>`;
   }
   const refs = [];
@@ -1766,7 +1766,7 @@ function openCloset() {
   objective();
 }
 function closetAct() {
-  if (!S.closetOpen) { if (!S.power) return toast('The keypad is dead.'); return codeEntry('caesar', 'COAT CLOSET KEYPAD', '', '4-letter code'); }
+  if (!S.closetOpen) { if (!S.power) return toast('The keypad is dead.'); return codeEntry('caesar', 'COAT CLOSET KEYPAD', 'A brass keypad on the closet door. Four letters. Someone has tapped these keys a lot.', '4-letter code'); }
   if (S.hidden) unhide(); else hide(HIDES[0]);
 }
 function codeEntry(id, title, desc, label) {
@@ -1899,7 +1899,7 @@ PUZ.push(
     lore: `<p>Dad, if you are reading this, you finally looked at the thermostat. I'm in my room. Don't talk to the speaker. Don't talk near the TV. Just knock.</p><p class="sig">Ivy</p>` },
   { id: 'mirror', title: 'Writing in the steam', where: 'the bathroom mirror', found: () => S.mirrorSeen, input: 'Laptop password',
     body: () => `<div class="cipher"><span style="display:inline-block;transform:scaleX(-1)">STARLIGHT &#9734;</span></div>`,
-    bad: 'Wrong password.', ok: () => { drawLaptop(); toast("Ivy's laptop unlocks with a cheerful chime."); },
+    bad: 'Wrong password.', ok: () => { drawLaptop(); toast("Ivy's laptop unlocks with a cheerful chime."); setTimeout(() => { if (!S.fast && $('dev').hidden && $('ivy').hidden) openIvy(); }, 0); },
     lore: `<p>I write passwords in the steam. She can't read glass. She only reads screens.</p><p class="sig">Ivy</p>` },
   { id: 'video', title: "Pip's dance", where: "Ivy's laptop", found: () => S.videoSeen, input: 'Folder passphrase',
     body: () => `<div class="hint">ivy_game_demo_FINAL(2).mp4 &middot; for_whoever_finds_this.zip</div>`,
@@ -1957,7 +1957,8 @@ function openCyl() {
 function openIvy() {
   S.videoSeen = true; objective(); S.ui = true; unlock(); $('ivy').hidden = false; $('iv_msg').textContent = '';
   if (S.solved.video) { $('iv_passrow').hidden = true; $('iv_msg').textContent = 'for_whoever_finds_this.zip: opened'; } else $('iv_passrow').hidden = false;
-  try { IVY && IVY.draw(); } catch (e) {}
+  try { IVY.draw(); IVY.play(); } catch (e) {}
+  $('iv_play').focus();
 }
 function closeIvy() { try { IVY && IVY.stop(); } catch (e) {} $('ivy').hidden = true; S.ui = false; lock(); }
 $('iv_close').onclick = closeIvy;
@@ -1984,6 +1985,46 @@ I.push(
   { id: 'baby', p: V(6.3, 1.0, -50.3), label: () => 'Baby monitor', act: () => toast('Thomas bought it to "keep an eye on Ivy". Its little light is on. Someone is watching from the other end.') },
   hideI(HIDES[3], "Hide in Ivy's closet", 'Leave the closet'), hideI(HIDES[4], 'Hide behind the coats', 'Step out'), hideI(HIDES[5], 'Hide in the linen closet', 'Leave the closet'),
 );
+
+// ---------- translations shown in the journal once solved ----------
+{ const TR = {
+    caesar: () => PURE.PLAIN, tap: () => 'QUIET', morse: () => 'ENIGMA', a1z: () => 'WIRES', ink: () => 'HUT 6',
+    bin: () => 'NOVA', mirror: () => 'STARLIGHT', video: () => 'SHE HEARS YOU THROUGH THE SCREENS. DONT MAKE A SOUND.<br>HELP ME',
+    cyl: () => CYL_LINES.join(' '), kw: () => PURE.KW_PLAIN };
+  for (const p of PUZ) if (TR[p.id]) p.plain = TR[p.id]; }
+// ---------- save / continue ----------
+const SAVE_KEY = 'encrypted.save', SAVE_V = 1, SKIP = new Set(['started', 'hidden', 'ui', 'dead', 'sighting', 'fast', 'sightingArmed', 'flickerBoot', 'preHide']);
+let memSave = null;
+const store = {
+  get() { try { return localStorage.getItem(SAVE_KEY); } catch (e) { return memSave; } },
+  set(v) { memSave = v; try { localStorage.setItem(SAVE_KEY, v); } catch (e) {} },
+  del() { memSave = null; try { localStorage.removeItem(SAVE_KEY); } catch (e) {} },
+};
+function saveGame() {
+  if (!S.started || S.dead || S.fast) return;
+  const st = {}; for (const k in S) if (!SKIP.has(k)) st[k] = S[k];
+  const pos = S.hidden ? S.preHide : P;
+  const data = { v: SAVE_V, at: Date.now(), S: st, doors: DOORS.filter(d => d.open || d.unlocked).map(d => d.id), P: { x: pos.x, z: pos.z, yaw: P.yaw }, CP };
+  try { store.set(JSON.stringify(data)); } catch (e) {}
+}
+function readSave() { try { const d = JSON.parse(store.get() || 'null'); return d && d.v === SAVE_V ? d : null; } catch (e) { return null; } }
+function applySave(d) {
+  for (const k in d.S) if (k in S || true) S[k] = d.S[k];
+  S.ui = false; S.hidden = null; S.dead = 0;
+  for (const d2 of DOORS) if (d.doors.includes(d2.id)) { d2.open = true; d2.unlocked = true; d2.t = 1; if (d2.led) d2.led.material.color.set(0x10ff40); }
+  if (S.power) { powerLever.position.y = 1.52; S.flickerBoot = 1; if (A.humG) A.humG.gain.value = .012; }
+  if (S.locked) lockLed.material.color.set(0xff1020);
+  if (S.closetOpen) { closetDoor.rotation.y = -1.2; keypadLed.material.color.set(0x10ff40); }
+  for (const l of lights) l.L.visible = (l.floor || 1) === (S.floor || 1);
+  P.x = d.P.x; P.z = d.P.z; P.yaw = d.P.yaw; P.pitch = 0; P.vy = 0; P.jy = 0;
+  if (d.CP) CP = d.CP;
+  try { drawFridge(); drawLaptop(); drawMirror(); drawThermo(); } catch (e) {}
+  if (S.phoneDone && !S.solved.morse) S.phoneRinging = false;
+  objective();
+}
+setInterval(() => { if (S.started && !S.ui && !S.dead) saveGame(); }, 15000);
+addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+addEventListener('pagehide', saveGame);
 
 let focus = null;
 function pickFocus() {
@@ -2025,7 +2066,7 @@ addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // ---------- checkpoint / death ----------
 let CP = { x: 0, z: 4.9, yaw: 0 };
-function checkpoint() { if (S.hidden) return; CP = { x: P.x, z: P.z, yaw: P.yaw }; }
+function checkpoint() { if (S.hidden) return; CP = { x: P.x, z: P.z, yaw: P.yaw }; saveGame(); }
 function die() {
   if (S.dead) return; S.dead = .001; unlock(); unhide(); $('death').style.opacity = 1; noiseBurst(3000, .5, 3, .6, 'highpass', false);
   ysolde.visible = false; Y.state = 'gone';
@@ -2206,14 +2247,24 @@ function frame() {
 drawFridge(); drawMon(); drawTV(); drawFrame(); drawLaptop(); drawMirror(); drawThermo();
 frame();
 // expose for tests
-window.__ENC = { S, P, Y, PURE, I, DOORS, ROOMS, goFloor, openJournal, submit, roomAt, blocked, die, interact: id => I.find(i => i.id === id).act() };
+window.__ENC = { S, P, Y, PURE, I, DOORS, ROOMS, saveGame, readSave, PUZ, goFloor, openJournal, submit, roomAt, blocked, die, interact: id => I.find(i => i.id === id).act() };
 
-$('start').onclick = () => {
+function begin(save) {
   try { audioInit(); } catch (e) {}
   titleOn = false; $('title').hidden = true; $('hud').hidden = false; S.started = true;
+  if (save) applySave(save);
   setTimeout(() => $('fade').style.opacity = 0, 100);
   objective(); lock();
-  setTimeout(() => toast('Ashgrove Manor. Yours now, signed and stamped.<br>The county said the power was cut after the accident.', 5500), 1200);
-};
+  if (save) setTimeout(() => toast('You come back to Ashgrove Manor. Nothing has moved. Nothing except you.', 4500), 900);
+  else { saveGame(); setTimeout(() => toast('Ashgrove Manor. Yours now, signed and stamped.<br>The county said the power was cut after the accident.', 5500), 1200); }
+}
+{ const sv = readSave(); let armed = false;
+  if (sv) { $('cont').hidden = false; $('start').textContent = 'New Game'; $('cont').focus(); }
+  $('cont').onclick = () => { const d = readSave(); begin(d); };
+  $('start').onclick = () => {
+    if (readSave() && !armed) { armed = true; $('start').textContent = 'Erase save and start over?'; $('savenote').hidden = false; $('savenote').textContent = 'Click again to confirm. Your saved progress will be lost.'; return; }
+    store.del(); begin(null);
+  };
+}
 })();
 </script>
