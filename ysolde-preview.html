@@ -1,0 +1,271 @@
+<title>Ysolde, The Static Woman</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,500;1,400&display=swap">
+<style>
+/* Layout: full-bleed showcase stage, dossier panel pinned right (stacks below on phones) */
+:root{
+  --void:#030405; --panel:#0b0d0f; --ink:#c9cfd4; --dim:#6f7b84; --signal:#a8c2d6; --blood:#d0303a; --line:#1d2328;
+  --f-display:'Special Elite','Courier New',monospace; --f-body:'Cormorant Garamond',Georgia,serif; --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--void);color:var(--ink);font-family:var(--f-body);display:grid;grid-template-columns:1fr minmax(300px,380px);overflow:hidden}
+#stage{position:relative;min-width:0;cursor:grab;touch-action:none}
+#stage:active{cursor:grabbing}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hint{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:16px;font:11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);pointer-events:none}
+.rec{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:16px;font:12px var(--f-mono);letter-spacing:.12em;color:var(--blood)}
+.rec::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blood);margin-right:8px;animation:b 1.2s steps(2) infinite}
+@keyframes b{50%{opacity:0}}
+aside{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding-block:28px;padding-left:24px;padding-right:max(24px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+.eyebrow{font:11px var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+h1{font:400 3.2rem/1 var(--f-display);margin:0;color:#e6ecef;text-shadow:2px 0 var(--blood),-2px 0 var(--signal);text-wrap:balance}
+.epi{font:italic 1.35rem var(--f-body);color:var(--signal);margin:-8px 0 0}
+.morse{font:13px var(--f-mono);color:var(--dim);letter-spacing:.2em}
+.lore{font-size:1.1rem;line-height:1.55;display:flex;flex-direction:column;gap:10px}
+.lore p{margin:0}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font:12px var(--f-mono);border-top:1px solid var(--line);padding-top:14px}
+dt{color:var(--dim);text-transform:uppercase;letter-spacing:.1em}dd{margin:0}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{font:12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;background:transparent;color:var(--ink);border:1px solid #2c353c;padding:12px 8px;cursor:pointer}
+button:hover{border-color:var(--signal);color:#fff}
+button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+button.warn{border-color:#5a1c20;color:#f0a0a5}
+button[aria-pressed="true"]{background:var(--signal);color:var(--void)}
+@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:62vh auto;overflow:auto}html{overflow:auto}aside{border-left:0;border-top:1px solid var(--line);overflow:visible}h1{font-size:2.6rem}}
+</style>
+
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div class="rec">SIGNAL ACQUIRED</div>
+  <div class="hint">Drag to orbit</div>
+</div>
+<aside>
+  <div class="eyebrow">enCRYPTed / Entity file 01</div>
+  <h1>Ysolde</h1>
+  <p class="epi">The Static Woman</p>
+  <div class="morse" aria-label="Morse for help">.... . .-.. .--.</div>
+  <div class="lore">
+    <p>Twelve thousand years ago Ysolde was a scientist of the Veyra. Jealous co-workers sealed her inside her own laboratory and left her there.</p>
+    <p>She built a transmitter to send a distress signal. It worked too well. The signal took her in, and she became part of it.</p>
+    <p>Now she lives in electronics. Lights die as she comes near, and she speaks only in the rhythm of Morse code. She does not know she is a monster. She still thinks she is calling for help.</p>
+    <p>If she catches you, she pulls you into the signal with her.</p>
+  </div>
+  <dl>
+    <dt>Origin</dt><dd>Veyra laboratory, c. 12,000 years ago</dd>
+    <dt>Habitat</dt><dd>Screens, radios, wiring</dd>
+    <dt>Height</dt><dd>About 2.4 m</dd>
+    <dt>Tell</dt><dd>Failing lights, Morse static</dd>
+  </dl>
+  <div class="ctl">
+    <button id="bGlitch">Glitch</button>
+    <button id="bFace" class="warn">Face flash</button>
+    <button id="bApproach" class="warn">Approach</button>
+    <button id="bSound" aria-pressed="false">Sound on</button>
+  </div>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+if (typeof THREE==='undefined'){document.querySelector('.rec').textContent='3D engine failed to load. Reload the page.';return;}
+const stage=document.getElementById('stage'), canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x020203); scene.fog=new THREE.FogExp2(0x07080a,0.09);
+const camera=new THREE.PerspectiveCamera(50,1,0.05,60);
+function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return [c,c.getContext('2d')];}
+
+// floor + backdrop
+const floor=new THREE.Mesh(new THREE.CircleGeometry(9,48),new THREE.MeshStandardMaterial({color:0x14171a,roughness:.35,metalness:.4}));
+floor.rotation.x=-Math.PI/2; scene.add(floor);
+const ring=new THREE.Mesh(new THREE.RingGeometry(.7,.73,64),new THREE.MeshBasicMaterial({color:0x2a3a48}));
+ring.rotation.x=-Math.PI/2; ring.position.y=.005; scene.add(ring);
+// old CRT monitors around her
+const crts=[];
+for(let i=0;i<5;i++){const a=-1.1+i*.55,r=3.2;
+  const g=new THREE.Group(); g.position.set(Math.sin(a)*r,0,-Math.cos(a)*r); g.lookAt(0,0,0); scene.add(g);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.7,.55,.6),new THREE.MeshStandardMaterial({color:0x1a1a1c,roughness:.6})); body.position.y=.28+(i%2)*.0; g.add(body);
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(.56,.42),new THREE.MeshBasicMaterial({color:0x556677})); scr.position.set(0,.28,.301); g.add(scr);
+  const L=new THREE.PointLight(0x7f9ab0,.6,3.5,2); L.position.set(0,.4,.6); g.add(L); crts.push({scr,L,base:.6});
+}
+const key=new THREE.SpotLight(0x8aa4c0,1.6,12,.45,.7,1.4); key.position.set(0,5,2); key.target.position.set(0,0,0); scene.add(key,key.target);
+const hemi=new THREE.HemisphereLight(0x1a2030,0x0a0705,.25); scene.add(hemi);
+
+// ---------- Ysolde: 2.4 m static woman (mask 256x640 on a 1 x 2.5 plane) ----------
+const [yc, yg] = cv(256, 640);
+const [fc, fg] = cv(256, 640);
+{
+  yg.fillStyle = '#fff'; yg.strokeStyle = '#fff'; yg.lineCap = 'round'; yg.lineJoin = 'round';
+  const limb = (pts, w) => { yg.lineWidth = w; yg.beginPath(); yg.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) yg.lineTo(pts[i], pts[i + 1]); yg.stroke(); };
+  // head: small, tilted hard to her right on a long neck
+  const HX = 140, HY = 50, TILT = .55;
+  yg.save(); yg.translate(HX, HY); yg.rotate(TILT);
+  yg.beginPath(); yg.ellipse(0, 0, 17, 25, 0, 0, 7); yg.fill();
+  yg.beginPath(); yg.moveTo(-18, -6); yg.quadraticCurveTo(-30, 50, -24, 96); yg.lineTo(-6, 70); yg.lineTo(8, 100); yg.lineTo(20, 60); yg.quadraticCurveTo(22, 20, 17, -6); yg.fill(); // lank hair
+  yg.restore();
+  limb([128, 120, 132, 88, 140, 66], 11); // neck
+  // narrow, sloped torso
+  yg.beginPath(); yg.moveTo(98, 122); yg.quadraticCurveTo(128, 108, 160, 126); yg.lineTo(150, 210); yg.lineTo(146, 260); yg.lineTo(110, 260); yg.lineTo(106, 210); yg.closePath(); yg.fill();
+  // tattered short dress
+  yg.beginPath(); yg.moveTo(108, 250); yg.lineTo(148, 250); yg.lineTo(162, 330);
+  for (let x = 162; x > 94; x -= 9) yg.lineTo(x - 4.5, 330 + (x % 2 ? 18 : 6)); yg.lineTo(94, 330); yg.closePath(); yg.fill();
+  // legs: long, thin, knees bent slightly backwards
+  limb([118, 320, 112, 460, 120, 470, 108, 612, 98, 628], 9);
+  limb([140, 320, 146, 462, 136, 474, 150, 610, 162, 630], 9);
+  // arms hang past the knees, elbows hyperextended
+  limb([100, 128, 84, 250, 92, 262, 76, 420], 7);
+  limb([158, 128, 176, 248, 166, 262, 184, 410], 7);
+  // too-long fingers
+  for (const [x, y, s] of [[76, 420, -1], [184, 410, 1]]) for (let f = 0; f < 5; f++) limb([x, y, x + s * (f * 4 - 6), y + 52 + (f % 2) * 8, x + s * (f * 5 - 4), y + 70 + f * 3], 2.6);
+
+  // the face that shows through: same tilt, gaunt, eyes black, jaw unhinged
+  fg.save(); fg.translate(HX, HY); fg.rotate(TILT);
+  let gr = fg.createRadialGradient(0, -6, 2, 0, 0, 30); gr.addColorStop(0, '#e6ddd2'); gr.addColorStop(.7, '#8a7c72'); gr.addColorStop(1, 'rgba(30,20,20,0)');
+  fg.fillStyle = gr; fg.beginPath(); fg.ellipse(0, 4, 18, 30, 0, 0, 7); fg.fill();
+  for (const s of [-1, 1]) {
+    let e = fg.createRadialGradient(s * 7, -6, .5, s * 7, -6, 8); e.addColorStop(0, '#000'); e.addColorStop(.75, '#000'); e.addColorStop(1, 'rgba(40,0,0,0)');
+    fg.fillStyle = e; fg.beginPath(); fg.ellipse(s * 7, -6, 6.5, 7.5, s * .3, 0, 7); fg.fill();
+    fg.strokeStyle = 'rgba(0,0,0,.85)'; fg.lineWidth = 1.4; fg.beginPath(); fg.moveTo(s * 7, 0); fg.lineTo(s * 8, 10); fg.stroke(); // black tear streaks
+  }
+  let m = fg.createLinearGradient(0, 8, 0, 36); m.addColorStop(0, '#000'); m.addColorStop(1, '#2a0606');
+  fg.fillStyle = m; fg.beginPath(); fg.ellipse(0, 22, 7, 15, 0, 0, 7); fg.fill();
+  fg.fillStyle = 'rgba(230,220,205,.9)'; for (let i = -5; i <= 5; i += 2.5) fg.fillRect(i - .6, 8, 1.2, 3);
+  fg.restore();
+}
+const ysMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { mask: { value: new THREE.CanvasTexture(yc) }, faceT: { value: new THREE.CanvasTexture(fc) }, time: { value: 0 }, op: { value: 0 }, fx: { value: 0 }, gl: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `uniform sampler2D mask, faceT; uniform float time, op, fx, gl; varying vec2 vUv;
+    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float M(vec2 p){return texture2D(mask,p).a;}
+    void main(){ float tq=floor(time*9.)/9.; vec2 uv=vUv;
+      float band=floor(uv.y*50.+tq*7.); float j=step(.94-gl*.5,h(vec2(band,floor(time*12.))));
+      uv.x+=(h(vec2(band,tq))-.5)*(.22+gl*.4)*j;
+      float tb=floor(uv.y*18.); float tr=step(.975-gl*.45,h(vec2(tb,floor(time*5.)))); // tearing bands
+      uv.x+=tr*(h(vec2(tb,tq+1.))-.5)*.18;
+      uv+=(vec2(h(vec2(tq,uv.y*90.)),h(vec2(uv.x*90.,tq)))-.5)*.012;
+      float m=M(uv); vec2 o=vec2(.008,.0032);
+      float b=(M(uv+vec2(o.x,0.))+M(uv-vec2(o.x,0.))+M(uv+vec2(0.,o.y))+M(uv-vec2(0.,o.y)))*.25;
+      float edge=clamp((m-b)*4.+(1.-b)*m*.9,0.,1.);
+      float n=h(floor(vUv*vec2(90.,225.))+floor(time*30.));
+      float scan=.6+.4*sin(vUv.y*380.+time*40.);
+      vec3 inner=vec3(.02,.022,.03)+n*n*.32*vec3(.6,.7,.8)*scan;
+      vec3 rim=mix(vec3(.75,.85,.95),vec3(1.3),n)*(.8+.2*scan)*1.5;
+      vec3 c=mix(inner,rim,edge); if(j>.5) c=mix(c,vec3(1.,.15,.2),.3*edge+.1);
+      float a=m*op*(.85+.15*n)*(1.-tr*step(.45,h(vec2(floor(vUv.x*60.),tb+tq))));
+      vec4 f=texture2D(faceT,uv+vec2((h(vec2(band,time*3.))-.5)*.02*fx,0.));
+      if(fx>0.){ vec3 fcol=pow(f.rgb,vec3(1.6))*1.5*(.75+.5*scan); fcol=mix(fcol,vec3(n),.15); c=mix(c,fcol,f.a*fx); a=max(a,f.a*fx*op); }
+      if(a<.02) discard; gl_FragColor=vec4(c,a);}`
+});
+const ysolde=new THREE.Mesh(new THREE.PlaneGeometry(1.0,2.5),ysMat);
+ysolde.scale.set(.96,.96,1); ysolde.position.set(0,1.2,0); scene.add(ysolde); ysMat.uniforms.op.value=1; // ~2.4m tall
+// faint signal glow beneath her
+const glow=new THREE.PointLight(0x9ab4cc,.8,3,2); glow.position.set(0,1.6,.5); scene.add(glow);
+
+// ---------- post (grain, chromatic split, vignette; from the game) ----------
+const rt=new THREE.WebGLRenderTarget(2,2,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});
+const post=new THREE.ShaderMaterial({
+  uniforms:{t:{value:rt.texture},time:{value:0},st:{value:0},dead:{value:0},hide:{value:0},res:{value:new THREE.Vector2(1,1)}},
+  vertexShader:'varying vec2 vUv; void main(){vUv=uv; gl_Position=vec4(position.xy,0.,1.);}',
+  fragmentShader:`uniform sampler2D t; uniform float time, st, dead, hide; uniform vec2 res; varying vec2 vUv;
+    float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+    void main(){ vec2 uv=vUv; float row=floor(uv.y*90.);
+      float gl=step(1.-(.02+st*.25+dead*.6),h(vec2(row,floor(time*24.))));
+      uv.x+=(h(vec2(row,time))-.5)*gl*(.02+st*.08+dead*.2);
+      vec2 d=uv-.5; float ca=.0018+st*.009+dead*.03;
+      vec3 c=vec3(texture2D(t,uv+d*ca).r,texture2D(t,uv).g,texture2D(t,uv-d*ca).b);
+      c=pow(c,vec3(.92)); c*=vec3(1.02,.98,.94);
+      float n=h(floor(vUv*res)+fract(time*7.3)*91.);
+      c+=(n-.5)*(.07+st*.35);
+      c=mix(c,vec3(n*.9),clamp(st*.22+dead,0.,1.));
+      float v=smoothstep(.95,.25,length(d*vec2(1.,.85))*(1.+hide*.9)); c*=mix(.25,1.,v);
+      c*=.96+.04*sin(vUv.y*res.y*1.2);
+      gl_FragColor=vec4(c,1.);}`
+});
+const postScene=new THREE.Scene(), postCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),post));
+function resize(){const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+  const pr=renderer.getPixelRatio(); rt.setSize(w*pr,h*pr); post.uniforms.res.value.set(w*pr,h*pr);}
+addEventListener('resize',resize); resize();
+
+// ---------- orbit ----------
+let yaw=0,pitch=.1,dist=3.6,drag=null,lastInput=0;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{if(!drag)return;yaw-=(e.clientX-drag.x)*.006;pitch=Math.max(-.15,Math.min(.5,pitch+(e.clientY-drag.y)*.004));drag={x:e.clientX,y:e.clientY};lastInput=performance.now();});
+stage.addEventListener('pointerup',()=>drag=null);
+stage.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(2,Math.min(6,dist+e.deltaY*.003));},{passive:false});
+
+// ---------- events ----------
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let glitchT=0,faceT=0,approachT=-1,nextFace=2+Math.random()*3;
+const $=id=>document.getElementById(id);
+$('bGlitch').onclick=()=>{glitchT=.9;};
+$('bFace').onclick=()=>{faceT=.25;scream();};
+$('bApproach').onclick=()=>{if(approachT<0)approachT=0;};
+
+// ---------- audio: static hiss keyed in Morse ----------
+let A=null;
+const MORSE='.... . .-.. .--.   '; // HELP
+function initAudio(){
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;
+  const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=2400;bp.Q.value=.6;
+  const bed=ctx.createGain();bed.gain.value=.025; const key=ctx.createGain();key.gain.value=0;
+  const master=ctx.createGain();master.gain.value=0;
+  s.connect(bp);bp.connect(bed);bp.connect(key);bed.connect(master);key.connect(master);master.connect(ctx.destination);s.start();
+  A={ctx,key,master,s,buf,next:ctx.currentTime+.3,i:0};
+}
+function schedMorse(){
+  if(!A)return; const u=.09;
+  while(A.next<A.ctx.currentTime+.6){const ch=MORSE[A.i++%MORSE.length];const t=A.next;
+    if(ch==='.'||ch==='-'){const len=ch==='.'?u:u*3.8;A.key.gain.setValueAtTime(.22,t);A.key.gain.setValueAtTime(0,t+len);A.next=t+len+u;}
+    else A.next=t+u*2;}
+}
+function scream(){
+  if(!A||A.master.gain.value<.01)return; const c=A.ctx,t=c.currentTime;
+  const o=c.createOscillator(),g=c.createGain();o.type='sawtooth';o.frequency.setValueAtTime(900,t);o.frequency.exponentialRampToValueAtTime(380,t+.3);
+  g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.35);o.connect(g);g.connect(A.master);o.start(t);o.stop(t+.4);
+}
+$('bSound').onclick=()=>{if(!A)initAudio();const on=$('bSound').getAttribute('aria-pressed')!=='true';
+  A.ctx.resume();A.master.gain.setTargetAtTime(on?1:0,A.ctx.currentTime,.05);$('bSound').setAttribute('aria-pressed',on);$('bSound').textContent=on?'Sound off':'Sound on';};
+
+// ---------- loop ----------
+const clock=new THREE.Clock(); let t=0,stepT=0;
+function loop(){
+  const dt=Math.min(clock.getDelta(),.05); t+=dt;
+  if(!drag&&performance.now()-lastInput>3000&&!reduce) yaw+=dt*.08;
+  // random face flashes
+  nextFace-=dt; if(nextFace<=0){faceT=.08+Math.random()*.1;nextFace=3+Math.random()*5;}
+  faceT=Math.max(0,faceT-dt); glitchT=Math.max(0,glitchT-dt);
+  // approach
+  let near=0;
+  if(approachT>=0){approachT+=dt; const k=Math.min(approachT/4,1);
+    near=k; if(approachT>6.5){approachT=-1;near=0;}}
+  const z=approachT>=0?(approachT<4?near*(dist-1.0):approachT<4.6?dist-1.0:0):0;
+  if(approachT>=4&&approachT<4.6){faceT=.12;if(approachT>4.3)glitchT=.3;}
+  // camera
+  camera.position.set(Math.sin(yaw)*Math.cos(pitch)*dist,1.2+Math.sin(pitch)*dist,Math.cos(yaw)*Math.cos(pitch)*dist);
+  camera.lookAt(0,1.25,0);
+  const dir=new THREE.Vector3(camera.position.x,0,camera.position.z).normalize();
+  stepT-=dt; if(stepT<=0){stepT=1/7+(Math.random()<.1?.35:0);
+    ysolde.position.set(dir.x*z+(Math.random()-.5)*.03,1.2,dir.z*z);
+    ysolde.rotation.y=Math.atan2(camera.position.x-ysolde.position.x,camera.position.z-ysolde.position.z);
+    ysolde.rotation.z=Math.random()<.08?(Math.random()-.5)*.12:ysolde.rotation.z*.5;}
+  // lights: flicker, die as she nears
+  const flick=Math.random()<.04?.2:1, kill=1-near;
+  crts.forEach((c,i)=>{const on=(Math.random()>near*.9)&&kill>.05; c.L.intensity=on?c.base*flick*kill*(.85+Math.random()*.3):0; c.scr.material.color.setHSL(.58,.15,on?.25+Math.random()*.2:.02);});
+  key.intensity=1.6*flick*Math.max(.05,kill); hemi.intensity=.25*Math.max(.15,kill);
+  glow.intensity=.8+Math.random()*.4;
+  ysMat.uniforms.time.value=t; ysMat.uniforms.fx.value=faceT>0?1:0; ysMat.uniforms.gl.value=glitchT>0?1:0;
+  ysMat.uniforms.op.value=(glitchT>0&&Math.random()<.15)?0:1;
+  post.uniforms.time.value=t; post.uniforms.st.value=(glitchT>0?.9:0)+(faceT>0?.12:0)+near*.5; post.uniforms.dead.value=approachT>=4&&approachT<4.6?.35:0;
+  if(A){schedMorse();}
+  renderer.setRenderTarget(rt); renderer.render(scene,camera); renderer.setRenderTarget(null); renderer.render(postScene,postCam);
+  requestAnimationFrame(loop);
+}
+loop();
+})();
+</script>
