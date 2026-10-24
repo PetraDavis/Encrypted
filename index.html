@@ -43,6 +43,8 @@ button{font:inherit;cursor:pointer}
 #toast{position:absolute;left:50%;bottom:calc(12% + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-family:var(--f-type);color:#e9e0d0;font-size:1.02rem;text-align:center;max-width:min(40rem,90vw);text-shadow:0 0 8px #000,0 0 3px #000;transition:opacity .6s;opacity:0;line-height:1.5}
 #room{position:absolute;right:max(18px,env(safe-area-inset-right,0px));top:calc(16px + env(safe-area-inset-top,0px));font-family:var(--f-display);font-size:1.1rem;letter-spacing:.2em;color:#8c8478;text-shadow:0 0 6px #000}
 #hint{position:absolute;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));font-family:var(--f-type);font-size:.72rem;color:#5d574f;letter-spacing:.1em}
+#jbtn{position:absolute;left:max(18px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));pointer-events:auto;background:rgba(10,8,6,.7);color:#cbbfa9;border:1px solid #4a3a2c;font-family:var(--f-type);font-size:.8rem;letter-spacing:.12em;padding:.45rem .9rem}
+#jbtn:hover,#jbtn:focus-visible{border-color:var(--ember);outline:none}
 #fade{position:fixed;inset:0;background:#000;pointer-events:none;z-index:20;transition:opacity 2.5s;opacity:1}
 /* paper note */
 .panel{background:rgba(4,4,5,.82);z-index:30;backdrop-filter:blur(2px)}
@@ -106,7 +108,8 @@ button{font:inherit;cursor:pointer}
   <div id="obj"><small>OBJECTIVE</small><span id="objt"></span></div>
   <div id="room">GRAND FOYER</div>
   <div id="toast"></div>
-  <div id="hint">WASD move · Shift run · C crouch · F flashlight · E interact · J journal</div>
+  <button id="jbtn" type="button">Journal (J)</button>
+  <div id="hint">WASD move · Shift run · C crouch · F flashlight · E interact · J / Tab journal</div>
 </div>
 <div id="fade"></div>
 
@@ -999,8 +1002,8 @@ function doorAct(d) {
   if (d.lock === 'none') return openDoor(d);
   if (d.lock === 'key') { if (!S.keyLiving) return toast('Locked. A brass keyhole, polished from use.'); S.keyLiving = 'used'; toast('The brass key turns. Stiff, then all at once.'); openDoor(d); objective(); checkpoint(); return; }
   if (d.lock === 'jam') { if (doorSideA(d)) return toast('Swollen shut in its frame. It might give from the other side.'); toast('You shoulder the door. It bangs open into the foyer.'); thump(); openDoor(d); return; }
-  if (d.lock === 'keypad') { if (!lit()) return toast('The keypad is dark. No power.'); const p = PUZ.find(q => q.id === d.puzzle); if (p.found()) return openJournal(p.id); return toast(d.id === 'fh' ? 'ASHGROVE SMART LOCK: enter 5-letter code.<br>A sticky note in Ivy\'s writing: <i>"the TV knows. listen."</i>' : 'ASHGROVE SMART LOCK: enter 5-letter code.<br>Scratched into the paint: <i>"ask the fridge"</i>'); }
-  if (d.lock === 'shelf') { if (S.inkRevealed) return openJournal('ink'); return toast('Among the books, a brass dial with letters and numbers. It wants a word.'); }
+  if (d.lock === 'keypad') { if (!lit()) return toast('The keypad is dark. No power.'); return codeEntry(d.puzzle, 'ASHGROVE SMART LOCK', d.id === 'fh' ? 'A sticky note in Ivy\'s writing: <i>"the TV knows. listen."</i>' : 'Scratched into the paint: <i>"ask the fridge"</i>', '5-letter code'); }
+  if (d.lock === 'shelf') { if (!doorSideA(d)) return toast('The back of a bookshelf.'); return codeEntry('ink', 'BRASS DIAL', 'Hidden among the books: a brass dial ringed with letters and numbers.', 'Turn the dial to spell'); }
 }
 // ---------- hiding ----------
 const HIDES = [
@@ -1071,7 +1074,7 @@ function openJournal(focusId) {
   const go = id => { const inp = $('ans_' + id); if (submit(id, inp.value)) { openJournal(id); toast('Accepted.'); } else $('msg_' + id).innerHTML = `<span class="bad">${PUZ.find(q => q.id === id).bad}</span>`; };
   $('jbody').querySelectorAll('button.go').forEach(b => b.onclick = () => go(b.dataset.id));
   $('jbody').querySelectorAll('input').forEach(inp => inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') go(inp.dataset.id); if (e.key === 'Escape') closeJournal(); });
-  const fe = focusId && $('je_' + focusId); if (fe) { fe.scrollIntoView({ block: 'center' }); const fi = $('ans_' + focusId); if (fi) fi.focus(); } else $('jx').focus();
+  const fe = focusId && $('je_' + focusId); if (fe) { fe.scrollIntoView({ block: 'center' }); const fi = $('ans_' + focusId); if (fi) fi.focus(); } else { const first = $('jbody').querySelector('input'); if (first) { first.scrollIntoView({ block: 'center' }); first.focus(); } else $('jx').focus(); }
 }
 function closeJournal() { $('journal').hidden = true; S.ui = false; lock(); }
 // ---------- story beats ----------
@@ -1094,7 +1097,7 @@ function readNote() {
   if (!S.power) { toast('Too dark to make it out. Get the lights on first.'); return; }
   const first = !S.noteFound; S.noteFound = true; objective();
   openNote(`<h2>Folded paper, tucked behind the pendulum glass</h2>
-    <p>Dad never notices anything. Grandma taught me this one when I was six. Shift every letter <b>back</b> by the number of letters in my name.</p>
+    <p>Dad never notices anything. Grandma taught me this one when I was six. My name is the key.</p>
     <p class="cipher">${PURE.CIPHER}</p><p class="sig">I.V.Y.</p>`, () => { if (first) { toast('Added to your journal. Press <b>J</b>.'); setTimeout(() => S.sightingArmed = YSOLDE_ENABLED, 4000); } });
 }
 function openCloset() {
@@ -1105,14 +1108,21 @@ function openCloset() {
   objective();
 }
 function closetAct() {
-  if (!S.closetOpen) { if (!S.power) return toast('The keypad is dead.'); if (S.noteFound) return openJournal('caesar'); return toast('A keypad on the coat closet. Four letters.'); }
+  if (!S.closetOpen) { if (!S.power) return toast('The keypad is dead.'); return codeEntry('caesar', 'COAT CLOSET KEYPAD', '', '4-letter code'); }
   if (S.hidden) unhide(); else hide(HIDES[0]);
+}
+function codeEntry(id, title, desc, label) {
+  if (S.solved[id]) return toast('Already open.');
+  openDev(`<h2>${title}</h2>${desc ? `<p>${desc}</p>` : ''}<label class="lab" for="codein">${label}</label><div class="row"><input id="codein" autocomplete="off" spellcheck="false" style="flex:1;min-width:8rem;background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.2rem;letter-spacing:.25em;padding:.5rem .7rem;text-transform:uppercase"><button id="codego">Enter</button></div><div id="codemsg" class="lab"></div>`);
+  const inp = $('codein'), go = () => { if (submit(id, inp.value)) { closeDev(); toast('Accepted.'); } else { $('codemsg').innerHTML = `<span style="color:#ff8080">${PUZ.find(q => q.id === id).bad}</span>`; inp.select(); } };
+  $('codego').onclick = go; inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') go(); if (e.key === 'Escape') closeDev(); }; inp.focus();
 }
 function tvAct() {
   if (!lit()) return toast('The TV is dark.');
   openDev(`<h2>ASHGROVE SMART TV</h2><div class="lab">HDMI 3 · "for whoever comes next"</div><p>The screen shows a photo of this room, taken from where the TV hangs. Then black. Then the speakers start to knock.</p><div class="screen" id="tvk"></div><div class="row"><button id="tvplay">Play the knocks</button></div>`);
   const tok = devTok;
   $('tvplay').onclick = () => {
+    if (!S.tapHeard) { S.tapHeard = true; objective(); }
     const out = $('tvk'); out.textContent = ''; let tt = 0; const sched = (f, d) => { tt += d; const at = tt; S.fast ? f() : setTimeout(() => { if (devTok === tok) f(); }, at * 1000); };
     PURE.TAP.forEach(([r, c], li) => {
       for (let i = 0; i < r; i++) sched(() => { knock(); out.textContent += '•'; }, i ? .28 : (li ? 1.3 : .3));
@@ -1120,7 +1130,7 @@ function tvAct() {
       for (let i = 0; i < c; i++) sched(() => { knock(); out.textContent += '•'; }, i ? .28 : .45);
       sched(() => out.textContent += '   ', .05);
     });
-    sched(() => { out.innerHTML += `<br><span style="font-size:.9rem;color:#9fd7ff">${tapStr}</span>`; if (!S.tapHeard) { S.tapHeard = true; objective(); toast('Knocks written in your journal.'); } }, .6);
+    sched(() => { out.innerHTML += `<br><span style="font-size:.9rem;color:#9fd7ff">${tapStr}</span>`; toast('Knocks written in your journal.'); }, .6);
   };
 }
 function knock() { tone(90, .12, .5, 'sine', 0, true); noiseBurst(700, 2, .05, .25, 'lowpass', true); }
@@ -1129,6 +1139,7 @@ function startPhone() { S.phoneRinging = true; objective(); toast('Somewhere beh
 function phoneAct() {
   if (!S.phoneRinging && !S.phoneDone) return toast('A rotary phone. The cord is cut. Somebody cut it neatly.');
   S.phoneRinging = false;
+  if (!S.phoneDone) { S.phoneDone = true; objective(); }
   openDev(`<h2>ROTARY PHONE</h2><p>The cord is cut, yet the receiver is warm. No dial tone. Breathing, and then beeps.</p><div class="row"><div class="lamp" id="mlamp"></div><div class="screen" id="mk" style="flex:1"></div></div><div class="row"><button id="mplay">Listen again</button></div>`, () => {
     if (!S.phoneDone) return; if (!S.ys && YSOLDE_ENABLED) { S.ys = true; S.sightingDone = true; Y.state = 'dormant'; Y.t = S.fast ? 9999 : 25; objective(); setTimeout(() => toast('The line goes dead. Every screen in the house flickers at once.', 4500), 300); }
   });
@@ -1141,14 +1152,14 @@ function phoneAct() {
         S.fast ? f() : setTimeout(f, at * 1000); tt += d + u; }
       const at = tt; S.fast ? (out.textContent += '  ') : setTimeout(() => { if (devTok === tok) out.textContent += '   '; }, at * 1000); tt += u * 3;
     }
-    const fin = () => { if (devTok !== tok) return; if (!S.phoneDone) { S.phoneDone = true; objective(); toast('Beeps written in your journal. Behind you, a lamp stutters.'); } };
+    const fin = () => { if (devTok !== tok) return; toast('Beeps written in your journal. Behind you, a lamp stutters.'); };
     S.fast ? fin() : setTimeout(fin, tt * 1000);
   };
   $('mplay').onclick = play; play();
 }
 function fridgeAct() {
   if (!lit()) return toast('The fridge screen is black. Something inside smells awful.');
-  if (!S.solved.morse) { openDev(`<h2>FAMILY HUB</h2><div class="screen">LOCKED</div><p>Passcode hint, typed by Thomas: <i>"Mum's favourite machine (6)"</i></p>`); return; }
+  if (!S.solved.morse) return codeEntry('morse', 'FAMILY HUB · LOCKED', 'The touchscreen lights up with a keyboard. Passcode hint, typed by Thomas: <i>"Mum\'s favourite machine (6)"</i>', 'Passcode');
   S.fridgeSeen = true; objective();
   openDev(`<h2>FAMILY HUB · NOTES</h2><div class="screen" style="font-family:var(--f-hand);letter-spacing:.05em;font-size:1.2rem">milk · eggs · batteries (LOTS)<br><br>dad, office code, in our language so you stop forgetting:<br><b style="font-family:var(--f-type);letter-spacing:.15em">${PURE.A1Z}</b></div><p>Added to your journal.</p>`);
 }
@@ -1171,6 +1182,7 @@ function endGame() {
   S.ended = true; unlock(); noiseBurst(200, 3, 1.2, .3, 'lowpass', true, 80);
   Y.state = 'off'; ysolde.visible = false; $('end').hidden = false; S.ui = true; objective();
 }
+$('jbtn').onclick = () => { if (!S.ui) openJournal(); };
 $('endback').onclick = () => { $('end').hidden = true; S.ui = false; lock(); };
 // ---------- interactables ----------
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -1180,7 +1192,7 @@ const I = [
   { id: 'note', p: V(-RX + .45, 1.1, -.48), label: () => S.noteFound ? "Read Ivy's note" : 'Something tucked behind the clock glass', act: readNote },
   { id: 'clock', p: V(-RX + .45, 2.2, -.6), label: () => 'Grandfather clock', act: () => toast('Stopped at 3:13 for years. Now it ticks again. Nobody wound it.') },
   { id: 'stairs', p: V(0, 1.0, STAIR.zFront + .3), label: () => S.stairKey ? "Unlock the padlock with Mildred's key" : 'Grand staircase', act: () => S.stairKey ? endGame() : toast('Boarded, chained and padlocked. The padlock is old brass, engraved <b>M.A.</b>') },
-  { id: 'closet', p: HIDES[0].p, label: () => S.closetOpen ? (S.hidden ? 'Leave the closet' : 'Hide in the coat closet') : 'Coat closet keypad', act: closetAct },
+  { id: 'closet', p: HIDES[0].p, label: () => S.closetOpen ? (S.hidden ? 'Leave the closet' : 'Hide in the coat closet') : 'Coat closet keypad: enter code', act: closetAct },
   { id: 'mail', p: V(-RX + .35, .9, 4.0), label: () => 'Mail', act: () => openNote(`<h2>A stack of mail</h2><p>Final notices. A sympathy card addressed to <b>Thomas Ashgrove</b>. A letter from the county: <i>"...the estate of Thomas and Ivy Ashgrove will be transferred to state custody pending auction."</i></p><p>At the bottom, a glossy flyer: <b>ASHGROVE SMART HOME. Installed for your safety.</b> Someone wrote across it in pen: <i>NOT FOR OUR SAFETY.</i></p>`) },
   { id: 'portrait', p: V(RX - .05, 2.9, .6), label: () => 'Portrait', act: () => toast('A brass plate: <b>Mildred Ashgrove, 1921 to 2009</b>. Bletchley Park, Hut 6.') },
   { id: 'portrait2', p: V(-RX + .05, 2.9, 1.2), label: () => 'Portrait', act: () => toast('The eyes have been scratched out of the canvas. From the inside of the frame.') },
@@ -1189,7 +1201,7 @@ const I = [
   { id: 'phone', p: V(-7.55, .72, 5.45), label: () => S.phoneRinging ? 'Answer the ringing phone' : 'Rotary phone', act: phoneAct },
   { id: 'lamp', p: V(-14.4, 1.5, 5.4), label: () => 'Floor lamp', act: () => toast(S.phoneDone && !S.solved.morse ? 'The bulb stutters. Long, short. You have heard this rhythm tonight.' : 'An old brass floor lamp.') },
   { id: 'codebook', p: V(-10.6, .84, -3.05), label: () => "Mildred's codebook", act: () => { S.codebook = true; objective(); openNote(`<h2>Mildred's codebook, Hut 6, 1943</h2><p>For the girls on the night shift.</p>${morseHTML()}<p class="sig">M.A.</p>`); } },
-  { id: 'fridge', p: V(15.95, 1.35, -1.4), label: () => 'Smart fridge', act: fridgeAct },
+  { id: 'fridge', p: V(15.95, 1.35, -1.4), label: () => lit() && !S.solved.morse ? 'Smart fridge: enter passcode' : 'Smart fridge', act: fridgeAct },
   { id: 'speaker', p: V(21.8, 1.05, 5.6), label: () => 'Smart speaker', act: () => toast(lit() && S.router ? 'The ring glows. A soft voice: <i>"Sorry, I didn\'t catch that. Could you say it again? Louder?"</i>' : 'The speaker is dead.') },
   { id: 'dumb', p: HIDES[2].p, label: () => S.hidden === HIDES[2] ? 'Climb out' : 'Hide in the dumbwaiter', act: () => S.hidden ? unhide() : hide(HIDES[2]) },
   { id: 'table', p: HIDES[1].p, label: () => S.hidden === HIDES[1] ? 'Crawl out' : 'Hide under the table', act: () => S.hidden ? unhide() : hide(HIDES[1]) },
@@ -1204,7 +1216,7 @@ const I = [
 ];
 for (const d of DOORS) {
   const p = d.kp || V(d.x, 1.1, d.z);
-  I.push({ id: 'door_' + d.id, door: d, p, r: 2.4, label: () => d.open ? null : d.lock === 'keypad' ? `${doorName(d)}: keypad` : d.lock === 'shelf' ? (doorSideA(d) ? 'Bookshelf' : 'Bookshelf (back)') : `${doorName(d)} door`, act: () => doorAct(d) });
+  I.push({ id: 'door_' + d.id, door: d, p, r: 2.4, label: () => d.open ? null : d.lock === 'keypad' ? `${doorName(d)} keypad: enter code` : d.lock === 'shelf' ? (doorSideA(d) ? 'Bookshelf dial: enter word' : 'Bookshelf (back)') : `${doorName(d)} door`, act: () => doorAct(d) });
 }
 let focus = null;
 function pickFocus() {
@@ -1230,12 +1242,15 @@ addEventListener('mousemove', e => {
 });
 addEventListener('keydown', e => {
   if (!S.started) return;
+  const tg = e.target, typing = tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA');
   const k = e.key.toLowerCase();
+  if (typing) { if (k === 'escape') { if (!$('dev').hidden) closeDev(); else if (!$('journal').hidden) closeJournal(); } return; }
+  if (k === 'tab') { e.preventDefault(); if (!$('journal').hidden) closeJournal(); else if (!S.ui) openJournal(); return; }
   if (S.ui) { if (k === 'escape' || (k === 'j' && !$('journal').hidden)) { if (!$('note').hidden) closeNote(); else if (!$('dev').hidden) closeDev(); else if (!$('journal').hidden) closeJournal(); } return; }
   keys[k] = true;
   if (k === 'f') { flashOn = !flashOn; tone(2400, .02, .08, 'square', 0, false); }
-  if (k === 'e' && focus) focus.act();
-  if (k === 'j') openJournal();
+  if (k === 'e' && focus) { e.preventDefault(); focus.act(); }
+  if (k === 'j') { e.preventDefault(); openJournal(); }
   if (k === 'c' || k === 'control') P.crouch = !P.crouch;
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
