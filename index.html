@@ -1220,6 +1220,7 @@ let pendulum, hourHand, minHand;
 }
 // chandelier + sconces
 const lights = [];
+const SCARE_PROPS = {};
 function bulb(x, y, z, parent = scene) { const m = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x000000 })); m.position.set(x, y, z); parent.add(m); return m; }
 const chand = new THREE.Group(); chand.position.set(0, RH - 1.4, 2.0); scene.add(chand);
 {
@@ -1270,6 +1271,7 @@ function chair(x, z, ry, fallen) {
   box(.46, .05, .46, M.woodL, 0, .46, 0, g); for (const a of [-.2, .2]) for (const b of [-.2, .2]) box(.04, .46, .04, M.wood, a, .23, b, g);
   box(.46, .6, .04, M.woodL, 0, .78, -.21, g); box(.4, .03, .4, M.fabR, 0, .5, 0, g, false);
   if (fallen) { g.rotation.z = Math.PI / 2; g.position.y = .23; }
+  return g;
   return g;
 }
 function bookcase(cx, cz, ry, width, height, rows = 6) {
@@ -1397,13 +1399,15 @@ let shelfPivot;
     const gl = new THREE.Mesh(glass, M.glass); gl.position.set(x + (x < 11 ? .18 : -.18), .89, z - .2); scene.add(gl);
     box(.02, .01, .18, M.steel, x + (x < 11 ? -.17 : .17), .815, z, scene, false);
   }
-  chair(9.8, .7, Math.PI / 2); chair(9.8, 1.9, Math.PI / 2); chair(9.8, 3.1, Math.PI / 2); chair(12.2, .7, -Math.PI / 2); chair(12.2, 1.9, -Math.PI / 2); chair(12.6, 3.3, -Math.PI / 2, true);
+  chair(9.8, .7, Math.PI / 2); chair(9.8, 1.9, Math.PI / 2); chair(9.8, 3.1, Math.PI / 2); chair(12.2, .7, -Math.PI / 2); SCARE_PROPS.chair = chair(12.2, 1.9, -Math.PI / 2); chair(12.6, 3.3, -Math.PI / 2, true);
   for (let i = -1; i <= 1; i++) { box(.02, .25, .02, M.brass, 11, .93, 1.9 + i * .12, scene, false); const c = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .12, 6), M.wax); c.position.set(11, 1.12, 1.9 + i * .12); scene.add(c); }
   // sideboard + digital photo frame
   box(2.2, .9, .5, M.wood, 11, .45, 5.72); box(2.3, .05, .55, M.woodL, 11, .92, 5.72); solid(9.85, 5.4, 12.15, 6);
   box(.44, .32, .03, M.black, 11, 1.12, 5.55);
   const s = screen(.38, .26, 192, 128); s.m.position.set(11, 1.12, 5.534); s.m.rotation.y = Math.PI; SCREENS.frame = s;
   ELEC.push({ room: 'dining', x: 11, z: 5.0, name: 'the photo frame' });
+  { const pg = new THREE.Group(); pg.position.set(10.15, .945, 5.62); scene.add(pg); const [pc, px] = cv(96, 128); px.fillStyle = '#d8cfb8'; px.fillRect(0, 0, 96, 128); px.fillStyle = '#6b6152'; px.fillRect(8, 8, 80, 112); px.fillStyle = '#c9bfa8'; px.beginPath(); px.arc(36, 52, 10, 0, 7); px.arc(60, 56, 9, 0, 7); px.fill(); px.fillRect(26, 62, 20, 40); px.fillRect(52, 64, 16, 36);
+    const fr = new THREE.Group(); fr.position.set(0, 0, 0); pg.add(fr); box(.2, .26, .02, M.wood, 0, .13, 0, fr, false); const ph = new THREE.Mesh(new THREE.PlaneGeometry(.16, .21), std({ map: tex(pc), roughness: .6 })); ph.position.set(0, .13, -.011); ph.rotation.y = Math.PI; fr.add(ph); fr.rotation.x = .18; SCARE_PROPS.photo = fr; }
   // chandelier
   const ch = new THREE.Group(); ch.position.set(11, 2.7, 1.9); scene.add(ch);
   box(.02, .7, .02, M.iron, 0, .35, 0, ch, false); const ring = new THREE.Mesh(new THREE.TorusGeometry(.45, .02, 6, 28), M.brass); ring.rotation.x = Math.PI / 2; ch.add(ring);
@@ -2324,7 +2328,7 @@ function ysUpdate(dt) {
 }
 // ---------- screens ----------
 const SCR = { t: 0 };
-function drawTV() { const { g, c, t: tx } = SCREENS.tv; if (!lit()) { g.fillStyle = '#000'; g.fillRect(0, 0, 256, 144); } else { const id = g.createImageData(256, 144); for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * (S.tapHeard ? 60 : 140); id.data[i] = v * .8; id.data[i + 1] = v * .9; id.data[i + 2] = v; id.data[i + 3] = 255; } g.putImageData(id, 0, 0); g.fillStyle = '#cfe3ff'; g.font = '14px monospace'; g.fillText(S.tapHeard ? 'HDMI 3' : 'HDMI 3 · PRESS E', 10, 20); } tx.needsUpdate = true; }
+function drawTV() { const { g, c, t: tx } = SCREENS.tv; if (SCARE.tvGhost > 0) return scareTV(g, tx); if (!lit()) { g.fillStyle = '#000'; g.fillRect(0, 0, 256, 144); } else { const id = g.createImageData(256, 144); for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * (S.tapHeard ? 60 : 140); id.data[i] = v * .8; id.data[i + 1] = v * .9; id.data[i + 2] = v; id.data[i + 3] = 255; } g.putImageData(id, 0, 0); g.fillStyle = '#cfe3ff'; g.font = '14px monospace'; g.fillText(S.tapHeard ? 'HDMI 3' : 'HDMI 3 · PRESS E', 10, 20); } tx.needsUpdate = true; }
 function drawFridge() { const { g, t: tx } = SCREENS.fridge; g.fillStyle = lit() ? '#0b1a22' : '#000'; g.fillRect(0, 0, 192, 288); if (lit()) { g.fillStyle = '#9fd7ff'; g.font = '16px monospace'; g.fillText('FAMILY HUB', 14, 30); g.font = '12px monospace'; g.fillText(new Date().toTimeString().slice(0, 5), 14, 50); if (S.solved.morse) { g.fillStyle = '#ffe9a0'; g.fillText('NOTE FROM IVY', 14, 90); g.font = '13px monospace'; PURE.A1Z.split('-').forEach((n, i) => g.fillText(n, 20 + i * 32, 120)); } else { g.fillStyle = '#ff7070'; g.fillText('LOCKED', 14, 90); } if (Y.state === 'hunt' && Y.room === 'kitchen' && Math.random() < .5) { g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(0, Math.random() * 288, 192, 6); } } tx.needsUpdate = true; }
 function drawFrame() { const { g, t: tx } = SCREENS.frame; if (!lit() || !S.router) { g.fillStyle = '#000'; g.fillRect(0, 0, 192, 128); tx.needsUpdate = true; return; } const k = Math.floor(t / 4) % 4; g.fillStyle = ['#3a3020', '#202a3a', '#2a2020', '#101010'][k]; g.fillRect(0, 0, 192, 128); g.fillStyle = 'rgba(0,0,0,.6)'; for (let i = 0; i < (k === 3 ? 1 : 2); i++) { g.beginPath(); g.arc(70 + i * 50, 55, 14, 0, 7); g.fill(); g.fillRect(56 + i * 50, 70, 28, 60); } if (k === 3) { g.fillStyle = '#ddd'; g.font = '10px monospace'; g.fillText('NOW', 150, 118); } tx.needsUpdate = true; }
 const CAMS = ['foyer', 'living', 'library', 'dining', 'kitchen', 'hall'];
@@ -3380,6 +3384,61 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
 }
 // ===== LAB END =====
 
+
+// ---------- atmospheric scares (independent of YSOLDE_ENABLED, never lethal) ----------
+const SCARE = { next: 75, onFloor: 0, floor: null, black: 0, blackF: 1, st: 0, tvGhost: 0, crumbs: [], crumbT: 0, hollow: null, hollowT: 0 };
+const scFrus = new THREE.Frustum(), scMat = new THREE.Matrix4(), scV = new THREE.Vector3(), scDir = new THREE.Vector3();
+function seenAt(x, y, z) { scMat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); scFrus.setFromProjectionMatrix(scMat); return scFrus.containsPoint(scV.set(x, y, z)); }
+function relPan(x, z) { camera.getWorldDirection(scDir); const dx = x - P.x, dz = z - P.z, d = Math.hypot(dx, dz) || 1; const rx = -scDir.z, rz = scDir.x; return { pan: clamp((dx * rx + dz * rz) / d, -1, 1), front: (dx * scDir.x + dz * scDir.z) / d, d }; }
+function spatialOut(x, z, vol) { const c = A.ctx, { pan, front, d } = relPan(x, z); const g = c.createGain(); g.gain.value = vol * clamp(3 / Math.max(1, d), .15, 1) * (front < 0 ? .8 : 1); const pn = c.createStereoPanner ? c.createStereoPanner() : null; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = front < 0 ? 2400 : 6000; if (pn) { pn.pan.value = pan; lp.connect(pn); pn.connect(g); } else lp.connect(g); g.connect(A.master); g.connect(A.verb); return lp; }
+function morseAt(text, x, z, unit = .075, vol = .22) {
+  if (!A.ctx) return; const c = A.ctx; let t = c.currentTime + .05; const out = spatialOut(x, z, 1);
+  const s = c.createBufferSource(); s.buffer = A.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 3; const g = c.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(out); s.start();
+  for (const ch of text) { if (ch === ' ') { t += unit * 4; continue; } for (const sym of MORSE[ch] || '') { const d = sym === '.' ? unit : unit * 3.8; g.gain.setValueAtTime(vol, t); g.gain.setValueAtTime(0, t + d); t += d + unit; } t += unit * 2; }
+  s.stop(t + .2);
+}
+function ringAt(x, z, rings = 3) {
+  if (!A.ctx) return; const c = A.ctx, out = spatialOut(x, z, 1);
+  for (let r = 0; r < rings; r++) for (const fq of [440, 480]) { const o = c.createOscillator(); o.frequency.value = fq; const g = c.createGain(), t0 = c.currentTime + r * 3; g.gain.setValueAtTime(0, t0); for (let k = 0; k < 2; k++) { g.gain.setValueAtTime(.05, t0 + k * .5); g.gain.setValueAtTime(0, t0 + k * .5 + .4); } o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 1.2); }
+}
+function behindPoint() { camera.getWorldDirection(scDir); const fl = S.floor || 1; const dev = ELEC.filter(e => ROOMS[e.room] && (ROOMS[e.room].floor || 1) === fl).map(e => [e, relPan(e.x, e.z)]).filter(([, r]) => r.front < -.2 && r.d < 12 && r.d > 2).sort((a, b) => a[1].d - b[1].d)[0];
+  if (dev) return { x: dev[0].x, z: dev[0].z, name: dev[0].name }; const l = Math.hypot(scDir.x, scDir.z) || 1; return { x: P.x - scDir.x / l * 3, z: P.z - scDir.z / l * 3 }; }
+function scareTV(g, tx) { const id = g.createImageData(256, 144); for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 90; id.data[i] = v * .8; id.data[i + 1] = v * .9; id.data[i + 2] = v; id.data[i + 3] = 255; } g.putImageData(id, 0, 0); g.fillStyle = `rgba(235,240,245,${.5 + Math.random() * .4})`; g.fillRect(122 + rnd(-2, 2), 40, 12, 80); g.beginPath(); g.arc(128, 32, 9, 0, 7); g.fill(); g.fillStyle = '#5fd0ff'; g.fillRect(124, 30, 2, 2); g.fillRect(130, 30, 2, 2); tx.needsUpdate = true; }
+function makeHollow() { const hm = std({ color: 0x24272a, roughness: .95, transparent: true, opacity: 1 }), g = new THREE.Group(); g.visible = false; scene.add(g);
+  box(.36, .62, .2, hm, 0, 1.12, 0, g, false); box(.2, .26, .22, hm, 0, 1.6, .02, g, false); for (const s2 of [-1, 1]) { box(.12, .8, .13, hm, s2 * .1, .4, 0, g, false); box(.08, .62, .09, hm, s2 * .24, 1.08, .04, g, false).rotation.z = s2 * .06; }
+  for (let k = 0; k < 10; k++) box(.015, rnd(.2, .45), .01, std({ color: 0xc9d6e0, roughness: .6, transparent: true, opacity: .7 }), rnd(-.1, .1), 1.5, -.08, g, false); g.userData.m = hm; return g; }
+function scDoneSet(id) { (S.scDone || (S.scDone = {}))[id] = 1; saveGame(); }
+const SCARES = [
+  // id, floors, once, run() -> true if it fired
+  { id: 'whisper', floors: [1, 2, 3, -1, -2], once: false, run: () => { const b = behindPoint(); morseAt(['SHE HEARS', 'BEHIND YOU', 'I READ TOO', 'HUSH', 'STAY'][Math.floor(Math.random() * 5)], b.x, b.z); return true; } },
+  { id: 'phone', floors: [1, 2], once: true, run: () => { const pr = roomAt(P.x, P.z), c = ELEC.filter(e => ROOMS[e.room] && (ROOMS[e.room].floor || 1) === (S.floor || 1) && e.room !== pr && Math.hypot(e.x - P.x, e.z - P.z) > 5); if (!c.length) return false; const e = c[Math.floor(Math.random() * c.length)]; ringAt(e.x, e.z); setTimeout(() => toast(`A phone is ringing in the ${ROOMS[e.room].name}. There is no phone in the ${ROOMS[e.room].name}.`, 4500), 1500); return true; } },
+  { id: 'blackout', floors: [1, 2, 3, -1, -2], once: false, run: () => { if (S.floor === 1 && !lit()) return false; if (S.lEnded) return false; SCARE.black = S.fast ? .01 : 4.5; noiseBurst(2600, .6, 1.4, .35, 'highpass', true); toast('Every light dies at once. Static fills the dark. <b>Hide.</b>', 4000); return true; } },
+  { id: 'tv', floors: [1], once: true, run: () => { if (!lit() || roomAt(P.x, P.z) === 'living' || seenAt(-14.88, 1.55, 2.75)) return false; SCARE.tvGhost = 25; return true; } },
+  { id: 'chair', floors: [1], once: true, run: () => { const c = SCARE_PROPS.chair; if (!c || roomAt(P.x, P.z) === 'dining' || seenAt(c.position.x, .6, c.position.z)) return false; c.position.set(11.4, 0, 3.9); c.rotation.y = Math.PI * .9; return true; } },
+  { id: 'photo', floors: [1], once: true, run: () => { const f = SCARE_PROPS.photo; if (!f || roomAt(P.x, P.z) === 'dining' || seenAt(10.15, 1.05, 5.62)) return false; f.rotation.x = -Math.PI / 2 + .02; f.position.y = .012; return true; } },
+  { id: 'door', floors: [1, 2], once: true, run: () => { const fl = S.floor || 1; const d = DOORS.find(d => d.open && d.lock === 'none' && ROOMS[d.a] && (ROOMS[d.a].floor || 1) === fl && Math.hypot(d.x - P.x, d.z - P.z) > 6 && !seenAt(d.x, 1.2, d.z)); if (!d) return false; d.open = false; S.scDoor = d.id; setTimeout(() => noiseBurst(140, 1, .4, .25, 'lowpass', true), 200); return true; } },
+  { id: 'hollow', floors: [1, 2, 3, -1, -2], once: false, max: 1, run: () => { if (SCARE.hollow && SCARE.hollow.visible) return false; const c = SCARE.crumbs.filter(q => q.age > 5 && q.age < 14 && q.floor === S.floor && Math.hypot(q.x - P.x, q.z - P.z) > 5 && Math.hypot(q.x - P.x, q.z - P.z) < 13 && seenAt(q.x, 1.2, q.z))[0] || (S.fast ? SCARE.crumbs[0] : null); if (!c) return false;
+      const h = SCARE.hollow || (SCARE.hollow = makeHollow()); h.position.set(c.x, 0, c.z); h.rotation.y = Math.atan2(P.x - c.x, P.z - c.z); h.userData.m.opacity = 1; h.visible = true; SCARE.hollowT = 0; return true; } },
+];
+function scareFire(id) { const sc = SCARES.find(q => q.id === id); if (!sc) return false; const ok = sc.run(); if (ok) { const k = sc.once ? id : id + '@' + (S.floor || 1); if (sc.once || sc.max) scDoneSet(sc.once ? id : k); } return ok; }
+function scareUpdate(dt) {
+  SCARE.st = 0;
+  if (!SCARE.applied && S.started) { SCARE.applied = true; const d = S.scDone || {}; if (d.chair && SCARE_PROPS.chair) { SCARE_PROPS.chair.position.set(11.4, 0, 3.9); SCARE_PROPS.chair.rotation.y = Math.PI * .9; } if (d.photo && SCARE_PROPS.photo) { SCARE_PROPS.photo.rotation.x = -Math.PI / 2 + .02; SCARE_PROPS.photo.position.y = .012; } }
+  if (SCARE.black > 0) { SCARE.black -= dt; SCARE.blackF = SCARE.black > 4 ? (Math.random() < .5 ? .1 : 1) : SCARE.black > .5 ? 0 : (Math.random() < .5 ? .2 : 1); SCARE.st = SCARE.black > .5 ? .35 : 0; if (SCARE.black <= 0) SCARE.blackF = 1; }
+  if (SCARE.tvGhost > 0) { SCARE.tvGhost -= dt; SCARE.tvLast = (SCARE.tvLast || 0) + dt; }
+  if (SCARE.hollow && SCARE.hollow.visible) { SCARE.hollowT += dt; const h = SCARE.hollow, d = Math.hypot(P.x - h.position.x, P.z - h.position.z); if (d < 3.5 || SCARE.hollowT > 5 || h.userData.fading) { h.userData.fading = true; h.userData.m.opacity -= dt * 2.5; if (Math.random() < .3) h.position.x += rnd(-.04, .04); } if (h.userData.m.opacity <= 0) { h.visible = false; h.userData.fading = false; } }
+  SCARE.crumbT += dt; if (SCARE.crumbT > 1) { SCARE.crumbT = 0; for (const q of SCARE.crumbs) q.age += 1; SCARE.crumbs.unshift({ x: P.x, z: P.z, floor: S.floor, age: 0 }); SCARE.crumbs.length = Math.min(SCARE.crumbs.length, 16); }
+  if (!S.started || S.fast || S.ui || S.dead || S.ended || S.hidden || S.lEnded || S.sighting || (YSOLDE_ENABLED && Y.state === 'hunt')) return;
+  if (SCARE.floor !== S.floor) { SCARE.floor = S.floor; SCARE.onFloor = 0; }
+  SCARE.onFloor += dt; SCARE.next -= dt; if (SCARE.next > 0 || SCARE.onFloor < 40) return;
+  const done = S.scDone || {}, fl = S.floor || 1;
+  const pool = SCARES.filter(q => q.floors.includes(fl) && !(q.once && done[q.id]) && !(q.max && done[q.id + '@' + fl]));
+  const order = pool.sort(() => Math.random() - .5).sort((a, b) => (a.once || a.max ? 0 : 1) - (b.once || b.max ? 0 : 1));
+  for (const q of order) if (scareFire(q.id)) break;
+  SCARE.next = rnd(80, 150);
+}
+window.__SCARE = { SCARE, SCARES, fire: scareFire, PROPS: SCARE_PROPS };
+
 // ---------- title logo: encrypted / en-CRYPT-ed ----------
 (() => {
   const lg = document.querySelector('#title .logo'); if (!lg || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -3430,6 +3489,7 @@ function frame() {
     if (s > 4.6) { endSighting(); toast('...it was a woman. Made of static. And she was looking at you.', 4500); }
   }
   if (!S.ui || S.ended) ysUpdate(dt);
+  scareUpdate(dt); st = Math.max(st, SCARE.st);
   let yd = 99;
   if (Y.state === 'hunt' && ysolde.visible) {
     yd = Math.hypot(P.x - Y.x, P.z - Y.z); const close = clamp(1 - yd / 10, 0, 1);
@@ -3451,6 +3511,7 @@ function frame() {
       if (Y.warnRoom === L.room) f *= Math.random() < .45 ? .05 : 1;
       if (Y.state === 'hunt') { const dl = Math.hypot(L.L.position.x - Y.x, L.L.position.z - Y.z); if (dl < 3.5) f = 0; else if (dl < 9 && Math.random() < (1 - dl / 9) * .7) f *= .08; }
     }
+    if (SCARE.black > 0 && (L.floor || 1) === (S.floor || 1) && !L.candle) f *= SCARE.blackF;
     L.L.intensity = L.base * f;
     for (const b of L.bulbs) b.material.color.setRGB(f, f * .78, f * .5);
     if (L.shade) L.shade.material.emissive.setRGB(f * .5, f * .3, f * .12);
