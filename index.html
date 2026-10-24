@@ -48,6 +48,7 @@ button{font:inherit;cursor:pointer}
 #fade{position:fixed;inset:0;background:#000;pointer-events:none;z-index:20;transition:opacity 2.5s;opacity:1}
 /* paper note */
 .panel{background:rgba(4,4,5,.82);z-index:30;backdrop-filter:blur(2px)}
+#journal{background:#040405;backdrop-filter:none;-webkit-backdrop-filter:none;isolation:isolate}
 .paper{position:relative;background:var(--paper);color:var(--ink);max-width:34rem;width:100%;max-height:86vh;overflow:auto;padding:2rem 2.2rem;box-sizing:border-box;box-shadow:0 30px 80px #000,inset 0 0 70px rgba(90,60,20,.45);font-family:var(--f-hand);font-size:1.15rem;line-height:1.55;transform:rotate(-.6deg)}
 .paper h2{font-family:var(--f-display);font-weight:normal;margin:0 0 .6rem;font-size:1.3rem;letter-spacing:.06em;text-wrap:balance}
 .paper .cipher{font-family:var(--f-type);font-size:1.05rem;letter-spacing:.12em;background:rgba(60,40,20,.08);padding:.8rem;border-left:2px solid rgba(60,30,10,.4);word-break:break-word}
@@ -1862,6 +1863,7 @@ function openJournal(focusId) {
   $('jbody').querySelectorAll('input').forEach(inp => inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') go(inp.dataset.id); if (e.key === 'Escape') closeJournal(); });
   const fe = focusId && $('je_' + focusId); if (fe) { fe.scrollIntoView({ block: 'center' }); const fi = $('ans_' + focusId); if (fi) fi.focus(); } else { const first = $('jbody').querySelector('input'); if (first) { first.scrollIntoView({ block: 'center' }); first.focus(); } else $('jx').focus(); }
 }
+function journalOpen() { const j = document.getElementById('journal'); return !!j && !j.hidden; }
 function closeJournal() { $('journal').hidden = true; S.ui = false; lock(); }
 // ---------- story beats ----------
 function powerOn() {
@@ -3440,6 +3442,7 @@ const SCARES = [
 function scareFire(id) { const sc = SCARES.find(q => q.id === id); if (!sc) return false; const ok = sc.run(); if (ok) { const k = sc.once ? id : id + '@' + (S.floor || 1); if (sc.once || sc.max) scDoneSet(sc.once ? id : k); } return ok; }
 function scareUpdate(dt) {
   SCARE.st = 0;
+  if (journalOpen()) return; // scares and flashes are paused while the journal is open
   if (SCARE_PROPS.sheet) SCARE_PROPS.sheet.visible = !!S.trunkOpen;
   if (!SCARE.applied && S.started) { SCARE.applied = true; const d = S.scDone || {}; if (d.chair && SCARE_PROPS.chair) { SCARE_PROPS.chair.position.set(11.4, 0, 3.9); SCARE_PROPS.chair.rotation.y = Math.PI * .9; } if (d.photo && SCARE_PROPS.photo) { SCARE_PROPS.photo.rotation.x = -Math.PI / 2 + .02; SCARE_PROPS.photo.position.y = .012; } }
   if (SCARE.black > 0) { SCARE.black -= dt; SCARE.blackF = SCARE.black > 4 ? (Math.random() < .5 ? .1 : 1) : SCARE.black > .5 ? 0 : (Math.random() < .5 ? .2 : 1); SCARE.st = SCARE.black > .5 ? .35 : 0; if (SCARE.black <= 0) SCARE.blackF = 1; }
@@ -3565,6 +3568,7 @@ function frame() {
     $('cross').className = focus ? 'on' : ''; $('prompt').innerHTML = focus ? `<kbd>E</kbd>${focus.label()}` : '';
   }
   if (S.dead) S.dead = Math.min(1, S.dead + dt * .6);
+  if (journalOpen()) { st = 0; ysMat.uniforms.fx.value = 0; flash.intensity = flashOn ? (inLab ? 4.2 : 2.6) : 0; }
   post.uniforms.time.value = t; post.uniforms.st.value = st; post.uniforms.dead.value = S.dead; post.uniforms.hide.value = S.hidden ? 1 : 0;
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(postScene, postCam);
