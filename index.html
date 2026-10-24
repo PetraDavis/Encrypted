@@ -498,7 +498,7 @@ const [fc, fg] = cv(256, 640);
 }
 const ysMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false,
-  uniforms: { mask: { value: new THREE.CanvasTexture(yc) }, faceT: { value: new THREE.CanvasTexture(fc) }, time: { value: 0 }, op: { value: 0 }, fx: { value: 0 }, gl: { value: 0 } },
+  uniforms: { mask: { value: (() => { const t = new THREE.CanvasTexture(yc); t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; return t; })() }, faceT: { value: new THREE.CanvasTexture(fc) }, time: { value: 0 }, op: { value: 0 }, fx: { value: 0 }, gl: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: `uniform sampler2D mask, faceT; uniform float time, op, fx, gl; varying vec2 vUv;
     float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -514,7 +514,7 @@ const ysMat = new THREE.ShaderMaterial({
       float edge=clamp((m-b)*4.+(1.-b)*m*.9,0.,1.);
       float n=h(floor(vUv*vec2(90.,225.))+floor(time*30.));
       float scan=.6+.4*sin(vUv.y*380.+time*40.);
-      vec3 inner=vec3(.02,.022,.03)+n*n*.32*vec3(.6,.7,.8)*scan;
+      vec3 inner=vec3(.025,.03,.04)+n*n*.42*vec3(.6,.7,.8)*scan;
       vec3 rim=mix(vec3(.75,.85,.95),vec3(1.3),n)*(.8+.2*scan)*1.5;
       vec3 c=mix(inner,rim,edge); if(j>.5) c=mix(c,vec3(1.,.15,.2),.3*edge+.1);
       float a=m*op*(.85+.15*n)*(1.-tr*step(.45,h(vec2(floor(vUv.x*60.),tb+tq))));
@@ -523,7 +523,7 @@ const ysMat = new THREE.ShaderMaterial({
       if(a<.02) discard; gl_FragColor=vec4(c,a);}`
 });
 const ysolde = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.5), ysMat);
-ysolde.position.set(0, STAIR.top + 1.1, -RZ + .55); ysolde.visible = false; ysolde.scale.set(.88, .88, 1); // 2.2 m: her head brushes the 5.2 m ceiling above the landing scene.add(ysolde);
+ysolde.position.set(0, STAIR.top + 1.1, -RZ + .55); ysolde.visible = false; ysolde.scale.set(.88, .88, 1); scene.add(ysolde); // 2.2 m: her head brushes the 5.2 m ceiling above the landing
 
 // ---------- post processing ----------
 const rt = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
