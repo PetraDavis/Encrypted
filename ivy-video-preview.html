@@ -77,7 +77,7 @@ for(let b=8;b<184;b++){const pi=PERF.indexOf(b);notes.push({b,lane:Math.floor(rn
 notes.sort((a,b)=>a.b-b.b);
 const poses=PERF.map((b,i)=>({t0:b*SPB,t1:(b+1)*SPB,ch:MSG[i]}));
 const poseAt=t=>poses.find(p=>t>=p.t0&&t<p.t1);
-const SUBS=[[0.6,3.6,"Hi! Okay so... I made this game!"],[4.0,6.4,"Isn't it so cool?!"],[7.0,10.8,"I coded the whole thing myself. Like, all of it."],[11.6,14.6,"Her name's Pip. I drew her too."],[16.2,19.6,"watch, watch, this part's my favorite"],[20.6,24.2,"see how she poses when you get a perfect?"],[25.8,30.2,"I didn't even program that part. She just started doing it."],[31,34.6,"Mom says I spend too long on the computer"],[35.5,39.2,"but she doesn't get it. it's a whole song."],[41,44,"okay the chorus is the best part"],[47,51.6,"I keep hearing the song when the laptop's off. Like humming."],[53.5,56,"that's normal, right? haha"],[60,63,"okay I'm not great at this part"],[66,69,"she's really fast tonight"],[72,76.4,"hold on, the poses are different from how I made them"],[78,81.4,"...whatever. it still looks cool."],[86.6,89.2,"wait. did you hear that?"],[90.2,92,"..."],[93.5,96,"[door creaks]"],[97,99.5,"...mom?"],[101.5,104,"[static]"]];
+const SUBS=[[0.6,3.6,"Hi! Okay so... I made this game!"],[4.0,6.4,"Isn't it so cool?!"],[7.0,10.8,"I coded the whole thing myself. Like, all of it."],[11.6,14.6,"Her name's Pip. I drew her too."],[16.2,19.6,"watch, watch, this part's my favorite"],[20.6,24.2,"see how she poses when you get a perfect?"],[25.8,30.2,"I didn't even program that part. She just started doing it."],[31,34.6,"Mom says I spend too long on the computer"],[35.5,39.2,"but she doesn't get it. it's a whole song."],[41,44,"okay the chorus is the best part"],[47,51.6,"I keep hearing the song when the laptop's off. Like humming."],[53.5,56,"that's normal, right? haha"],[60,63,"okay I'm not great at this part"],[66,69,"she's really fast tonight"],[72,76.4,"hold on, the poses are different from how I made them"],[78,81.4,"...whatever. it still looks cool."],[86.6,89.2,"wait. did you hear that?"],[90.2,92,"..."],[93.5,96,"[door creaks]"],[97,99.5,"...mom?"],[100.4,101.4,"...pip?"],[103.6,104.5,"[static]"]];
 const GLITCH=new Set([205,206,531,760,1034,1290,1517,1518,1777,1960,2071,2150,2230,2231,2290,2360,2401,2402,2440]);
 
 // ---------- offscreen helpers
@@ -164,7 +164,11 @@ function pip(t){
     }};
   const L0=LK(lkb),L1=LK(lkb+1),mixv=(a,b)=>lerp(a,b,ltr);
   const cx=300, bob=mixv(L0.y,L1.y)+Math.sin(ph*Math.PI)*2, sway=mixv(L0.x,L1.x);
-  const by=258+bob, bx=cx+sway;
+  const fr=Math.round(t*FPS), nerv=ease((t-50)/40), jit=nerv*2.6;
+  const by=258+bob+(hash(fr*5.3)-.5)*jit, bx=cx+sway+(hash(fr*3.1)-.5)*jit*1.6;
+  const glance=t>60?Math.max(0,Math.sin(Math.min(1,(t%7)/.8)*Math.PI))*((t%7)<.8?1:0):0;
+  const dart=nerv>.2?(hash(Math.floor(t*2.5))-.5)*6*nerv:0, eyeX=dart+glance*4;
+  const trem=nerv*1.6*Math.sin(t*41);
   g.fillStyle='rgba(0,0,0,.45)';g.beginPath();g.ellipse(cx+sway*.5,424,62,10,0,0,TAU);g.fill();
   const leg=(hx,hy,fx,fy,out)=>{const A=40,B=40;let dx=fx-hx,dy=fy-14-hy,d=Math.hypot(dx,dy);if(d>A+B-1){const k=(A+B-1)/d;dx*=k;dy*=k;d=A+B-1;}
     const ax=hx+dx,ay=hy+dy,h=Math.sqrt(Math.max(0,A*A-d*d/4)),mx=hx+dx/2,my=hy+dy/2,kx=mx+(dy/d)*h*out,ky=my-(dx/d)*h*out*.3;
@@ -191,9 +195,9 @@ function pip(t){
     const mv=[[[150+w*25,110+w*40],[30-w*25,70-w*40]],[[200+w*20,250],[100,40+w*30]],[[120,200+w*30],[60,-20-w*30]],[[160-w*15,300+w*15],[20+w*15,-120-w*15]]];return mv[m];};
   const lA=(a,b,x)=>{const d=((b-a)%360+540)%360-180;return a+d*x;};
   const k0=K(kb),k1=K(kb+1);
-  const aL=[lA(k0[0][0],k1[0][0],tr),lA(k0[0][1],k1[0][1],tr)],aR=[lA(k0[1][0],k1[1][0],tr),lA(k0[1][1],k1[1][1],tr)];
+  const aL=[lA(k0[0][0],k1[0][0],tr)+trem,lA(k0[0][1],k1[0][1],tr)+trem],aR=[lA(k0[1][0],k1[1][0],tr)-trem,lA(k0[1][1],k1[1][1],tr)-trem];
   // head
-  const hx=bx,hy=by-48, tilt=Math.sin(beat*Math.PI)*.06;
+  const hx=bx+glance*7,hy=by-48, tilt=Math.sin(beat*Math.PI)*.06*(1-nerv*.6)+glance*.28;
   g.save();g.translate(hx,hy);g.rotate(tilt);
   const hair=g.createLinearGradient(0,-50,0,40);hair.addColorStop(0,'#b79bff');hair.addColorStop(1,'#6d4fd0');
   g.fillStyle=hair;
@@ -212,12 +216,18 @@ function pip(t){
     if(blink){g.strokeStyle='#2b1d4d';g.lineWidth=2.5;g.beginPath();g.arc(ex,ey-2,7,.3,Math.PI-.3);g.stroke();continue;}
     g.fillStyle='#fff';g.beginPath();g.ellipse(ex,ey,7.5,10,0,0,TAU);g.fill();
     const ir=g.createLinearGradient(0,ey-10,0,ey+10);ir.addColorStop(0,'#2a2a6a');ir.addColorStop(.6,'#2fb3c9');ir.addColorStop(1,'#9ff3ff');
-    g.fillStyle=ir;g.beginPath();g.ellipse(ex,ey+1,6,8.5,0,0,TAU);g.fill();
-    g.fillStyle='#14102a';g.beginPath();g.ellipse(ex,ey+1,2.6,4,0,0,TAU);g.fill();
-    g.fillStyle='#fff';g.beginPath();g.arc(ex-2.5,ey-3.5,2.4,0,TAU);g.arc(ex+2.5,ey+4,1.2,0,TAU);g.fill();
+    g.save();g.beginPath();g.ellipse(ex,ey,7.5,10,0,0,TAU);g.clip();const ix=ex+eyeX;
+    g.fillStyle=ir;g.beginPath();g.ellipse(ix,ey+1,6-nerv*.8,8.5-nerv*1.2,0,0,TAU);g.fill();
+    g.fillStyle='#14102a';g.beginPath();g.ellipse(ix,ey+1,2.6-nerv*.9,4-nerv*1.4,0,0,TAU);g.fill();
+    g.fillStyle='#fff';g.beginPath();g.arc(ix-2.5,ey-3.5,2.4,0,TAU);g.arc(ix+2.5,ey+4,1.2,0,TAU);g.fill();g.restore();
     g.strokeStyle='#2b1d4d';g.lineWidth=2.5;g.beginPath();g.ellipse(ex,ey,8,10.5,0,Math.PI*1.1,Math.PI*1.9);g.stroke();}
   g.fillStyle='rgba(255,120,160,.45)';g.beginPath();g.ellipse(-21,24,6,3.5,0,0,TAU);g.ellipse(21,24,6,3.5,0,0,TAU);g.fill();
-  g.fillStyle='#b8445e';g.beginPath();if(p){g.ellipse(0,28,4,4,0,0,TAU);}else{g.arc(0,25,4,.15,Math.PI-.15);}g.fill();
+  if(nerv>.05){g.save();g.globalAlpha=Math.min(1,nerv*1.5);g.strokeStyle='#5a3fae';g.lineWidth=2.6;g.lineCap='round';
+    for(const sgn of [-1,1]){g.beginPath();g.moveTo(sgn*5,-1-5*nerv);g.quadraticCurveTo(sgn*12,-1-3*nerv,sgn*21,2);g.stroke();}g.restore();}
+  if(nerv>.5&&!p){g.strokeStyle='#b8445e';g.lineWidth=2;g.beginPath();g.moveTo(-5,27);g.quadraticCurveTo(-2.5,25,0,27);g.quadraticCurveTo(2.5,29,5,27);g.stroke();}
+  else{g.fillStyle='#b8445e';g.beginPath();if(p){g.ellipse(0,28,4,4,0,0,TAU);}else{g.arc(0,25,4*(1-nerv*.7),.15,Math.PI-.15);}g.fill();}
+  if(nerv>.35){const sy=2+((t*.45)%1)*16;g.save();g.globalAlpha=Math.min(1,(nerv-.35)*4);g.fillStyle='#bfefff';g.strokeStyle='#5fb8e0';g.lineWidth=1.2;
+    g.beginPath();g.moveTo(33,sy-8);g.quadraticCurveTo(38,sy,33,sy+4);g.quadraticCurveTo(28,sy,33,sy-8);g.fill();g.stroke();g.fillStyle='#fff';g.fillRect(31.5,sy-1,1.5,2.5);g.restore();}
   g.restore();
   // glow sticks are drawn last, after both arms, so they are never hidden by the body
   const gs=[arm(bx-24,by,aL[0],aL[1],'#ff5fb8'),arm(bx+24,by,aR[0],aR[1],'#5fe8ff')];gs.forEach(q=>glowStick(...q));
@@ -287,11 +297,92 @@ function subtitle(t){
   g.fillStyle='#fff';g.fillText(s[2],x,510);
 }
 function staticNoise(a,f){g.save();g.globalAlpha=a;g.drawImage(bigNoise,(f*37)%200-200,(f*53)%100-100,W*1.5,H*1.5);g.restore();}
+// ---------- Ysolde (mask and face shared with ysolde-preview), rendered as canvas static
+function mkc(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return [c,c.getContext('2d')];}
+const [yc, yg] = mkc(256, 640);
+const [fc, fg] = mkc(256, 640);
+{
+  yg.fillStyle = '#fff'; yg.strokeStyle = '#fff'; yg.lineCap = 'round'; yg.lineJoin = 'round';
+  const limb = (pts, w) => { yg.lineWidth = w; yg.beginPath(); yg.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) yg.lineTo(pts[i], pts[i + 1]); yg.stroke(); };
+  // head: small, tilted hard to her right on a long neck
+  const HX = 140, HY = 50, TILT = .55;
+  yg.save(); yg.translate(HX, HY); yg.rotate(TILT);
+  yg.beginPath(); yg.ellipse(0, 0, 17, 25, 0, 0, 7); yg.fill();
+  yg.beginPath(); yg.moveTo(-18, -6); yg.quadraticCurveTo(-30, 50, -24, 96); yg.lineTo(-6, 70); yg.lineTo(8, 100); yg.lineTo(20, 60); yg.quadraticCurveTo(22, 20, 17, -6); yg.fill(); // lank hair
+  yg.restore();
+  limb([128, 120, 132, 88, 140, 66], 11); // neck
+  // narrow, sloped torso
+  yg.beginPath(); yg.moveTo(98, 122); yg.quadraticCurveTo(128, 108, 160, 126); yg.lineTo(150, 210); yg.lineTo(146, 260); yg.lineTo(110, 260); yg.lineTo(106, 210); yg.closePath(); yg.fill();
+  // tattered short dress
+  yg.beginPath(); yg.moveTo(108, 250); yg.lineTo(148, 250); yg.lineTo(162, 330);
+  for (let x = 162; x > 94; x -= 9) yg.lineTo(x - 4.5, 330 + (x % 2 ? 18 : 6)); yg.lineTo(94, 330); yg.closePath(); yg.fill();
+  // legs: long, thin, knees bent slightly backwards
+  limb([118, 320, 112, 460, 120, 470, 108, 612, 98, 628], 9);
+  limb([140, 320, 146, 462, 136, 474, 150, 610, 162, 630], 9);
+  // arms hang past the knees, elbows hyperextended
+  limb([100, 128, 84, 250, 92, 262, 76, 420], 7);
+  limb([158, 128, 176, 248, 166, 262, 184, 410], 7);
+  // too-long fingers
+  for (const [x, y, s] of [[76, 420, -1], [184, 410, 1]]) for (let f = 0; f < 5; f++) limb([x, y, x + s * (f * 4 - 6), y + 52 + (f % 2) * 8, x + s * (f * 5 - 4), y + 70 + f * 3], 2.6);
+
+  // the face that shows through: same tilt, gaunt, eyes black, jaw unhinged
+  fg.save(); fg.translate(HX, HY); fg.rotate(TILT);
+  let gr = fg.createRadialGradient(0, -6, 2, 0, 0, 30); gr.addColorStop(0, '#e6ddd2'); gr.addColorStop(.7, '#8a7c72'); gr.addColorStop(1, 'rgba(30,20,20,0)');
+  fg.fillStyle = gr; fg.beginPath(); fg.ellipse(0, 4, 18, 30, 0, 0, 7); fg.fill();
+  for (const s of [-1, 1]) {
+    let e = fg.createRadialGradient(s * 7, -6, .5, s * 7, -6, 8); e.addColorStop(0, '#000'); e.addColorStop(.75, '#000'); e.addColorStop(1, 'rgba(40,0,0,0)');
+    fg.fillStyle = e; fg.beginPath(); fg.ellipse(s * 7, -6, 6.5, 7.5, s * .3, 0, 7); fg.fill();
+    fg.strokeStyle = 'rgba(0,0,0,.85)'; fg.lineWidth = 1.4; fg.beginPath(); fg.moveTo(s * 7, 0); fg.lineTo(s * 8, 10); fg.stroke(); // black tear streaks
+  }
+  let m = fg.createLinearGradient(0, 8, 0, 36); m.addColorStop(0, '#000'); m.addColorStop(1, '#2a0606');
+  fg.fillStyle = m; fg.beginPath(); fg.ellipse(0, 22, 7, 15, 0, 0, 7); fg.fill();
+  fg.fillStyle = 'rgba(230,220,205,.9)'; for (let i = -5; i <= 5; i += 2.5) fg.fillRect(i - .6, 8, 1.2, 3);
+  fg.restore();
+}
+
+const YW=128,YH=320,[ysm,ysmg]=mkc(YW,YH);ysmg.drawImage(yc,0,0,YW,YH);
+const YM=new Float32Array(YW*YH);{const d=ysmg.getImageData(0,0,YW,YH).data;for(let i=0;i<YW*YH;i++)YM[i]=d[i*4+3]/255;}
+const [yo,yog]=mkc(YW,YH), yimg=yog.createImageData(YW,YH);
+const h2=(x,y)=>{const v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v);};
+const Mq=(x,y)=>{x=Math.round(x);y=Math.round(y);return x<0||y<0||x>=YW||y>=YH?0:YM[y*YW+x];};
+function ysolde(t,op,gl,fx){
+  const tq=Math.floor(t*9)/9, d=yimg.data, fq=Math.floor(t*30);
+  for(let y=0;y<YH;y++){const v=y/YH;
+    const band=Math.floor(v*50+tq*7), j=h2(band,Math.floor(t*12))>.94-gl*.5?1:0;
+    const tb=Math.floor(v*18), trr=h2(tb,Math.floor(t*5))>.975-gl*.45?1:0;
+    const shift=((h2(band,tq)-.5)*(.22+gl*.4)*j+trr*(h2(tb,tq+1)-.5)*.18)*YW;
+    const scan=.6+.4*Math.sin(v*380+t*40);
+    for(let x=0;x<YW;x++){const i=(y*YW+x)*4;
+      const ux=x+shift+(h2(tq,v*90+x*.01)-.5)*1.5;
+      const m=Mq(ux,y);if(m<.02){d[i+3]=0;continue;}
+      const b=(Mq(ux+2,y)+Mq(ux-2,y)+Mq(ux,y+2)+Mq(ux,y-2))*.25;
+      const edge=Math.min(1,Math.max(0,(m-b)*4+(1-b)*m*.9));
+      const n=h2(Math.floor(x/1.4)+fq*13.1,Math.floor(y/1.4)+fq*7.7);
+      let r=.025+n*n*.42*.6*scan,gg=.03+n*n*.42*.7*scan,bb=.04+n*n*.42*.8*scan;
+      const rim=(.8+.2*scan)*1.5;r=lerp(r,lerp(.75,1.3,n)*rim,edge);gg=lerp(gg,lerp(.85,1.3,n)*rim,edge);bb=lerp(bb,lerp(.95,1.3,n)*rim,edge);
+      if(j){r=lerp(r,1,.3*edge+.1);gg=lerp(gg,.15,.3*edge+.1);bb=lerp(bb,.2,.3*edge+.1);}
+      const hole=trr&&h2(Math.floor(x/YW*60),tb+tq)>.45?0:1;
+      d[i]=Math.min(255,r*255);d[i+1]=Math.min(255,gg*255);d[i+2]=Math.min(255,bb*255);d[i+3]=255*m*op*(.85+.15*n)*hole;}}
+  yog.putImageData(yimg,0,0);
+  const X=300-84,Y=18,Wd=168,Ht=420, sw=Math.sin(t*1.3)*2;
+  g.save();g.imageSmoothingEnabled=true;g.drawImage(yo,X+sw,Y,Wd,Ht);
+  if(fx>0){g.globalAlpha=fx*op;g.filter='contrast(1.4) grayscale(.3)';g.drawImage(fc,X+sw+(hash(fq)-.5)*6*fx,Y,Wd,Ht);g.drawImage(fc,100,10,80,90,X+sw+92-120+(hash(fq+5)-.5)*10,Y+33-80,240,270);g.filter='none';
+    g.globalAlpha=.25*fx;g.globalCompositeOperation='overlay';g.drawImage(bigNoise,(fq*37)%200-200,0,W,H);}
+  g.restore();
+}
+const YS0=98.5, YS1=100.2;
 function render(t){
   const f=Math.round(t*FPS);
   if(t>=DUR-1.5){g.fillStyle='#000';g.fillRect(0,0,W,H);staticNoise(Math.max(0,1-(t-(DUR-1.5))*1.1),f);
     g.fillStyle='#888';g.font='14px Silkscreen,monospace';g.textAlign='center';g.fillText('[ recording stopped ]',W/2,H/2);return;}
-  stage(t);pip(t);crowdLayer(t);highway(t);hud(t);
+  stage(t);
+  const fq=Math.round(t*FPS);
+  if(t<YS0)pip(t);
+  else if(t<YS1){const pr=(t-YS0)/(YS1-YS0), showY=hash(fq*2.3)<pr;
+    if(showY)ysolde(t,.6+.4*pr,1,0);else pip(t);
+    g.save();g.beginPath();g.rect(180,40,250,390);g.clip();g.globalAlpha=.35+.5*hash(fq);g.drawImage(bigNoise,(fq*37)%200-200,(fq*53)%100-100,W*1.5,H*1.5);g.restore();}
+  else{const fxv=(t>102.4&&t<103.6&&hash(fq*1.9)>.25)?1:0;ysolde(t,1,t<101?.6:.15,fxv);}
+  crowdLayer(t);highway(t);hud(t);
   if(t>92){g.fillStyle=`rgba(0,0,0,${.35*ease((t-92)/8)})`;g.fillRect(0,0,W,H);}
   if(t>87){const fl=hash(f*1.7)>(t>93?.55:.85);if(fl){g.fillStyle=`rgba(0,0,0,${t>93?.8:.55})`;g.fillRect(0,0,W,H);}}
   subtitle(t);
