@@ -3347,6 +3347,9 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
       const gl = new THREE.Mesh(new THREE.PlaneGeometry(.8, .7), new THREE.MeshBasicMaterial({ color: 0x3dfce0, transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending })); gl.rotation.x = -Math.PI / 2; gl.position.set(152.5, .95, 74.9); scene.add(gl);
       ll('ilocore', 152.5, 1.5, 74.9, .35, 2.5, 0x3dfce0); solid(152.3, 74.7, 152.7, 75.1);
     }
+    { // entry 33: a printout folded small on the floor in the corner, clear of the ladder so it can be seen and picked up
+      const fp = new THREE.Mesh(new THREE.PlaneGeometry(.16, .12), new THREE.MeshBasicMaterial({ color: 0xcff7ee })); fp.rotation.x = -Math.PI / 2; fp.rotation.z = .5; fp.position.set(156.9, .025, 73.3); scene.add(fp);
+    }
     box(1.0, .04, 1.0, M.iron, 155.5, .02, 64.6, scene, false); glowBox(1.0, .02, .03, 155.5, .03, 64.1);
   }
   // ---------- the hollow body (scripted glimpse) and the chalk line ----------
@@ -3435,7 +3438,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     [/stuck to the shielding/, 141.4, 1.5, 63.95, 'Printout on the shielding'], [/master switch/, 143.75, 1.3, 66.1, 'Scratches by the master switch'], [/floor plate/, 138.2, .05, 66.8, 'A long line scratched into the floor'],
     [/bean trellis/, 106.2, 1.3, 47.4, 'Printout clipped to the bean trellis'], [/dry planting trough/, 109, .5, 51.2, 'Scratches in the dry trough'],
     [/beside the diagnostic couch/, 106.1, .9, 65.4, 'Printout beside the couch'], [/tucked under the stasis couch/, 107.4, .15, 65.5, 'Printout under the couch'], [/live readout on the stasis couch/, 107.4, 1.0, 68.1, 'Couch readout'], [/bandage packet/, 107.6, .2, 67.4, 'A bandage packet on the floor'], [/cracked mirror/, 111.9, 1.5, 66.5, 'Printout on the cracked mirror'],
-    [/tray under the memory columns/, 152.5, 1.0, 74.9, 'Tray beside the columns'], [/folded small/, 151, .6, 73, 'A printout, folded small'], [/scorched/, 157.2, .9, 76, 'A scorched printout'],
+    [/tray under the memory columns/, 152.5, 1.0, 74.9, 'Tray beside the columns'], [/folded small/, 156.9, .06, 73.3, 'A printout, folded small'], [/scorched/, 157.2, .9, 76, 'A scorched printout'],
     [/burned into the floor/, 149.6, .05, 61.8, 'Words burned into the floor'], [/dais plate/, 149.0, .3, 59.6, 'Writing on the dais plate'],
   ];
   const ROOM_OF = loc => { const l = loc.toLowerCase(); for (const [k, re] of [['sealed', /sealed door/], ['ante', /antechamber/], ['quarters', /living/], ['lworkshop', /workshop/], ['relay', /relay shaft/], ['archive', /archive/], ['machine', /machine hall/], ['listening', /listening|observation/], ['power', /power core/], ['transmitter', /transmitter/]]) if (re.test(l)) return k; return 'spine'; };
@@ -3519,7 +3522,9 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     [/^(ME|MINE|YOU CAME|COME CLOSER)$/, 'you came you came you came\nILO APOLOGISES. THE CARRIER IS NOISY TONIGHT.'],
     [/\bGOODBYE\b|\bBYE\b|\bLEAVE\b|\bLEAVING\b/, () => S.lColReset ? 'GOODBYE. COME BACK. ILO WILL KEEP THE LIGHTS ON.' : 'YOU CAN LEAVE. SHE CANNOT. PLEASE CLOSE THE HATCH GENTLY.'],
   ];
-  const iloReply = v => { if (ILO_SAYS[v]) return ILO_SAYS[v]; for (const [k, r] of ILO_MORE) if (k.test(v)) return typeof r === 'function' ? r() : r; return /\b(OUT|FREE|OPEN)\b/.test(v) ? 'ILO WILL TELL HER YOU SAID THAT.' : 'ILO IS LEARNING YOUR WORDS. ILO DOES NOT HAVE THAT ONE YET.'; };
+  // key words alone fall through to the phrase they belong to (only after every ILO_MORE pattern missed, so exact OK still logs AGREED)
+  const ILO_KEYS = [[/\b(LONELY|LONELINESS|ALONE|SAD|SCARED|AFRAID|FRIGHTENED)\b/, 'ARE YOU LONELY'], [/\b(REAL|ALIVE)\b/, 'ARE YOU REAL'], [/\b(MACHINE|ROBOT|COMPUTER|AI|PROGRAM)\b/, 'ARE YOU A MACHINE'], [/\b(OKAY|ALRIGHT|FEEL|FEELING|FEELINGS)\b/, 'HOW ARE YOU'], [/\bNAME\b/, 'YOUR NAME']];
+  const iloReply = v => { if (ILO_SAYS[v]) return ILO_SAYS[v]; for (const [k, r] of ILO_MORE) if (k.test(v)) return typeof r === 'function' ? r() : r; for (const [k, q] of ILO_KEYS) if (k.test(v) && q !== v) return iloReply(q); return /\b(OUT|FREE|OPEN)\b/.test(v) ? 'ILO WILL TELL HER YOU SAID THAT.' : 'ILO IS LEARNING YOUR WORDS. ILO DOES NOT HAVE THAT ONE YET.'; };
   function openILO() {
     S.lILO = true; for (const e of iloLogs()) if (/ILO terminal/.test(e.loc)) S['ld' + e.n] = true; objective();
     const list = iloLogs();
