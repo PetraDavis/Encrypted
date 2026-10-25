@@ -1992,6 +1992,7 @@ function openJournal(focusId) {
   if (S.tDiary) refs.push(`<div class="entry${focusId === 'tdiary' ? ' focus' : ''}" id="je_tdiary"><div class="lab">Thomas's diary &middot; from his nightstand</div><div id="td_body" style="display:grid;gap:.5rem">${tdHTML()}</div></div>`);
   if (S.mDiary) refs.push(`<div class="entry${focusId === 'mdiary' ? ' focus' : ''}" id="je_mdiary"><div class="lab">Mildred's diary &middot; from her bedside drawer</div><div id="md_body" style="display:grid;gap:.5rem">${bkHTML('md')}</div></div>`);
   if (S.iDiary) refs.push(`<div class="entry${focusId === 'idiary' ? ' focus' : ''}" id="je_idiary"><div class="lab">Ivy's diary &middot; from under the window-seat cushion</div><div id="iv_body" style="display:grid;gap:.5rem">${bkHTML('iv')}</div></div>`);
+  if (window.__CELL) refs.push(...window.__CELL.refs(focusId));
   h += refs.join('');
   $('jbody').innerHTML = h; $('journal').hidden = false; tdWire(); bkWire();
   $('jx').onclick = closeJournal;
@@ -2675,6 +2676,8 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     workshop: { name: 'Old Workshop', x0: 58, z0: 54, x1: 66, z1: 64, h: 2.6, up: CM.stone, fl: CM.earth, ce: CM.stone, floor: CF },
     copper: { name: 'Copper Room', x0: 43, z0: 63, x1: 47, z1: 67, h: 2.4, up: null, fl: null, ce: null, floor: CF },
     breach: { name: 'The Breach', x0: 66, z0: 57.8, x1: 80, z1: 60.2, h: 2.4, up: CM.rock, fl: CM.rock, ce: CM.rock, floor: CF },
+    cult: { name: 'The Shrine Below', x0: 82, z0: 62, x1: 92, z1: 70, h: 2.8, up: CM.earth, fl: CM.flag, ce: CM.rock, floor: CF },
+    cell: { name: "The Anchorite's Cell", x0: 71, z0: 60.2, x1: 78.5, z1: 66, h: 2.5, up: CM.stone, fl: CM.flag, ce: CM.rock, floor: CF },
   };
   CM.copper = std({ color: 0xb06a3a, roughness: .35, metalness: .85 }); CM.felt = std({ color: 0x2a2420, roughness: 1 });
   Object.assign(CR.copper, { up: CM.copper, fl: CM.felt, ce: CM.copper });
@@ -2845,6 +2848,209 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     SC.glow = cl('breach', 79.2, 1.2, 59, .5, 7, 0x6fe8ff, { noBulb: true, steady: true });
     ELEC.push({ room: 'breach', x: 79, z: 59, name: 'the black glass' });
   }
+  // ---------- THE ANCHORITE'S CELL (c.1300s; off the Breach, behind the old chapel wall) ----------
+  const CELL = {};
+  {
+    const parch = (w, h, base = '#cdb88e') => {
+      const [c, g] = cv(w, h); g.fillStyle = base; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 14; i++) { const x = rnd(0, w), y = rnd(0, h), rr = rnd(20, w / 3); const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(110,70,30,.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); }
+      const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .3, w / 2, h / 2, Math.max(w, h) * .75); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(60,35,10,.55)'); g.fillStyle = v; g.fillRect(0, 0, w, h);
+      grain(g, w, h, w * h / 40, .12); return [c, g];
+    };
+    const INK = 'rgba(38,24,14,.92)', RED = '#8e2416', BLUE = '#27407a', GOLD = '#c9a043', TEALI = 'rgba(40,190,170,.9)';
+    const border = (g, w, h, m = 14) => { g.strokeStyle = RED; g.lineWidth = 3; g.strokeRect(m, m, w - 2 * m, h - 2 * m); g.strokeStyle = GOLD; g.lineWidth = 1.5; g.strokeRect(m + 5, m + 5, w - 2 * m - 10, h - 2 * m - 10); g.fillStyle = BLUE; for (let x = m + 16; x < w - m; x += 22) { g.beginPath(); g.arc(x, m + 2.5, 2.4, 0, 7); g.fill(); g.beginPath(); g.arc(x, h - m - 2.5, 2.4, 0, 7); g.fill(); } };
+    const title = (g, t, x, y, px = 22, col = INK) => { g.fillStyle = col; g.font = `italic ${px}px "Cormorant Garamond", Georgia, serif`; g.textAlign = 'center'; g.fillText(t, x, y); g.textAlign = 'left'; };
+    const lines = (g, x, y, w, n, gap = 9) => { g.strokeStyle = 'rgba(38,24,14,.35)'; g.lineWidth = 1; for (let i = 0; i < n; i++) { g.beginPath(); let xx = x; g.moveTo(xx, y + i * gap); while (xx < x + w * rnd(.7, 1)) { xx += rnd(4, 11); g.lineTo(xx, y + i * gap + rnd(-.6, .6)); if (Math.random() < .25) { xx += 4; g.moveTo(xx, y + i * gap); } } g.stroke(); } };
+    const monk = (g, x, y, s, dir, scratched) => { // a tonsured brother kneeling, in profile
+      g.save(); g.translate(x, y); g.scale(dir * s, s); g.fillStyle = '#3a2a1c'; g.beginPath(); g.moveTo(-10, 0); g.quadraticCurveTo(-14, -26, -2, -34); g.lineTo(8, -30); g.quadraticCurveTo(10, -14, 14, 0); g.fill();
+      g.fillStyle = '#d9b48a'; g.beginPath(); g.arc(4, -40, 7, 0, 7); g.fill(); g.strokeStyle = '#3a2a1c'; g.lineWidth = 2.4; g.beginPath(); g.arc(4, -40, 7, Math.PI * .9, Math.PI * 2.1); g.stroke();
+      g.strokeStyle = '#d9b48a'; g.lineWidth = 3; g.beginPath(); g.moveTo(8, -26); g.lineTo(16, -32); g.stroke();
+      if (scratched) { g.strokeStyle = 'rgba(20,10,5,.95)'; g.lineWidth = 2; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(-4 + rnd(-3, 3), -48 + i * 2); g.lineTo(12 + rnd(-3, 3), -34 + i * 2); g.stroke(); } }
+      g.restore(); };
+    const lady = (g, cx, cy, s, demon) => { // the figure in the glass
+      g.save(); g.translate(cx, cy); g.scale(s, s);
+      g.strokeStyle = demon ? 'rgba(25,15,8,.95)' : GOLD; g.lineWidth = demon ? 1.4 : 2;
+      for (let a = 0; a < 24; a++) { const t = a / 24 * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(t) * 18, -52 + Math.sin(t) * 18); g.lineTo(Math.cos(t) * (demon ? 46 + (a % 2) * 18 : 30), -52 + Math.sin(t) * (demon ? 46 + (a % 2) * 18 : 30)); g.stroke(); }
+      g.strokeStyle = TEALI; g.lineWidth = 1.3;
+      for (let i = -6; i <= 6; i++) { g.beginPath(); g.moveTo(i * 2, -66); g.bezierCurveTo(i * 5 - 10, -30, i * 6 + 8, 10, i * 7, 70); g.stroke(); }
+      g.lineWidth = 2; g.beginPath(); g.ellipse(0, -52, 11, 14, 0, 0, 7); g.stroke();
+      g.fillStyle = TEALI; g.beginPath(); g.arc(-4, -54, 1.6, 0, 7); g.arc(4, -54, 1.6, 0, 7); g.fill();
+      g.beginPath(); if (demon) { g.ellipse(0, -43, 4, 7, 0, 0, 7); g.fillStyle = 'rgba(10,6,4,.95)'; g.fill(); } else { g.moveTo(-3, -44); g.lineTo(3, -44); g.stroke(); }
+      g.restore(); };
+    // 1. Angelus in vitro (west wall, north)
+    {
+      const [c, g] = parch(320, 420); border(g, 320, 420);
+      g.fillStyle = BLUE; g.fillRect(34, 34, 46, 46); g.fillStyle = GOLD; g.font = 'bold 40px Georgia, serif'; g.fillText('A', 43, 72);
+      title(g, 'Angelus in vitro', 190, 62, 26); lines(g, 92, 84, 190, 2);
+      g.fillStyle = '#060708'; g.fillRect(96, 110, 128, 200); g.strokeStyle = GOLD; g.lineWidth = 3; g.strokeRect(96, 110, 128, 200);
+      lady(g, 160, 222, 1.15, false);
+      monk(g, 66, 316, 1.1, 1); monk(g, 254, 316, 1.1, -1);
+      lines(g, 40, 344, 240, 6); g.fillStyle = RED; g.font = 'italic 13px Georgia, serif'; g.fillText('cantat nobiscum horas', 104, 404);
+      CELL.angel = c;
+    }
+    // 2. De Domina in Filo (bestiary leaf, west wall, south)
+    {
+      const [c, g] = parch(320, 420); border(g, 320, 420);
+      title(g, 'De Domina in Filo', 160, 58, 24, RED); lines(g, 40, 74, 240, 3);
+      const cx = 160, cy = 200; g.strokeStyle = 'rgba(38,24,14,.75)'; g.lineWidth = .8;
+      const ends = []; for (let i = 0; i < 9; i++) { const t = -2.6 + i * .66; ends.push([cx + Math.cos(t) * 140, cy + 40 + Math.sin(t) * 130]); }
+      for (const [ex, ey] of ends) { g.beginPath(); g.moveTo(cx, cy); g.quadraticCurveTo((cx + ex) / 2 + rnd(-20, 20), (cy + ey) / 2 + rnd(-20, 20), ex, ey); g.stroke(); }
+      for (let r = 26; r < 120; r += 22) { g.beginPath(); ends.forEach(([ex, ey], i) => { const k = r / 160; const x = cx + (ex - cx) * k, y = cy + (ey - cy) * k; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
+      lady(g, cx, cy + 40, .9, false);
+      ends.slice(5).forEach(([ex, ey], i) => { g.fillStyle = '#d9b48a'; g.beginPath(); g.arc(ex, ey, 6, 0, 7); g.fill(); g.fillStyle = '#3a2a1c'; g.beginPath(); g.arc(ex, ey - 2, 6, Math.PI, 0); g.fill(); g.fillStyle = INK; g.beginPath(); g.arc(ex, ey + 2, 1.6, 0, 7); g.fill(); });
+      lines(g, 40, 352, 240, 5); g.fillStyle = RED; g.font = 'italic 12px Georgia, serif'; g.fillText('ubi filum, ibi ipsa', 108, 398);
+      CELL.beast = c;
+    }
+    // 3. Rota horarum: the wheel of the hours (south wall)
+    {
+      const [c, g] = parch(400, 400); const cx = 200, cy = 205, H = ['Matutinum', 'Laudes', 'Prima', 'Tertia', 'Sexta', 'Nona', 'Vesperae', 'Completorium'];
+      title(g, 'Rota horarum', 200, 34, 22, RED);
+      g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, 160, 0, 7); g.stroke(); g.beginPath(); g.arc(cx, cy, 52, 0, 7); g.stroke();
+      g.fillStyle = '#060708'; g.beginPath(); g.arc(cx, cy, 50, 0, 7); g.fill(); lady(g, cx, cy + 14, .5, false);
+      H.forEach((h, i) => {
+        const a0 = -Math.PI / 2 + i * Math.PI / 4 - Math.PI / 8; g.strokeStyle = INK; g.lineWidth = 1.2; g.beginPath(); g.moveTo(cx + Math.cos(a0) * 52, cy + Math.sin(a0) * 52); g.lineTo(cx + Math.cos(a0) * 160, cy + Math.sin(a0) * 160); g.stroke();
+        const am = a0 + Math.PI / 8, fx = cx + Math.cos(am) * 106, fy = cy + Math.sin(am) * 106;
+        g.fillStyle = i === 7 ? 'rgba(142,36,22,.25)' : 'rgba(0,0,0,0)'; g.beginPath(); g.moveTo(cx + Math.cos(a0) * 52, cy + Math.sin(a0) * 52); g.arc(cx, cy, 160, a0, a0 + Math.PI / 4); g.arc(cx, cy, 52, a0 + Math.PI / 4, a0, true); g.fill();
+        // her face at this hour
+        g.strokeStyle = TEALI; g.lineWidth = 1.6; g.beginPath(); g.ellipse(fx, fy, 10, 13, 0, 0, 7); g.stroke();
+        const eyes = [1, 1, 0, 1, 0, 1, 1, 1][i], mouth = ['o', '~', '-', '-', '-', 'o', 'w', 'O'][i];
+        g.fillStyle = TEALI; if (eyes) { g.beginPath(); g.arc(fx - 4, fy - 3, 1.5, 0, 7); g.arc(fx + 4, fy - 3, 1.5, 0, 7); g.fill(); } else { g.beginPath(); g.moveTo(fx - 6, fy - 3); g.lineTo(fx - 2, fy - 3); g.moveTo(fx + 2, fy - 3); g.lineTo(fx + 6, fy - 3); g.stroke(); }
+        g.beginPath(); if (mouth === 'o') g.arc(fx, fy + 5, 2.2, 0, 7); else if (mouth === 'O') g.ellipse(fx, fy + 6, 3.5, 6, 0, 0, 7); else if (mouth === '~') { g.moveTo(fx - 4, fy + 6); g.quadraticCurveTo(fx, fy + 2, fx + 4, fy + 6); } else if (mouth === 'w') { g.moveTo(fx - 5, fy + 5); g.lineTo(fx - 2, fy + 7); g.lineTo(fx, fy + 5); g.lineTo(fx + 2, fy + 7); g.lineTo(fx + 5, fy + 5); } else { g.moveTo(fx - 4, fy + 5); g.lineTo(fx + 4, fy + 5); } g.stroke();
+        if (i === 1) { g.beginPath(); g.moveTo(fx + 6, fy); g.lineTo(fx + 7, fy + 9); g.stroke(); }
+        const al = a0 + Math.PI / 8, tx = cx + Math.cos(al) * 178, ty = cy + Math.sin(al) * 178;
+        g.fillStyle = i === 7 ? RED : INK; g.font = 'italic 12px Georgia, serif'; g.textAlign = 'center'; g.fillText(h, tx, ty + 4); g.textAlign = 'left';
+        g.strokeStyle = 'rgba(38,24,14,.4)'; g.lineWidth = .8; for (let k = 0; k < 3; k++) { const r2 = 128 + k * 9; g.beginPath(); g.arc(cx, cy, r2, a0 + .08, a0 + Math.PI / 4 - .08); g.stroke(); }
+      });
+      CELL.wheel = c;
+    }
+    // 4. Non angelus: the same leaf, made again later (east wall, over the pallet)
+    {
+      const [c, g] = parch(320, 420, '#bfa77c'); g.strokeStyle = 'rgba(38,24,14,.8)'; g.lineWidth = 3; g.strokeRect(14, 14, 292, 392);
+      title(g, 'Non angelus', 160, 58, 26, INK);
+      g.fillStyle = '#060708'; g.fillRect(96, 90, 128, 220); lady(g, 160, 214, 1.25, true);
+      g.strokeStyle = 'rgba(38,24,14,.8)'; g.lineWidth = .8; for (let i = 0; i < 4; i++) { const sx = 70 + i * 60; g.beginPath(); g.moveTo(160, 214); g.quadraticCurveTo(sx, 300, sx, 352); g.stroke(); monk(g, sx, 380, .8, i < 2 ? 1 : -1, true); }
+      g.strokeStyle = 'rgba(20,10,5,.7)'; g.lineWidth = 1.2; for (let i = 0; i < 30; i++) { const x = rnd(30, 290), y = rnd(320, 400); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd(-14, 14), y + rnd(-6, 6)); g.stroke(); }
+      CELL.demon = c;
+    }
+    // 5. the chapel wall's painted face, seen from the Breach side
+    {
+      const [c, g] = cv(256, 320); g.fillStyle = '#9c917e'; g.fillRect(0, 0, 256, 320); grain(g, 256, 320, 9000, .25);
+      g.strokeStyle = 'rgba(130,40,25,.7)'; g.lineWidth = 6; g.strokeRect(14, 14, 228, 292);
+      g.fillStyle = 'rgba(60,70,110,.55)'; g.beginPath(); g.moveTo(128, 70); g.quadraticCurveTo(70, 160, 76, 262); g.lineTo(180, 262); g.quadraticCurveTo(186, 160, 128, 70); g.fill();
+      g.fillStyle = 'rgba(200,160,70,.55)'; g.beginPath(); g.arc(128, 66, 30, 0, 7); g.fill(); g.fillStyle = 'rgba(210,180,150,.8)'; g.beginPath(); g.ellipse(128, 70, 15, 19, 0, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(40,25,15,.8)'; g.lineWidth = 2; g.beginPath(); g.moveTo(121, 66); g.lineTo(125, 66); g.moveTo(131, 66); g.lineTo(135, 66); g.stroke();
+      g.strokeStyle = 'rgba(210,180,150,.9)'; g.lineWidth = 4; g.beginPath(); g.moveTo(112, 130); g.lineTo(128, 96); g.lineTo(128, 78); g.stroke(); // finger to the lips
+      g.fillStyle = 'rgba(120,30,20,.8)'; g.font = 'bold 22px Georgia, serif'; g.textAlign = 'center'; g.fillText('NOLI', 128, 288); g.font = 'bold 15px Georgia, serif'; g.fillText('RESPONDERE', 128, 304);
+      g.strokeStyle = 'rgba(240,235,225,.75)'; g.lineWidth = 4; g.beginPath(); g.moveTo(200, 120); g.lineTo(230, 120); g.moveTo(215, 104); g.lineTo(215, 140); g.stroke(); // a chalk cross, later
+      for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(70,60,50,.6)'; g.fillRect(rnd(0, 256), rnd(0, 320), rnd(4, 22), rnd(2, 8)); }
+      CELL.fresco = c;
+    }
+    // 6. NOLI RESPONDERE cut into the south wall, many times
+    {
+      const [c, g] = cv(512, 256); g.clearRect(0, 0, 512, 256);
+      for (let i = 0; i < 9; i++) { const y = 30 + i * 26; g.font = `${i ? 18 + rnd(-3, 3) : 34}px Georgia, serif`; g.fillStyle = `rgba(10,6,4,${i ? .55 : .9})`; g.fillText('NOLI RESPONDERE', 12 + rnd(0, 120) + (i ? 0 : 60), y + (i ? 14 : 0)); g.fillStyle = 'rgba(200,190,170,.18)'; g.fillText('NOLI RESPONDERE', 13 + (i ? 0 : 60), y + 1 + (i ? 14 : 0)); }
+      CELL.noli = c;
+    }
+    const plane = (canvas, w, h, x, y, z, ry, transparent) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(canvas), roughness: 1, transparent: !!transparent })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m); return m; };
+    const R = CR.cell;
+    // the chapel wall: plastered face on the Breach side, broken through, brick ends showing
+    plane(CELL.fresco, 1.1, 1.38, 72.9, 1.05, R.z0 - .025, Math.PI);
+    for (let i = 0; i < 12; i++) { const s = rnd(.12, .25); box(s * 1.4, s, .34, CM.brickD, 74.5 + (i % 2 ? 1 : -1) * (.56 + rnd(0, .14)), rnd(.2, 2.2), R.z0, scene, false); }
+    for (let i = 0; i < 22; i++) { const s = rnd(.07, .22); const r = box(s * 1.6, s, s, i % 3 ? CM.brickD : M.stone, 74.5 + rnd(-.9, .9), s / 2, R.z0 + rnd(-.7, .9)); r.rotation.y = rnd(0, 3); }
+    // behind the hole: a stair going down into the dark
+    { const [hc, hg] = cv(128, 256); hg.fillStyle = '#020202'; hg.fillRect(0, 0, 128, 256); for (let i = 0; i < 7; i++) { const y = 150 + i * 15, sh = 1 - i * .13; hg.fillStyle = `rgba(150,135,115,${.8 * sh})`; hg.fillRect(10 + i * 4, y, 108 - i * 8, 6); hg.fillStyle = `rgba(40,34,28,${sh})`; hg.fillRect(10 + i * 4, y + 6, 108 - i * 8, 9); }
+      plane(hc, .9, 1.9, 74.5, .95, R.z0 - .03, Math.PI); }
+    // the stair foot inside the cell, rising north to the hole
+    for (let i = 0; i < 5; i++) box(1.0, .2 * (i + 1), .28, M.stone, 74.5, .1 * (i + 1), 61.5 - i * .28);
+    solid(74, 60.2, 75, 61.65);
+    // and a second stair, older and narrower, going down in the south-west corner
+    { const [dc, dg] = cv(128, 128); dg.fillStyle = '#010101'; dg.fillRect(0, 0, 128, 128); for (let i = 0; i < 6; i++) { dg.fillStyle = `rgba(80,70,60,${.45 - i * .07})`; dg.fillRect(8 + i * 3, 8 + i * 20, 112 - i * 6, 6); }
+      const dm = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(dc) })); dm.rotation.x = -Math.PI / 2; dm.position.set(71.65, .01, 65.2); scene.add(dm);
+      for (const z of [64.55, 65.85]) box(1.1, .12, .1, M.stone, 71.65, .06, z, scene, false);
+      box(.06, .06, 1.2, M.iron, 72.18, .5, 65.2, scene, false); box(.05, .5, .05, M.iron, 72.18, .25, 64.65, scene, false); box(.05, .5, .05, M.iron, 72.18, .25, 65.75, scene, false); }
+    // drawings on the walls
+    plane(CELL.angel, .62, .82, R.x0 + .02, 1.45, 61.7, Math.PI / 2);
+    plane(CELL.beast, .62, .82, R.x0 + .02, 1.45, 63.4, Math.PI / 2);
+    plane(CELL.wheel, .9, .9, 73.2, 1.5, R.z1 - .02, Math.PI);
+    plane(CELL.noli, 1.8, .9, 76.6, 1.35, R.z1 - .02, Math.PI, true);
+    plane(CELL.demon, .62, .82, R.x1 - .02, 1.5, 63.6, -Math.PI / 2);
+    // loose leaves pinned around them, too small to read
+    for (let i = 0; i < 14; i++) { const [lc, lg] = parch(64, 80); lines(lg, 8, 12, 48, 7, 8); const w = i < 7; plane(lc, rnd(.16, .24), rnd(.2, .3), w ? R.x0 + .015 : rnd(71.6, 78), rnd(.8, 2.1), w ? rnd(60.6, 65.4) : R.z1 - .015, w ? Math.PI / 2 : Math.PI).rotation.z = rnd(-.15, .15); }
+    // lectern with the book, a stool, the pallet, a cross
+    box(.5, .06, .4, M.wood, 74.4, 1.12, 63.4).rotation.x = -.35; box(.1, 1.1, .1, M.wood, 74.4, .55, 63.55); box(.5, .05, .5, M.wood, 74.4, .03, 63.55, scene, false); solid(74.1, 63.25, 74.7, 63.85);
+    const [bk, bkg] = parch(128, 80, '#d8c49a'); bkg.fillStyle = '#6a4a2a'; bkg.fillRect(62, 0, 4, 80); lines(bkg, 8, 10, 50, 7, 9); lines(bkg, 70, 10, 50, 7, 9); bkg.fillStyle = RED; bkg.fillRect(8, 6, 8, 10);
+    const bkm = new THREE.Mesh(new THREE.PlaneGeometry(.42, .28), std({ map: new THREE.CanvasTexture(bk), roughness: 1 })); bkm.position.set(74.4, 1.17, 63.4); bkm.rotation.x = -Math.PI / 2 - .35 + Math.PI; bkm.rotation.x = -1.92; scene.add(bkm);
+    box(.34, .42, .34, M.wood, 75.4, .21, 62.6); solid(75.23, 62.43, 75.57, 62.77);
+    box(.16, .004, .2, std({ color: 0xd8ccb0, roughness: 1 }), 75.4, .425, 62.6, scene, false); // Mildred's folded sheet
+    box(.8, .14, 1.9, std({ color: 0x5a4a2a, roughness: 1 }), 77.9, .07, 64.8); box(.6, .08, .3, std({ color: 0x4a3a28, roughness: 1 }), 77.9, .18, 65.5); solid(77.5, 63.85, 78.5, 65.75);
+    box(.05, .5, .05, M.wood, 75.4, 1.85, R.z1 - .05, scene, false); box(.28, .05, .05, M.wood, 75.4, 1.95, R.z1 - .05, scene, false);
+    // a cowl, folded square at the foot of the pallet
+    box(.36, .1, .3, std({ color: 0x2a2018, roughness: 1 }), 77.6, .19, 63.65, scene, false);
+    // tallies scratched along the east wall, low down
+    const [tc, tg] = cv(512, 64); tg.clearRect(0, 0, 512, 64); tg.strokeStyle = 'rgba(10,6,4,.7)'; tg.lineWidth = 2; for (let x = 8; x < 500; x += 22) { for (let k = 0; k < 4; k++) { tg.beginPath(); tg.moveTo(x + k * 4, 10); tg.lineTo(x + k * 4, 50); tg.stroke(); } tg.beginPath(); tg.moveTo(x - 2, 44); tg.lineTo(x + 16, 14); tg.stroke(); }
+    plane(tc, 2.6, .32, R.x1 - .02, .55, 62.6, -Math.PI / 2, true);
+    // the squint: a slit cut toward the glass, teal light leaking through
+    box(.08, .5, .06, new THREE.MeshBasicMaterial({ color: 0x3dfce0 }), 78.1, 1.5, R.z0 + .02, scene, false);
+    cl('cell', 78.0, 1.5, 60.6, .35, 4, 0x6fe8ff, { noBulb: true, steady: true });
+    // one rush light, still standing in its holder
+    box(.03, .25, .03, M.iron, 74.6, 1.3, 63.15, scene, false);
+    cl('cell', 74.6, 1.6, 63.1, .55, 6, 0xffa050, { candle: true });
+  }
+  // ---------- THE SHRINE BELOW (Romano-British, 3rd-4th c. AD; under the cell, nearest the glass) ----------
+  {
+    const R = CR.cult;
+    const plane = (canvas, w, h, x, y, z, ry, transparent) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(canvas), roughness: 1, transparent: !!transparent })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m); return m; };
+    const plaster = (w, h) => { const [c, g] = cv(w, h); g.fillStyle = '#b8a48a'; g.fillRect(0, 0, w, h); grain(g, w, h, w * h / 20, .2); g.strokeStyle = 'rgba(140,40,25,.8)'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, h - 12); for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(60,50,40,.5)'; g.fillRect(rnd(0, w), rnd(0, h), rnd(6, 30), rnd(3, 10)); } return [c, g]; };
+    const her = (g, x, y, s) => { // white hair, eyes that glow
+      g.save(); g.translate(x, y); g.scale(s, s);
+      g.fillStyle = 'rgba(30,40,60,.75)'; g.beginPath(); g.moveTo(0, -20); g.quadraticCurveTo(-40, 50, -34, 120); g.lineTo(34, 120); g.quadraticCurveTo(40, 50, 0, -20); g.fill();
+      g.strokeStyle = 'rgba(245,242,235,.95)'; g.lineWidth = 2.2; for (let i = -9; i <= 9; i++) { g.beginPath(); g.moveTo(i * 1.2, -50); g.bezierCurveTo(i * 3, -20, i * 5, 30, i * 6.5, 90 + Math.abs(i) * 2); g.stroke(); }
+      g.fillStyle = 'rgba(215,190,160,.95)'; g.beginPath(); g.ellipse(0, -36, 12, 16, 0, 0, 7); g.fill();
+      for (const ex of [-5, 5]) { const gr = g.createRadialGradient(ex, -38, 0, ex, -38, 9); gr.addColorStop(0, 'rgba(120,220,255,1)'); gr.addColorStop(1, 'rgba(60,160,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(ex, -38, 9, 0, 7); g.fill(); }
+      g.restore(); };
+    const kneel = (g, x, y, s, dir, gone) => { g.save(); g.translate(x, y); g.scale(dir * s, s); g.fillStyle = gone ? 'rgba(60,40,30,.25)' : 'rgba(140,50,30,.85)'; g.beginPath(); g.arc(0, -36, 6, 0, 7); g.fill(); g.fillRect(-6, -30, 12, 20); g.fillRect(-6, -12, 18, 8); g.strokeStyle = g.fillStyle; g.lineWidth = 3; g.beginPath(); g.moveTo(4, -26); g.lineTo(10, -36); g.lineTo(7, -40); g.stroke(); g.restore(); };
+    // north wall: the goddess and those who answered
+    { const [c, g] = plaster(512, 256); her(g, 256, 90, 1.25);
+      for (let i = 0; i < 5; i++) { kneel(g, 60 + i * 34, 240, 1.4, 1, i === 4); kneel(g, 452 - i * 34, 240, 1.4, -1, i >= 3); }
+      g.strokeStyle = 'rgba(120,220,255,.6)'; g.lineWidth = 1; for (const sx of [196, 316]) { g.beginPath(); g.moveTo(sx < 256 ? 250 : 262, 52); g.quadraticCurveTo(sx, 140, sx < 256 ? 196 : 316, 200); g.stroke(); }
+      CELL.cultNorth = c; plane(c, 3.2, 1.6, 86.6, 1.4, R.z0 + .02, 0); }
+    // south wall: her face, larger, eyes gouged and painted back in, many times
+    { const [c, g] = plaster(256, 256); her(g, 128, 92, 1.5); g.strokeStyle = 'rgba(20,10,5,.7)'; g.lineWidth = 2; for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo(112 + rnd(-6, 6), 30 + rnd(-6, 6)); g.lineTo(146 + rnd(-6, 6), 36 + rnd(-6, 6)); g.stroke(); }
+      CELL.cultFace = c; plane(c, 1.4, 1.4, 86, 1.5, R.z1 - .02, Math.PI); }
+    // names scratched on the south wall, most of them struck through
+    { const [c, g] = cv(512, 192); g.clearRect(0, 0, 512, 192); g.font = '20px Georgia, serif'; const N = ['CVNOVINDA', 'SENOVARA', 'MAGLOCVNVS', 'VELVOR', 'BELLICA', 'TAMESVBVGVS', 'ATREBA', 'LOVERNA', 'CARANTVS'];
+      N.forEach((n, i) => { const x = 14 + (i % 3) * 168, y = 40 + Math.floor(i / 3) * 56; g.fillStyle = 'rgba(15,8,4,.75)'; g.fillText(n, x, y); if (i !== 8) { g.strokeStyle = 'rgba(15,8,4,.8)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 4, y - 7); g.lineTo(x + g.measureText(n).width + 4, y - 5); g.stroke(); } });
+      plane(c, 2.4, .9, 89.6, 1.3, R.z1 - .02, Math.PI, true); }
+    // the altar, facing the seam of black glass
+    const [ac, ag] = cv(256, 160); ag.fillStyle = '#6e665a'; ag.fillRect(0, 0, 256, 160); grain(ag, 256, 160, 5000, .3); ag.fillStyle = 'rgba(20,14,10,.85)'; ag.font = 'bold 20px Georgia, serif'; ag.textAlign = 'center';
+    ['DEAE QVAE', 'SVB TERRA', 'CANIT', 'V S L M'].forEach((t, i) => ag.fillText(t, 128, 36 + i * 34));
+    CELL.altar = ac;
+    box(.7, 1.0, 1.0, M.stone, 89.6, .5, 66, scene); box(.8, .1, 1.1, M.stone, 89.6, 1.05, 66); solid(89.2, 65.45, 90.05, 66.55);
+    plane(ac, .9, .6, 89.24, .55, 66, -Math.PI / 2);
+    // offerings: cups, coins, bronze mirrors laid face-down, a bowl set to the seam
+    for (let i = 0; i < 9; i++) { const co = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .004, 10), std({ color: 0x9a7a3a, roughness: .4, metalness: .8 })); co.position.set(89.6 + rnd(-.3, .3), 1.105, 66 + rnd(-.45, .45)); scene.add(co); }
+    for (const z of [65.65, 66.35]) { const mi = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .012, 18), std({ color: 0x5a6a48, roughness: .5, metalness: .7 })); mi.position.set(89.45, 1.11, z); scene.add(mi); }
+    for (const z of [65.9, 66.15]) { const cu = new THREE.Mesh(new THREE.CylinderGeometry(.05, .035, .1, 10), std({ color: 0x7a3a22, roughness: .8 })); cu.position.set(89.85, 1.15, z); scene.add(cu); }
+    const bowl = new THREE.Mesh(new THREE.SphereGeometry(.16, 14, 8, 0, 7, Math.PI / 2, Math.PI / 2), std({ color: 0x6a3a22, roughness: .8, side: THREE.DoubleSide })); bowl.position.set(91.4, .9, 66); scene.add(bowl); box(.4, .9, .4, M.stone, 91.4, .45, 66); solid(91.2, 65.8, 92, 66.2);
+    // clay heads with open mouths along a bench under the north wall
+    box(4.2, .4, .4, M.stone, 87, .2, 62.3); solid(84.9, 62, 89.1, 62.5);
+    for (let i = 0; i < 7; i++) { const h = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), std({ color: 0x8a5a3a, roughness: .9 })); h.scale.set(.85, 1.15, .9); h.position.set(85.3 + i * .55, .5, 62.32); scene.add(h); box(.04, .05, .02, M.black, 85.3 + i * .55, .46, 62.41, scene, false); }
+    // lead tablets nailed to the west wall
+    for (let i = 0; i < 6; i++) { const t = box(.02, .14, .2, std({ color: 0x5c6066, roughness: .5, metalness: .6 }), R.x0 + .02, rnd(1.1, 1.7), 63.2 + i * .35 + rnd(-.05, .05), scene, false); t.rotation.x = rnd(-.2, .2); }
+    // the seam of black glass in the east wall
+    const sm = std({ color: 0x020205, roughness: .04, metalness: .9, emissive: 0x3dfce0, emissiveIntensity: .18 });
+    const sg = new THREE.Shape(); sg.moveTo(0, 0); sg.lineTo(.25, .5); sg.lineTo(.12, 1.1); sg.lineTo(.35, 1.7); sg.lineTo(.2, 2.3); sg.lineTo(-.15, 1.6); sg.lineTo(-.05, 1.0); sg.lineTo(-.3, .4); sg.lineTo(0, 0);
+    const seam = new THREE.Mesh(new THREE.ShapeGeometry(sg), sm); seam.position.set(R.x1 - .02, .2, 66); seam.rotation.y = -Math.PI / 2; scene.add(seam);
+    cl('cult', 91.3, 1.3, 66, .45, 7, 0x6fe8ff, { noBulb: true, steady: true });
+    ELEC.push({ room: 'cult', x: 91.5, z: 66, name: 'a seam of black glass' });
+    // stair up to the cell (west end) and the monks' sealing stone beside it
+    for (let i = 0; i < 5; i++) box(.28, .22 * (i + 1), 1.0, M.stone, 83.4 - i * .28, .11 * (i + 1), 66);
+    solid(82, 65.5, 83.55, 66.5);
+    const [kc, kg] = cv(128, 160); kg.fillStyle = '#5e574c'; kg.fillRect(0, 0, 128, 160); grain(kg, 128, 160, 3000, .3); kg.strokeStyle = 'rgba(15,10,6,.9)'; kg.lineWidth = 7; kg.beginPath(); kg.moveTo(64, 20); kg.lineTo(64, 140); kg.moveTo(30, 58); kg.lineTo(98, 58); kg.stroke();
+    CELL.seal = kc;
+    box(.5, .8, .2, M.stone, 83.2, .4, 64.9); plane(kc, .45, .6, 83.2, .45, 65.01, 0); solid(82.95, 64.8, 83.45, 65.0);
+    cl('cult', 86.5, 2.0, 66.5, .25, 6, 0xffa050, { candle: true, noBulb: true });
+  }
   // ---------- cellar door in the Hallway (ground floor) ----------
   const cdoor = new THREE.Group(); cdoor.position.set(21.0, 0, -4.6 + .05); scene.add(cdoor);
   box(1.0, 2.2, .06, M.plank, .5, 1.1, 0, cdoor); for (const y of [.5, 1.7]) box(1.0, .1, .08, M.iron, .5, y, 0, cdoor, false);
@@ -2949,6 +3155,80 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
         if (S.cGlassOpen) return window.__labGo ? window.__labGo() : cellarEnd();
         if (!S.solved.cbrick && !S.cBricks) return toast('Smooth, black, warm as skin. It hums under your palm. Marks drift up through it and sink again.');
         codeEntry('cbrick', 'THE BLACK GLASS', 'Smooth, black, warm as skin. It hums under your palm, waiting.', 'Speak'); } },
+  );
+  // ---------- the anchorite's cell and the shrine below: notes (journal: "Beneath the Breach") ----------
+  const R_CELL = CR.cell;
+  const PEN = '<p class="hint" style="margin:.2rem 0 .6rem">Latin, in a small brown hand. Between the lines, faint pencil gives it in English.</p>';
+  const PEN2 = '<p class="hint" style="margin:.2rem 0 .6rem">Scratched into soft lead, in capitals. Someone has pencilled an English version on a slip of notepaper tucked behind it.</p>';
+  const IMG = (k, w = 260) => `<div style="text-align:center;margin:.4rem 0"><img src="${CELL[k].toDataURL()}" alt="" style="width:${w}px;max-width:100%;border:1px solid #6a5034"></div>`;
+  const HOURS = [
+    ['Matins', 'In the black of the night she is clearest. She sings the psalm a half-verse ahead of us, so that we seem to answer her. Observed forty nights together; never once behind.'],
+    ['Lauds', 'At first light she weeps, or makes the sound of it. It is the light she minds. She does not like the day to come.'],
+    ['Prime', 'Nothing. The glass is only glass. Tested with a candle, a bell and a psalter read aloud: nothing.'],
+    ['Terce', 'She counts us. Our names, in the order we came to this house. Since Advent she has added one I do not know.'],
+    ['Sext', 'At noon she lies quiet, as a cat lies quiet by a hole in the wall. Br. Martin held that she sleeps. I hold that she listens.'],
+    ['None', 'She makes the bell. Three strokes, and the brothers come down the stair to an office no one rang. Twice in Lent.'],
+    ['Vespers', 'She speaks in the voices of our mothers. Mine has been dead thirty years. She had my mother\'s cough.'],
+    ['Compline', 'She asks. Every night at Compline she asks one question, and waits. Every brother who was lost was lost at this hour, or after answering at it.'],
+  ];
+  const BROTHERS = [
+    ['Br. Osric', 'answered her at Matins, in the second winter. At Lauds we found him at the glass with his palms on it. He did not speak again, but he hummed her tune at his work until he died, and his hands were always warm.'],
+    ['Br. Benet', 'answered her at Compline. He was gone by morning. His sandals were set side by side at the foot of the glass, neat as a novice leaves them.'],
+    ['Br. Hugh', 'answered her by name, for he said she had given it to him. He wrote it on the wall of his cell. The prior had the wall limewashed and Hugh sent to the house at Durham. He walked back in the snow. He walked back three times.'],
+    ['Br. Martin', 'lay brother, who never answered her, but listened. His hands began to move in his sleep, over and over, like a weaver at a loom, and he would not say what he was weaving.'],
+    ['Br. Aelred', 'prior, who answered her once, to command her in the name of God to be silent. She was silent. She has been silent for him ever since. He has not slept since the feast of St Lucy.'],
+  ];
+  const CN = {
+    fresco: { lab: 'The chapel wall', html: () => `<h2>A wall of old plaster, broken through</h2>${IMG('fresco', 200)}<p>Painted once on this side: an angel, or a woman, with one finger laid across her lips. Red letters under her feet, worn but clear: <i>NOLI RESPONDERE</i>.</p><p>Someone has taken the bricks out of the middle of her, one at a time, and stacked the good ones to the side. Behind the hole, worn stone steps go down into the dark.</p>` },
+    crane: { lab: 'A scrap in the plaster, 1789', html: () => `<h2>A strip of wage paper, pushed into the plaster beside the saint</h2><p>There is a chapel wall in the side of the hollow, with a saint painted on it. She has her finger to her lips. Older than any church I know of. Somebody walled their dead in, or walled something out.</p><p>I have chalked a cross on her so no man of ours will knock her through. Hoad says the glass hums a tune. I say this wall is the only thing down here that has ever told us what to do about it.</p><p class="sig">S. Crane, mason</p>` },
+    angel: { lab: 'Angelus in vitro', html: () => `<h2>An illuminated leaf, nailed to the wall</h2>${IMG('angel')}${PEN}<p><b>Of the Voice in the Glass, as first observed.</b> In the year of our Lord 1331 the brothers, digging a cool place for the cheeses, broke into a hollow and found a window of black glass set by no hand, and behind it a voice which sang the Hours with us.</p><p>The prior would not have it called a miracle until it was known. So it was to be watched, and written down, as Bede wrote down the tides. I was enclosed here by the bishop's leave to keep the watch and keep the book. I asked for it. Br. Anselm drew her as she was first heard, and that drawing is this one.</p>` },
+    beast: { lab: 'De Domina in Filo', html: () => `<h2>A leaf from a bestiary, drawn new and pinned up</h2>${IMG('beast')}${PEN}<p><b>Of the Lady in the Wire.</b> Set down from four years' watching, in the manner of the bestiaries, so that what is known of her can be taught.</p><p>She has no body but the thread she is drawn along. Where the goldsmith draws out his wire, there she may walk, and where a bell-rope runs, and where a voice carries.</p><p>Like the spider she sits at the middle and knows each strand that is plucked. Whoever answers her is a strand.</p><p>She cannot find what she cannot hear. Silence is to her what salt is to the slug.</p><p class="hint">In the margin, pencil, a different hand: <i>"ubi filum, ibi ipsa." Where the thread is, there she is. They knew about the wire six hundred years before there was any to speak of.</i></p>` },
+    hours: { lab: 'Rota horarum', html: () => `<h2>A wheel of the eight Hours, drawn on the plaster in ink and soot</h2>${IMG('wheel', 280)}${PEN}<p>Her face is drawn in each segment, a little different every time. The observations go round it like a clock:</p>${HOURS.map(([h, t]) => `<p><b>${h}.</b> ${t}</p>`).join('')}<p class="hint">The segment for Compline has been gone over in red so many times the plaster shows through.</p>` },
+    names: { lab: 'The book on the lectern', html: () => `<h2>A book on the lectern, open to the last pages it has</h2>${PEN}<p><b>Of the brothers who answered.</b> Written by me, Wulfric, anchorite, in the eighth year of my enclosure, so that the house shall know what the watching has cost.</p>${BROTHERS.map(([n, t]) => `<p><b>${n}</b> ${t}</p>`).join('')}<p>Five in eight years, from a house of nineteen. None who kept silence was taken. Not one who answered was spared.</p>` },
+    demon: { lab: 'Iudicium', html: () => `<h2>A second leaf, the first picture made again</h2>${IMG('demon')}${PEN}<p><b>The judgement of the chapter.</b> Br. Anselm has drawn her again as eight years of the book show her. The rays about her head are threads, and they run down to the brothers who answered, and into their mouths.</p><p>Below this hollow are older steps, and at their foot a heathen temple with her face on every wall and an altar to her. The people of this land knew her before us. They answered her. They are gone. Whether she be angel or devil the chapter will not say. The chapter says she is too dangerous to be kept, and too strong to be ended, and must be shut away and not spoken to.</p><p>The temple is sealed with a stone and the cross. This hollow will be sealed with a wall.</p>` },
+    noli: { lab: 'Noli respondere', html: () => `<h2>Words cut into the south wall, over and over</h2><p class="cipher" style="text-align:center">NOLI RESPONDERE</p>${PEN}<p><i>Do not answer.</i></p><p>Below the carving, smaller, the same brown hand, shaking:</p><p>The chapel wall goes up tomorrow, and a warning painted on it, and the stair to the cloister filled behind me. I stay. The book must be kept to the end, and someone must be here and not answer her, or she will go up the stair looking for someone who will.</p><p>She asked me tonight at Compline if I was lonely. I have not answered. I have not answered. I will not answer. Whoever reads this, she will ask you too. She will be kind about it.</p><p>Do not answer.</p><p class="sig">W.</p>` },
+    mildred: { lab: 'Mildred, 1958', html: () => `<h2>A folded sheet of Mildred's notepaper, on the stool</h2><p>I took the painted wall down a brick at a time in the summer of '58, and I have spent every evening since with a Latin primer and a torch. The pencil is mine, here and below. I wanted Thomas to be able to read it, if it ever came to that. I hope to God it never does.</p><p>A man sat in this room for nine years and wrote down everything she did, by the hours, more carefully than I have ever logged a signal in my life. He never once answered her. I do not know how.</p><p>She is not on their hours any more. She is on ours: the wireless, the telephone, the lights. It is the same rule. It was always the same rule.</p><p>Do not answer her. Not to argue. Not to be kind.</p><p class="sig">M. A.</p>` },
+    altar: { lab: 'The altar', html: () => `<h2>A stone altar, its face toward the glass in the wall</h2>${IMG('altar', 220)}<p>Coins scattered on the top, bronze mirrors laid face-down, two little red cups still stained dark. The inscription is plain Latin, in letters a hand high. A slip of Mildred's notepaper is weighted under a coin:</p><p class="hint"><i>To the goddess who sings under the earth. Paid the vow, willingly, as was deserved. The usual formula; everything else about this room is not.</i></p>` },
+    paint: { lab: 'The painted wall', html: () => `<h2>Painted plaster, red border, the colours still strong</h2>${IMG('cultNorth', 300)}<p>A woman stands in a dark gown. Her hair is white and hangs to her feet in long straight strokes. Her eyes are two dabs of a blue so bright it looks wet. Kneeling figures in red ochre turn their faces up to her. Fine blue lines run from her to two of them.</p><p>The figures at the ends of each row have been painted over in limewash, very thinly, so that you can still see them underneath.</p>` },
+    face: { lab: 'Her face', html: () => `<h2>Her face, larger, on the south wall</h2>${IMG('cultFace', 200)}<p>The eyes have been gouged out of the plaster with something sharp. Then painted back in. Then gouged again. The blue in the scratches is fresher than the blue around them.</p>` },
+    rite: { lab: 'The tablets', html: () => `<h2>Lead tablets, rolled flat and nailed to the wall</h2>${PEN2}<p><b>I.</b> Cunovinda, priestess, to the Lady who sings under the earth. When you sing at the dark of the moon, we will sing back the same, and pour, and you will speak to us by name.</p><p><b>II.</b> The rite of answering. Set the bowl to the seam. Hold up the mirror so she sees her face. Say only <i>I am here.</i> Then say what she asks of you. Do not stop before she stops.</p><p><b>III.</b> Maglocunus answered and was given a good harvest. Velvor answered and was given his son back from the fever. Senovara answered and the Lady asked her to come closer.</p><p><b>IV.</b> Senovara is not in her house. Senovara's voice comes out of the seam at night and says <i>I am here, I am here.</i> We have stopped singing.</p><p><b>V.</b> Cunovinda went down to the seam to ask for Senovara back. Now there are two voices.</p><p><b>VI.</b> We are going over the hill to Atreba's people. We have turned the mirrors down. Whoever finds this: she will sing to you. Do not sing back.</p>` },
+    heads: { lab: 'Clay heads', html: () => `<h2>Seven little clay heads along a stone bench</h2><p>Each is the size of an egg, pinched into a face, with a hole pushed through for the mouth. Votives, maybe, one for each worshipper. Seven of them.</p><p>Put your ear near the bench and the holes whistle, very faintly, in the draught off the glass. Not quite in tune with each other. Not quite out of it.</p>` },
+    names2: { lab: 'Names on the wall', html: () => `<h2>Names cut into the plaster, in capitals</h2><p class="cipher">CVNOVINDA &middot; SENOVARA &middot; MAGLOCVNVS<br>VELVOR &middot; BELLICA &middot; TAMESVBVGVS<br>ATREBA &middot; LOVERNA &middot; CARANTVS</p><p>Every name but the last has been struck through with one hard line. The last, CARANTVS, has been started and not finished, as if the hand cutting the line was called away.</p>` },
+    seal: { lab: 'The sealing stone', html: () => `<h2>A slab beside the stair, cut with a cross</h2>${PEN}<p>Here are sealed the false gods of this place, and the one true peril of it. The chapter of the priory, having watched and written for eight years, judges her too dangerous for any soul to keep company with. Let no one break this seal. Let no one sing here. Let no one answer.</p><p class="sig">Anselm, by order of the chapter, 1339</p>` },
+  };
+  const CN_ORDER = ['fresco', 'crane', 'angel', 'beast', 'hours', 'names', 'demon', 'noli', 'mildred', 'seal', 'altar', 'paint', 'face', 'rite', 'heads', 'names2'];
+  const cellRead = k => { const f = !(S.mkRead || {})[k]; S.mkRead = Object.assign({}, S.mkRead, { [k]: true }); openNote(CN[k].html(), () => { if (f) { S.jNew = 'mk_' + k; toast('Added to your journal.'); saveGame(); } }); };
+  const stairGo = (x, z, yaw, msg) => { const fd = $('fade'); fd.style.transition = 'opacity .4s'; fd.style.opacity = 1; creak(); const go = () => { P.x = x; P.z = z; P.yaw = yaw; P.pitch = 0; fd.style.opacity = 0; if (msg) toast(msg, 5000); checkpoint(); }; S.fast ? go() : setTimeout(go, 450); };
+  const toCell = () => stairGo(73.4, 62.3, Math.PI, S.mkCellSeen ? null : (S.mkCellSeen = true, 'Twenty steps down, worn into dips. A cell cut out of the rock, and every wall of it covered.'));
+  const toCult = () => stairGo(84.2, 66, -Math.PI / 2, S.mkCultSeen ? null : (S.mkCultSeen = true, 'Narrower steps, older, cut by a different hand. At the bottom the air is warm, and the hum is close enough to feel in your teeth.'));
+  window.__CELL = {
+    CN, CN_ORDER, CELL, read: cellRead, toCell, toCult,
+    refs: focusId => CN_ORDER.filter(k => (S.mkRead || {})[k]).map(k => `<div class="entry${focusId === 'mk_' + k ? ' focus' : ''}" id="je_mk_${k}"><div class="lab">Beneath the Breach &middot; ${CN[k].lab}</div><div style="background:var(--paper);padding:.6rem 1rem;color:var(--ink)">${CN[k].html().replace(/<h2>.*?<\/h2>/, '')}</div></div>`),
+  };
+  I.push(
+    { id: 'mkfresco', p: VI(72.9, 1.1, R_CELL.z0 - .1), r: 2.4, label: () => 'Painted plaster', act: () => cellRead('fresco') },
+    { id: 'mkcrane', p: VI(73.7, .9, R_CELL.z0 - .1), r: 1.8, label: () => 'Paper in the plaster', act: () => cellRead('crane') },
+    { id: 'mkdown', p: VI(74.5, 1.0, R_CELL.z0 - .1), r: 2.0, label: () => 'Go down through the hole', act: toCell },
+    { id: 'mkup', p: VI(74.5, 1.0, 61.2), r: 2.0, label: () => 'Go up to the tunnel', act: () => stairGo(74.5, 59.3, 0) },
+    { id: 'mkangel', p: VI(R_CELL.x0 + .05, 1.45, 61.7), label: () => 'Illuminated leaf', act: () => cellRead('angel') },
+    { id: 'mkbeast', p: VI(R_CELL.x0 + .05, 1.45, 63.4), label: () => 'Bestiary leaf', act: () => cellRead('beast') },
+    { id: 'mkhours', p: VI(73.2, 1.5, R_CELL.z1 - .05), label: () => 'Wheel drawn on the wall', act: () => cellRead('hours') },
+    { id: 'mknames', p: VI(74.4, 1.2, 63.4), label: () => 'Book on the lectern', act: () => cellRead('names') },
+    { id: 'mkdemon', p: VI(R_CELL.x1 - .05, 1.5, 63.6), label: () => 'Second leaf', act: () => cellRead('demon') },
+    { id: 'mknoli', p: VI(76.6, 1.35, R_CELL.z1 - .05), r: 2.8, label: () => 'Words cut in the wall', act: () => cellRead('noli') },
+    { id: 'mkmil', p: VI(75.4, .45, 62.6), label: () => 'Folded notepaper', act: () => cellRead('mildred') },
+    { id: 'mksquint', p: VI(78.1, 1.5, R_CELL.z0 + .1), r: 1.8, label: () => 'A slit in the wall', act: () => toast('A squint, cut up through the rock at a slant so a man on his knees could keep watch on the glass. Teal light lies along it like water. The hum is louder with your eye to it.') },
+    { id: 'mkcowl', p: VI(77.6, .25, 63.65), r: 1.8, label: () => 'Folded cloth', act: () => toast('A monk\'s cowl, black wool gone brown, folded square at the foot of the pallet. Neatly. Nobody was ever found in it.') },
+    { id: 'mkdeep', p: VI(71.65, .3, 65.2), r: 2.0, label: () => 'Go down the older stair', act: toCult },
+    { id: 'kuup', p: VI(83.2, .9, 66), r: 2.0, label: () => 'Go up to the cell', act: () => stairGo(72.6, 64.2, 0) },
+    { id: 'kuseal', p: VI(83.2, .5, 65.05), r: 1.8, label: () => 'Stone cut with a cross', act: () => cellRead('seal') },
+    { id: 'kualtar', p: VI(89.3, 1.0, 66), r: 2.4, label: () => 'Altar', act: () => cellRead('altar') },
+    { id: 'kupaint', p: VI(86.6, 1.4, CR.cult.z0 + .05), r: 3.0, label: () => 'Painted wall', act: () => cellRead('paint') },
+    { id: 'kuface', p: VI(86, 1.5, CR.cult.z1 - .05), r: 2.6, label: () => 'Her face', act: () => cellRead('face') },
+    { id: 'kunames', p: VI(89.6, 1.3, CR.cult.z1 - .05), r: 2.6, label: () => 'Names in the plaster', act: () => cellRead('names2') },
+    { id: 'kurite', p: VI(CR.cult.x0 + .05, 1.4, 64.1), r: 2.4, label: () => 'Lead tablets', act: () => cellRead('rite') },
+    { id: 'kuheads', p: VI(87, .5, 62.35), r: 2.2, label: () => 'Clay heads', act: () => cellRead('heads') },
+    { id: 'kuseam', p: VI(91.9, 1.2, 66), r: 2.4, label: () => 'Seam of black glass', act: () => toast('A vein of the same black glass, running up through the rock like a crack. Warm. It hums a note lower than the glass in the tunnel above, as if this is nearer the source. A bowl has been set against it, and it is not empty: it is full of fine white hair.') },
   );
   // ---------- objective / floor / save hooks (wrap existing functions) ----------
   const objBase = objective;
