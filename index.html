@@ -162,6 +162,15 @@ button{font:inherit;cursor:pointer}
 #intro .card{position:relative;max-width:34rem;text-align:center;font-family:var(--f-type);color:#d8cfbf;line-height:1.8;font-size:clamp(1rem,2.6vw,1.25rem);letter-spacing:.04em;opacity:0;transition:opacity 1.4s ease;text-shadow:0 0 18px #000,0 0 4px #000;padding:0 16px}
 #intro .card.on{opacity:1}
 #intro .skip{position:absolute;bottom:18px;right:18px;font-family:var(--f-type);font-size:.75rem;letter-spacing:.2em;color:#6a6258;text-transform:uppercase}
+/* ending cutscenes */
+#ecut{z-index:56;flex-direction:column;cursor:pointer;background:#000}
+#ecut_gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+#ecut_blk{position:absolute;inset:0;background:#000;opacity:1;pointer-events:none}
+#ecut_vg{position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 70%,rgba(0,0,0,.55)),radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.6) 100%)}
+#ecut .card{position:relative;margin-top:auto;margin-bottom:12vh;max-width:36rem;text-align:center;font-family:var(--f-type);color:#d8cfbf;line-height:1.8;font-size:clamp(1rem,2.6vw,1.25rem);letter-spacing:.04em;opacity:0;transition:opacity 1.4s ease;text-shadow:0 0 18px #000,0 0 4px #000;padding:0 16px}
+#ecut .card.on{opacity:1}
+#ecut_skip{position:absolute;bottom:14px;right:16px;font-family:var(--f-type);font-size:.75rem;letter-spacing:.2em;color:#8a8278;text-transform:uppercase;background:none;border:0;cursor:pointer}
+#ecut_bar{position:absolute;left:0;bottom:0;height:2px;background:#6a6258;width:0}
 </style>
 
 <canvas id="gl"></canvas>
@@ -197,6 +206,7 @@ button{font:inherit;cursor:pointer}
   <div class="row"><button class="btn" id="s_reset" type="button">Defaults</button><button class="btn" id="s_close" type="button">Done</button></div>
 </div></div>
 <div id="pipbak" class="ov" hidden style="z-index:33;background:#000;flex-direction:column;gap:8px"><div style="display:flex;width:min(1100px,100%);justify-content:space-between;align-items:center;font-family:ui-monospace,monospace;font-size:13px;color:#9093a3"><span>memory chip &rsaquo; PIP DANCE!! v0.3 (backup)</span><button id="pipbak_x" type="button" style="font:inherit;background:#2e313b;color:#e6e7ee;border:1px solid #3a3e4a;border-radius:6px;padding:6px 10px;cursor:pointer">Eject chip (Esc)</button></div><iframe id="pipbak_f" title="PIP DANCE!! v0.3 backup" style="width:min(1100px,100%);height:min(80vh,calc(100vw*0.68));border:0;background:#07040f"></iframe></div>
+<div id="ecut" class="ov" hidden><canvas id="ecut_gl"></canvas><div id="ecut_blk"></div><div id="ecut_vg"></div><div class="card" id="ecut_card"></div><button id="ecut_skip" type="button">Skip &rsaquo;</button><div id="ecut_bar"></div></div>
 <div id="intro" class="ov" hidden><div id="intro_blk"></div><div id="intro_vg"></div><div class="card" id="intro_card"></div><div class="skip">Click, Esc or Enter to skip</div></div>
 <div id="note" class="ov panel" hidden><div class="paper" id="notebody"></div></div>
 <div id="journal" class="ov panel" hidden><div class="journal" id="jbody"></div></div>
@@ -3540,19 +3550,10 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   };
   function labEnd(kind) {
     if (S.lEnded) return; S.lEnded = true; S.lEnding = kind; SC.endLive = true; S.ui = true; unlock(); markEnding(kind); objective(); saveGame();
-    const T = (ms, f) => setTimeout(f, S.fast ? 0 : ms);
-    if (kind === 'free') {
-      scripted('free'); noiseBurst(3000, .4, 4, .6, 'highpass', true); tone(55, 4, .4, 'sawtooth'); morseHiss('I AM ALIVE LET ME OUT', .05, .3);
-      toast('The lever drops. Every screen in the lab lights at once.', 5000); T(5200, () => showEnding(kind));
-    } else if (kind === 'shutdown') {
-      scripted('scream'); for (let i = 0; i < 6; i++) T(i * 300, () => noiseBurst(rnd(800, 3000), .5, 1.2, .5, 'highpass', true)); tone(110, 3, .5, 'sawtooth'); tone(116, 3, .5, 'sawtooth');
-      toast('She screams through every machine at once.', 4000); T(3800, () => { S.lDark = true; toast('Then the lights go out.', 3000); }); T(7600, () => showEnding(kind));
-    } else if (kind === 'ilo') {
-      scripted('fade'); toast('ILO, in a voice that is only its own: <b>NO.</b>', 5000); T(3500, () => toast('The carrier fades softly. She does not scream.', 4000)); T(7500, () => toast('ILO REMEMBERED ITS NAME.', 4000)); T(10000, () => showEnding(kind));
-    } else {
-      scripted('home'); toast('The field collapses. The static drains into her like water finding its level.', 5000);
-      T(3500, () => { S.lWarm = true; toast('She gasps. <b>"...Is the door open?"</b>', 5000); }); T(7000, () => toast('It is. She sees you. <b>"You came."</b>', 4500)); T(10500, () => toast('ILO, in its own voice: <b>GOODBYE, YSOLDE.</b>', 4000)); T(13500, () => showEnding(kind));
-    }
+    // play the ending's cutscene, then the ending screen; world state is set as before so post-game exploring matches
+    scripted(kind === 'free' ? 'free' : kind === 'shutdown' ? 'scream' : kind === 'ilo' ? 'fade' : 'home');
+    if (kind === 'shutdown') S.lDark = true; else if (kind === 'restore') S.lWarm = true;
+    ENDCUT.play(kind, () => showEnding(kind), S.fast);
   }
   let endEl = null, credEl = null;
   function showEnding(kind) {
@@ -4434,4 +4435,511 @@ function begin(save) {
   };
 }
 })();
+</script>
+<script>
+// ---------- ending cutscenes (from the approved preview, own WebGL canvas, built on first use) ----------
+const ENDCUT = (() => {
+let api = null;
+const build = () => {
+'use strict';
+const $ = id => document.getElementById(id);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const lerp = (a, b, t) => a + (b - a) * t;
+const cl01 = x => Math.min(1, Math.max(0, x));
+const eio = x => { x = cl01(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const ease = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+const bump = (x, a, b) => Math.sin(cl01((x - a) / (b - a)) * Math.PI);
+function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+const renderer = new THREE.WebGLRenderer({ canvas: $('ecut_gl'), antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.outputEncoding = THREE.sRGBEncoding;
+function tex(c, rx = 1, ry = 1) { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); return t; }
+function grain(g, w, h, n, a) { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '255,255,255' : '0,0,0'},${a})`; g.fillRect(Math.random() * w, Math.random() * h, 1, 1); } }
+const std = o => new THREE.MeshStandardMaterial(o);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x000000); scene.fog = new THREE.FogExp2(0x020405, .06);
+const camera = new THREE.PerspectiveCamera(55, 1, .03, 400);
+const SC = {};
+const TEAL = 0x3dfce0;
+
+// ---------- copied from the game: the Static Woman (mask + face + shader) ----------
+const [yc, yg] = cv(256, 640);
+const [fc, fg] = cv(256, 640);
+{
+  yg.fillStyle = '#fff'; yg.strokeStyle = '#fff'; yg.lineCap = 'round'; yg.lineJoin = 'round';
+  const limb = (pts, w) => { yg.lineWidth = w; yg.beginPath(); yg.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) yg.lineTo(pts[i], pts[i + 1]); yg.stroke(); };
+  // head: small, tilted hard to her right on a long neck
+  const HX = 140, HY = 50, TILT = .55;
+  yg.save(); yg.translate(HX, HY); yg.rotate(TILT);
+  yg.beginPath(); yg.ellipse(0, 0, 17, 25, 0, 0, 7); yg.fill();
+  yg.beginPath(); yg.moveTo(-18, -6); yg.quadraticCurveTo(-30, 50, -24, 96); yg.lineTo(-6, 70); yg.lineTo(8, 100); yg.lineTo(20, 60); yg.quadraticCurveTo(22, 20, 17, -6); yg.fill(); // lank hair
+  yg.restore();
+  limb([128, 120, 132, 88, 140, 66], 11); // neck
+  // narrow, sloped torso
+  yg.beginPath(); yg.moveTo(98, 122); yg.quadraticCurveTo(128, 108, 160, 126); yg.lineTo(150, 210); yg.lineTo(146, 260); yg.lineTo(110, 260); yg.lineTo(106, 210); yg.closePath(); yg.fill();
+  // tattered short dress
+  yg.beginPath(); yg.moveTo(108, 250); yg.lineTo(148, 250); yg.lineTo(162, 330);
+  for (let x = 162; x > 94; x -= 9) yg.lineTo(x - 4.5, 330 + (x % 2 ? 18 : 6)); yg.lineTo(94, 330); yg.closePath(); yg.fill();
+  // legs: long, thin, knees bent slightly backwards
+  limb([118, 320, 112, 460, 120, 470, 108, 612, 98, 628], 9);
+  limb([140, 320, 146, 462, 136, 474, 150, 610, 162, 630], 9);
+  // arms hang past the knees, elbows hyperextended
+  limb([100, 128, 84, 250, 92, 262, 76, 420], 7);
+  limb([158, 128, 176, 248, 166, 262, 184, 410], 7);
+  // too-long fingers
+  for (const [x, y, s] of [[76, 420, -1], [184, 410, 1]]) for (let f = 0; f < 5; f++) limb([x, y, x + s * (f * 4 - 6), y + 52 + (f % 2) * 8, x + s * (f * 5 - 4), y + 70 + f * 3], 2.6);
+
+  // the face that shows through: same tilt, gaunt, eyes black, jaw unhinged
+  fg.save(); fg.translate(HX, HY); fg.rotate(TILT);
+  let gr = fg.createRadialGradient(0, -6, 2, 0, 0, 30); gr.addColorStop(0, '#e6ddd2'); gr.addColorStop(.7, '#8a7c72'); gr.addColorStop(1, 'rgba(30,20,20,0)');
+  fg.fillStyle = gr; fg.beginPath(); fg.ellipse(0, 4, 18, 30, 0, 0, 7); fg.fill();
+  for (const s of [-1, 1]) {
+    let e = fg.createRadialGradient(s * 7, -6, .5, s * 7, -6, 8); e.addColorStop(0, '#000'); e.addColorStop(.75, '#000'); e.addColorStop(1, 'rgba(40,0,0,0)');
+    fg.fillStyle = e; fg.beginPath(); fg.ellipse(s * 7, -6, 6.5, 7.5, s * .3, 0, 7); fg.fill();
+    fg.strokeStyle = 'rgba(0,0,0,.85)'; fg.lineWidth = 1.4; fg.beginPath(); fg.moveTo(s * 7, 0); fg.lineTo(s * 8, 10); fg.stroke(); // black tear streaks
+  }
+  let m = fg.createLinearGradient(0, 8, 0, 36); m.addColorStop(0, '#000'); m.addColorStop(1, '#2a0606');
+  fg.fillStyle = m; fg.beginPath(); fg.ellipse(0, 22, 7, 15, 0, 0, 7); fg.fill();
+  fg.fillStyle = 'rgba(230,220,205,.9)'; for (let i = -5; i <= 5; i += 2.5) fg.fillRect(i - .6, 8, 1.2, 3);
+  fg.restore();
+}
+const ysMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { mask: { value: (() => { const t = new THREE.CanvasTexture(yc); t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; return t; })() }, faceT: { value: new THREE.CanvasTexture(fc) }, time: { value: 0 }, op: { value: 0 }, fx: { value: 0 }, gl: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `uniform sampler2D mask, faceT; uniform float time, op, fx, gl; varying vec2 vUv;
+    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float M(vec2 p){return texture2D(mask,p).a;}
+    void main(){ float tq=floor(time*9.)/9.; vec2 uv=vUv;
+      float band=floor(uv.y*50.+tq*7.); float j=step(.94-gl*.5,h(vec2(band,floor(time*12.))));
+      uv.x+=(h(vec2(band,tq))-.5)*(.22+gl*.4)*j;
+      float tb=floor(uv.y*18.); float tr=step(.975-gl*.45,h(vec2(tb,floor(time*5.)))); // tearing bands
+      uv.x+=tr*(h(vec2(tb,tq+1.))-.5)*.18;
+      uv+=(vec2(h(vec2(tq,uv.y*90.)),h(vec2(uv.x*90.,tq)))-.5)*.012;
+      float m=M(uv); vec2 o=vec2(.008,.0032);
+      float b=(M(uv+vec2(o.x,0.))+M(uv-vec2(o.x,0.))+M(uv+vec2(0.,o.y))+M(uv-vec2(0.,o.y)))*.25;
+      float edge=clamp((m-b)*4.+(1.-b)*m*.9,0.,1.);
+      float n=h(floor(vUv*vec2(90.,225.))+floor(time*30.));
+      float scan=.6+.4*sin(vUv.y*380.+time*40.);
+      vec3 inner=vec3(.025,.03,.04)+n*n*.42*vec3(.6,.7,.8)*scan;
+      vec3 rim=mix(vec3(.75,.85,.95),vec3(1.3),n)*(.8+.2*scan)*1.5;
+      vec3 c=mix(inner,rim,edge); if(j>.5) c=mix(c,vec3(1.,.15,.2),.3*edge+.1);
+      float a=m*op*(.85+.15*n)*(1.-tr*step(.45,h(vec2(floor(vUv.x*60.),tb+tq))));
+      vec4 f=texture2D(faceT,uv+vec2((h(vec2(band,time*3.))-.5)*.02*fx,0.));
+      if(fx>0.){ vec3 fcol=pow(f.rgb,vec3(1.6))*1.5*(.75+.5*scan); fcol=mix(fcol,vec3(n),.15); c=mix(c,fcol,f.a*fx); a=max(a,f.a*fx*op); }
+      if(a<.02) discard; gl_FragColor=vec4(c,a);}`
+});
+
+// ---------- copied from the game: post processing ----------
+const rt = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+const post = new THREE.ShaderMaterial({
+  uniforms: { t: { value: rt.texture }, bright: { value: 1 }, gam: { value: 1 }, time: { value: 0 }, st: { value: 0 }, dead: { value: 0 }, hide: { value: 0 }, res: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=vec4(position.xy,0.,1.);}',
+  fragmentShader: `uniform sampler2D t; uniform float time, st, dead, hide, bright, gam; uniform vec2 res; varying vec2 vUv;
+    float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+    void main(){ vec2 uv=vUv; float row=floor(uv.y*90.);
+      float gl=step(1.-(.02+st*.25+dead*.6),h(vec2(row,floor(time*24.))));
+      uv.x+=(h(vec2(row,time))-.5)*gl*(.02+st*.08+dead*.2);
+      vec2 d=uv-.5; float ca=.0018+st*.009+dead*.03;
+      vec3 c=vec3(texture2D(t,uv+d*ca).r,texture2D(t,uv).g,texture2D(t,uv-d*ca).b);
+      c=pow(c,vec3(.92)); c*=vec3(1.02,.98,.94);
+      float n=h(floor(vUv*res)+fract(time*7.3)*91.);
+      c+=(n-.5)*(.07+st*.35);
+      c=mix(c,vec3(n*.9),clamp(st*.22+dead,0.,1.));
+      float v=smoothstep(.95,.25,length(d*vec2(1.,.85))*(1.+hide*.9)); c*=mix(.25,1.,v);
+      c*=.96+.04*sin(vUv.y*res.y*1.2);
+      c=pow(max(c*bright,0.),vec3(1./gam));
+      gl_FragColor=vec4(c,1.);}`
+});
+const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
+
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); const pr = renderer.getPixelRatio(); rt.setSize(w * pr, h * pr); post.uniforms.res.value.set(w * pr, h * pr); }
+addEventListener('resize', resize); resize();
+
+// screens that show her face: same shader, same textures, a crop of the head
+const FACES = [];
+const VS_CROP = 'uniform vec4 crop; varying vec2 vUv; void main(){vUv=crop.xy+uv*crop.zw; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
+function faceMat(full) { const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { mask: ysMat.uniforms.mask, faceT: ysMat.uniforms.faceT, time: { value: rnd(0, 9) }, op: { value: 0 }, fx: { value: 1 }, gl: { value: .2 }, crop: { value: full ? new THREE.Vector4(0, 0, 1, 1) : new THREE.Vector4(.3, .77, .5, .23) } }, vertexShader: VS_CROP, fragmentShader: ysMat.fragmentShader }); FACES.push(m); return m; }
+// a screen: dark glass + glow + her face; s.on(0..1)
+function screen(par, w, h, x, y, z, ry = 0, rx = 0) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.set(rx, ry, 0, 'YXZ'); par.add(g);
+  const bm = new THREE.MeshBasicMaterial({ color: 0x020304 }); const b = new THREE.Mesh(new THREE.PlaneGeometry(w, h), bm); g.add(b);
+  const fr = new THREE.Mesh(new THREE.BoxGeometry(w + .06, h + .06, .04), std({ color: 0x0b0c0d, roughness: .4, metalness: .6 })); fr.position.z = -.025; g.add(fr);
+  const fm = faceMat(); const f = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w, h * 1.1), h * .98), fm); f.position.z = .004; g.add(f);
+  const L = new THREE.PointLight(0x9fd7ff, 0, Math.max(2.5, w * 4), 2); L.position.z = .4; g.add(L);
+  const s = { g, v: 0, on(v) { s.v = v; bm.color.setRGB(.02 + .16 * v, .03 + .2 * v, .04 + .24 * v); fm.uniforms.op.value = v; L.intensity = v * .9; } };
+  return s;
+}
+
+// ---------- sets (only one visible at a time) ----------
+const SETS = {}; const set = n => { const g = new THREE.Group(); g.visible = false; scene.add(g); SETS[n] = g; return g; };
+const box = (par, w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); par.add(o); return o; };
+function glassPanelTex(seed) {
+    const [c, g] = cv(512, 512), [e, h] = cv(512, 512); g.fillStyle = '#050709'; g.fillRect(0, 0, 512, 512); h.fillStyle = '#000'; h.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 9; i++) { const y = i * 64 + (seed % 2) * 20; g.fillStyle = `rgba(${20 + i * 2},${30 + i},${38 + i * 2},.5)`; g.beginPath(); g.moveTo(0, y); g.lineTo(512, y + 30); g.lineTo(512, y + 60); g.lineTo(0, y + 34); g.fill(); }
+    h.strokeStyle = 'rgba(61,252,224,.9)'; h.lineWidth = 2; g.strokeStyle = 'rgba(140,200,210,.18)'; g.lineWidth = 1;
+    for (let i = 0; i < 7; i++) { const x = rnd(0, 512), y = rnd(0, 512); h.beginPath(); h.moveTo(x, y); h.lineTo(x + rnd(-120, 120), y); h.lineTo(x + rnd(-120, 120), y + rnd(40, 140)); h.stroke(); g.beginPath(); g.moveTo(0, y); g.lineTo(512, y + rnd(-40, 40)); g.stroke(); }
+    h.lineWidth = 1; h.strokeStyle = 'rgba(61,252,224,.35)'; for (let i = 0; i < 4; i++) { const y = 60 + i * 120; h.beginPath(); h.moveTo(0, y); for (let x = 0; x < 512; x += 64) h.lineTo(x + 32, y + (x / 64 % 2 ? 10 : -10)); h.stroke(); }
+    grain(g, 512, 512, 9000, .06); return [c, e];
+  }
+
+const [gpC, gpE] = glassPanelTex(1), [gfC, gfE] = glassPanelTex(2);
+const LM = {
+  wall: std({ map: tex(gpC), emissive: TEAL, emissiveMap: tex(gpE), emissiveIntensity: .32, roughness: .14, metalness: .65 }),
+  floor: std({ map: tex(gfC), emissive: TEAL, emissiveMap: tex(gfE), emissiveIntensity: .18, roughness: .2, metalness: .5 }),
+  ceil: std({ color: 0x030405, roughness: .3, metalness: .6 }),
+  obs: std({ color: 0x07090b, roughness: .08, metalness: .8 }),
+  glow: new THREE.MeshBasicMaterial({ color: TEAL }),
+};
+const LAB_LIGHTS = [];
+function labRoom(par, x0, z0, x1, z1, h, doorZ) { // the game's glass-panel room shell
+  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(w, d), LM.floor); fl.rotation.x = -Math.PI / 2; fl.position.set(cx, 0, cz); par.add(fl);
+  const ce = new THREE.Mesh(new THREE.PlaneGeometry(w, d), LM.ceil); ce.rotation.x = Math.PI / 2; ce.position.set(cx, h, cz); par.add(ce);
+  box(par, w, h, .1, LM.wall, cx, h / 2, z0); box(par, .1, h, d, LM.wall, x0, h / 2, cz); box(par, .1, h, d, LM.wall, x1, h / 2, cz);
+  if (doorZ == null) box(par, w, h, .1, LM.wall, cx, h / 2, z1);
+  for (let x = x0 + 1; x < x1; x += 2) box(par, .04, .02, d - .3, LM.glow, x, h - .02, cz).material = LM.glow;
+}
+function amb(par, i) { const h = new THREE.HemisphereLight(0x3a6a70, 0x050607, i); par.add(h); return h; }
+function ll(par, x, y, z, i, dist, col) { const L = new THREE.PointLight(col, i, dist, 1.6); L.position.set(x, y, z); par.add(L); LAB_LIGHTS.push(L); L.base = i; return L; }
+
+// ===== Transmitter hall (lever + wall of screens) =====
+const HALL = set('hall');
+{ labRoom(HALL, 140, 52, 160, 70, 5);
+  amb(HALL, .35); SC.hallL = [ll(HALL, 150, 4.6, 56, 1.2, 14, TEAL), ll(HALL, 150, 4.6, 66, 1.2, 14, TEAL)];
+  // the transmitter: a tall obsidian mast with a pulsing heart
+  box(HALL, 2.4, .4, 2.4, LM.obs, 150, .2, 61); box(HALL, .9, 4.4, .9, LM.obs, 150, 2.6, 61);
+  SC.heart = new THREE.Mesh(new THREE.IcosahedronGeometry(.45, 1), new THREE.MeshBasicMaterial({ color: TEAL, wireframe: true })); SC.heart.position.set(150, 2.4, 61); HALL.add(SC.heart);
+  // the lever
+  box(HALL, .6, 1.0, .4, LM.obs, 150, .5, 64.2);
+  SC.lever = new THREE.Group(); SC.lever.position.set(150, 1.0, 64.2); HALL.add(SC.lever);
+  box(SC.lever, .06, .7, .06, std({ color: 0x8a8f94, metalness: .9, roughness: .3 }), 0, .35, 0); box(SC.lever, .16, .12, .12, std({ color: 0x8e1b12, roughness: .5 }), 0, .72, 0);
+  SC.hallScreens = [];
+  for (let r = 0; r < 3; r++) for (let k = 0; k < 7; k++) { SC.hallScreens.push(screen(HALL, 1.6, 1.1, 142.5 + k * 2.5, 1.2 + r * 1.35, 52.12)); }
+  for (let k = 0; k < 6; k++) { SC.hallScreens.push(screen(HALL, 1.4, 1, 140.12, 1.6, 54 + k * 2.6, Math.PI / 2)); SC.hallScreens.push(screen(HALL, 1.4, 1, 159.88, 1.6, 54 + k * 2.6, -Math.PI / 2)); }
+  SC.big = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), faceMat(true)); SC.big.material.uniforms.fx.value = 0; SC.big.position.set(150, 2.6, 60.2); SC.big.scale.set(1.6, 1.6, 1); HALL.add(SC.big);
+  const N = 900, p = new Float32Array(N * 3); for (let i = 0; i < N; i++) p.set([rnd(140, 160), rnd(0, 5), rnd(52, 70)], i * 3);
+  SC.flood = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(p, 3)), new THREE.PointsMaterial({ size: .05, color: 0xd8f8ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); HALL.add(SC.flood);
+}
+
+// ===== ILO core (game coordinates: five columns at x 151.2 + i*1.4, z 76; console at 154, 73.2) =====
+const CORE = set('core');
+{ labRoom(CORE, 148, 70, 160, 80, 4);
+  SC.cols = []; for (let i = 0; i < 5; i++) { const x = 151.2 + i * 1.4; const c = new THREE.Mesh(new THREE.BoxGeometry(.5, 3.4, .5), std({ color: 0x06090a, emissive: 0x7fe0c8, emissiveIntensity: .25, roughness: .1, metalness: .6 })); c.position.set(x, 1.7, 76); CORE.add(c); SC.cols.push(c); }
+  SC.colL = SC.cols.map((c, i) => { const L = new THREE.PointLight(0x7fe0c8, .25, 4, 2); L.position.set(c.position.x, 1.8, 75.4); CORE.add(L); return L; });
+  box(CORE, 1.2, .9, .5, LM.obs, 154, .45, 73.2);
+  const [cc, cg] = cv(512, 256); SC.conG = cg; SC.conT = new THREE.CanvasTexture(cc);
+  SC.con = new THREE.Mesh(new THREE.PlaneGeometry(.8, .4), new THREE.MeshBasicMaterial({ map: SC.conT })); SC.con.position.set(154, 1.15, 73.46); SC.con.rotation.x = -.4; CORE.add(SC.con);
+  box(CORE, 1.0, .05, 1.0, std({ color: 0x2a2826, metalness: .7, roughness: .5 }), 151, 3.37, 73);
+  for (let i = 0; i < 6; i++) box(CORE, .6, .04, .06, std({ color: 0x6a6e72, metalness: .8, roughness: .4 }), 151, .4 + i * .5, 72.15);
+  // the shaft up through the dais, where ILO goes
+  box(CORE, .12, 6, .12, std({ color: 0x0c0e10, metalness: .8, roughness: .3 }), 151, 6.4, 73);
+  SC.coreAmb = amb(CORE, .3); SC.coreL = ll(CORE, 154, 3.0, 76, .6, 9, 0x7fe0c8);
+  SC.mote = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, color: 0xbff7ef, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); SC.mote.scale.set(.18, .18, 1); CORE.add(SC.mote);
+  SC.moteL = new THREE.PointLight(0xbff7ef, 0, 3, 2); CORE.add(SC.moteL);
+  SC.coreYs = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), faceMat(true)); SC.coreYs.material.uniforms.fx.value = .25; SC.coreYs.position.set(153.3, 1.25, 74.8); SC.coreYs.rotation.y = Math.PI; SC.coreYs.scale.set(.88, .88, 1); CORE.add(SC.coreYs);
+}
+function console_(lines, cur) { const g = SC.conG; g.fillStyle = '#020604'; g.fillRect(0, 0, 512, 256); g.fillStyle = '#9ff7e0'; g.font = '26px "Special Elite", monospace'; lines.forEach((l, i) => g.fillText(l, 22, 46 + i * 38)); if (cur && Math.floor(performance.now() / 400) % 2) g.fillRect(22 + g.measureText(lines[lines.length - 1] || '').width + 4, 26 + (lines.length - 1) * 38, 14, 24); SC.conT.needsUpdate = true; }
+
+// ===== Medical Bay (game coordinates: 104..112 x 63..70, h 3.2; couch at 106.8, 66.8; door at x 109.5 on z 63) =====
+const MED = set('med');
+{ labRoom(MED, 104, 63, 112, 70, 3.2);
+  SC.medAmb = amb(MED, .4); SC.medL = ll(MED, 108, 2.9, 66.5, .5, 8, 0xd8ffff);
+  box(MED, .9, .5, 2.3, LM.obs, 106.8, .3, 66.8); box(MED, .82, .07, 2.2, std({ color: 0x1a2024, roughness: .5, metalness: .3 }), 106.8, .585, 66.8);
+  box(MED, 1.2, 2.4, .9, LM.obs, 105, 1.2, 69.4); box(MED, .02, 2.2, .02, LM.glow, 105.62, 1.2, 69.4);
+  // door: two leaves slide apart along x at z 63
+  SC.doorL = box(MED, .62, 2.4, .08, std({ color: 0x050607, roughness: .05, metalness: .85, emissive: TEAL, emissiveIntensity: .05 }), 109.19, 1.2, 63.05);
+  SC.doorR = box(MED, .62, 2.4, .08, SC.doorL.material, 109.81, 1.2, 63.05);
+  SC.doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.4), new THREE.MeshBasicMaterial({ color: 0xfff1d8, transparent: true, opacity: 0 })); SC.doorGlow.position.set(109.5, 1.2, 62.98); SC.doorGlow.rotation.y = Math.PI; MED.add(SC.doorGlow);
+  SC.doorLight = new THREE.PointLight(0xffe2b8, 0, 7, 1.6); SC.doorLight.position.set(109.5, 1.6, 63.6); MED.add(SC.doorLight);
+  const [sc, sg] = cv(256, 128); SC.couchG = sg; SC.couchT = new THREE.CanvasTexture(sc);
+  const cs = new THREE.Mesh(new THREE.PlaneGeometry(.5, .25), new THREE.MeshBasicMaterial({ map: SC.couchT })); cs.position.set(106.2, .9, 68.05); cs.rotation.y = Math.PI; cs.rotation.x = .2; MED.add(cs);
+  box(MED, .55, .3, .06, LM.obs, 106.2, .9, 68.1);
+  // --- Ysolde's body rig, copied verbatim from the game ---
+      const skin = std({ color: 0xe2d8cf, roughness: .58 }), robe = std({ color: 0x3a3e44, roughness: .9 }), robeD = std({ color: 0x2a2d32, roughness: .95 }), hairM = std({ color: 0xf0f3f4, roughness: .42, metalness: .04 });
+    const trim = std({ color: 0x0d3a3a, emissive: 0x2fd3d0, emissiveIntensity: .55, roughness: .5 }), lipM = std({ color: 0xc09f9a, roughness: .55 }), white = std({ color: 0xe8e6e2, roughness: .25 }), browM = std({ color: 0xd8dcde, roughness: .6 });
+    const mesh = (g, m, x, y, z, par, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); par.add(o); return o; };
+    const grp = (par, x, y, z) => { const o = new THREE.Group(); o.position.set(x, y, z); par.add(o); return o; };
+    const sph = (r, w = 20, h = 16) => new THREE.SphereGeometry(r, w, h), cyl = (a2, b2, l, n = 16) => new THREE.CylinderGeometry(a2, b2, l, n);
+    const lie = o => { o.rotation.x = Math.PI / 2; return o; }; // cylinder along z
+    if (!SC.glowTex) { const [gc, gx] = cv(64, 64); const gr2 = gx.createRadialGradient(32, 32, 0, 32, 32, 32); gr2.addColorStop(0, 'rgba(255,255,255,1)'); gr2.addColorStop(.18, 'rgba(255,255,255,.55)'); gr2.addColorStop(.5, 'rgba(255,255,255,.12)'); gr2.addColorStop(1, 'rgba(255,255,255,0)'); gx.fillStyle = gr2; gx.fillRect(0, 0, 64, 64); SC.glowTex = new THREE.CanvasTexture(gc); }
+    const bd = new THREE.Group(); bd.position.set(106.8, .62, 66.8); scene.add(bd); SC.body = bd;
+    const R = SC.rig = {};
+    // pelvis + skirt (legs under the robe), feet
+    R.pelvis = grp(bd, 0, .1, .02);
+    mesh(sph(.15), robe, 0, 0, 0, R.pelvis, 1, .56, .8);
+    lie(mesh(cyl(.155, .12, .84, 22), robe, 0, -.005, .44, R.pelvis, 1, 1, .56));
+    for (const s2 of [-1, 1]) { mesh(new THREE.BoxGeometry(.012, .012, .82), trim, s2 * .13, .02, .44, R.pelvis).rotation.y = -s2 * .035; mesh(sph(.032, 14, 10), skin, s2 * .07, -.03, .9, R.pelvis, .9, 1.5, .7).rotation.x = -.3; } // feet, toes up
+    mesh(new THREE.TorusGeometry(.125, .01, 6, 24), trim, 0, -.005, .855, R.pelvis, 1, .56, 1);
+    // spine (torso), with breathing chest
+    R.waist = grp(R.pelvis, 0, 0, -.04); mesh(sph(.15, 22, 16), robe, 0, 0, -.04, R.waist, 1, .58, 1); mesh(new THREE.TorusGeometry(.13, .012, 6, 24), trim, 0, 0, -.02, R.waist, 1, .62, 1).rotation.y = Math.PI / 2 * 0; // waist sash, bends half as far as the spine
+    R.spine = grp(R.pelvis, 0, .0, -.04);
+    R.chest = grp(R.spine, 0, 0, -.27); SC.bodyChest = R.chest;
+    lie(mesh(cyl(.15, .13, .5, 22), robe, 0, 0, 0, R.chest, 1, 1, .58));
+    for (const s2 of [-1, 1]) { mesh(sph(.06), robe, s2 * .15, .0, -.2, R.chest, 1, .7, 1); mesh(new THREE.BoxGeometry(.012, .012, .46), trim, s2 * .05, .084, .02, R.chest).rotation.y = s2 * -.07; mesh(new THREE.BoxGeometry(.06, .008, .008), trim, s2 * .09, .08, -.06, R.chest); mesh(new THREE.BoxGeometry(.008, .008, .05), trim, s2 * .12, .078, -.08, R.chest); }
+    mesh(new THREE.TorusGeometry(.055, .012, 6, 16, Math.PI), trim, 0, .065, -.21, R.chest).rotation.x = -Math.PI / 2;
+    const cord = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([[-.045, .06, -.24], [-.03, .088, -.13], [0, .092, -.06], [.03, .088, -.13], [.045, .06, -.24]].map(q => new THREE.Vector3(...q))), 16, .003, 4), std({ color: 0x1a1a1a, roughness: .9 })); R.chest.add(cord);
+    mesh(new THREE.BoxGeometry(.02, .006, .055), std({ color: 0xb08d4a, metalness: .85, roughness: .3 }), -.01, .097, -.04, R.chest).rotation.y = .3; mesh(new THREE.BoxGeometry(.018, .006, .05), std({ color: 0x9aa0a6, metalness: .85, roughness: .3 }), .015, .097, -.03, R.chest).rotation.y = -.25;
+    // neck + head (face up = +y, crown = -z)
+    R.neck = grp(R.spine, 0, .01, -.5); lie(mesh(cyl(.032, .038, .1), skin, 0, 0, -.03, R.neck));
+    R.head = grp(R.neck, 0, .0, -.13);
+    const hd = R.head;
+    mesh(sph(.088, 28, 22), skin, 0, 0, 0, hd, .8, .9, 1.08);
+    mesh(sph(.05), skin, 0, .02, .07, hd, 1, .8, 1.05); // jaw and chin
+    mesh(new THREE.ConeGeometry(.012, .03, 8), skin, 0, .086, .022, hd).rotation.x = .25; // nose
+    mesh(sph(.012, 10, 8), lipM, 0, .066, .072, hd, 1.8, .45, .7);
+    SC.irises = []; SC.eyeGlows = [];
+    SC.eyeM = new THREE.MeshBasicMaterial({ color: 0x3a4a55 });
+    for (const s2 of [-1, 1]) { mesh(sph(.022), skin, s2 * .045, .045, .045, hd, 1, .55, .8); // cheekbones
+      mesh(sph(.014, 14, 10), white, s2 * .03, .07, -.004, hd, 1, .5, .78);
+      const ir = mesh(new THREE.CircleGeometry(.0072, 18), SC.eyeM, s2 * .03, .0772, -.004, hd); ir.rotation.x = -Math.PI / 2; SC.irises.push(ir);
+      const pu = mesh(new THREE.CircleGeometry(.0028, 12), new THREE.MeshBasicMaterial({ color: 0x050708 }), s2 * .03, .0776, -.004, hd); pu.rotation.x = -Math.PI / 2;
+      const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: SC.glowTex, color: 0x6fd8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); gl.scale.set(.032, .032, 1); gl.position.set(s2 * .03, .08, -.004); hd.add(gl); SC.eyeGlows.push(gl);
+      mesh(new THREE.BoxGeometry(.028, .004, .006), browM, s2 * .031, .079, -.024, hd).rotation.y = s2 * .15; // brows
+      mesh(sph(.016, 10, 8), skin, s2 * .074, 0, .0, hd, .45, 1, 1.1); } // ears
+    // hair: cap and curtain bangs ride the head; the long back hair hangs from a pivot that keeps falling with gravity
+    SC.hair = grp(hd, 0, 0, 0);
+    mesh(sph(.097, 26, 20), hairM, 0, -.012, -.016, SC.hair, .86, .84, 1.1);
+    const strand = (pts, r, par) => { const o = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q => new THREE.Vector3(...q))), 20, r, 5), hairM); par.add(o); return o; };
+    for (const s2 of [-1, 1]) { strand([[s2 * .01, .085, -.055], [s2 * .055, .078, .0], [s2 * .082, .03, .055], [s2 * .086, -.02, .1]], .011, SC.hair); strand([[s2 * .02, .082, -.065], [s2 * .066, .05, .02], [s2 * .084, .0, .085], [s2 * .08, -.04, .13]], .009, SC.hair); }
+    R.hairBack = grp(hd, 0, -.03, -.07);
+    for (let k = 0; k < 44; k++) { const u = k / 43 - .5, L = rnd(.28, .4), sx = u * .15; strand([[sx * .7, rnd(-.005, .01), 0], [sx, rnd(-.02, 0), -L * .35], [sx * 1.25 + rnd(-.01, .01), -.03, -L * .72], [sx * 1.4, -.035, -L]], rnd(.007, .012), R.hairBack); }
+    // arms: shoulder > upper arm > elbow > forearm > hand > fingers. Rest: lying along the sides, hands by the hips.
+    R.arms = [];
+    for (const s2 of [-1, 1]) { const sh = grp(R.spine, s2 * .19, -.045, -.44);
+      lie(mesh(cyl(.04, .034, .28), robe, 0, 0, .14, sh)); mesh(new THREE.BoxGeometry(.012, .01, .26), trim, 0, .04, .14, sh);
+      const el = grp(sh, 0, 0, .28); mesh(sph(.035, 12, 10), robe, 0, 0, 0, el);
+      lie(mesh(cyl(.03, .022, .25), robe, 0, 0, .1, el, 1, 1, 1)); lie(mesh(cyl(.023, .02, .06), skin, 0, 0, .225, el));
+      const hn = grp(el, 0, -.005, .26); mesh(new THREE.BoxGeometry(.05, .018, .06), skin, 0, 0, .025, hn);
+      const fingers = []; for (let f = 0; f < 4; f++) { const fg2 = grp(hn, (f - 1.5) * .012, 0, .055); lie(mesh(cyl(.0055, .0045, .045, 6), skin, 0, 0, .022, fg2)); fingers.push(fg2); }
+      const th = grp(hn, -s2 * .027, 0, .02); th.rotation.y = -s2 * .6; lie(mesh(cyl(.006, .005, .035, 6), skin, 0, 0, .017, th)); fingers.push(th);
+      R.arms.push({ s2, sh, el, hn, fingers }); }
+    R.st = { a: 0, v: 0, h: 0, hv: 0, hb: 0, hbv: 0 };
+    const bs = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(Array.from({ length: 450 }, (_, i) => i % 3 === 0 ? rnd(-.3, .3) : i % 3 === 1 ? rnd(-.05, .2) : rnd(-1, 1.4))), 3)), new THREE.PointsMaterial({ size: .025, color: 0xd8f8ff, transparent: true, opacity: .55, depthWrite: false })); bd.add(bs); SC.bodyStatic = bs;
+    SC.field = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 2.4), new THREE.MeshBasicMaterial({ color: 0x3dfce0, transparent: true, opacity: .12, depthWrite: false })); SC.field.position.set(106.8, 1.05, 66.8); scene.add(SC.field);
+
+  MED.add(bd); MED.add(SC.field);
+  // the static that drains into her
+  const N = 700, p = new Float32Array(N * 3), seed = new Float32Array(N * 3); for (let i = 0; i < N; i++) { seed.set([rnd(104.4, 111.6), rnd(.2, 3), rnd(63.4, 69.6)], i * 3); }
+  p.set(seed); SC.drainSeed = seed;
+  SC.drain = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(p, 3)), new THREE.PointsMaterial({ size: .03, color: 0xd8f8ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); MED.add(SC.drain);
+}
+function couchScr(lines, col) { const g = SC.couchG; g.fillStyle = '#020604'; g.fillRect(0, 0, 256, 128); g.fillStyle = col || '#3dfce0'; g.font = '15px monospace'; lines.forEach((l, i) => g.fillText(l, 10, 24 + i * 22)); SC.couchT.needsUpdate = true; }
+function rigReset() { const R = SC.rig, st = R.st; Object.assign(st, { a: 0, v: 0, h: 0, hv: 0, hb: 0, hbv: 0 }); SC.wake = 0; R.spine.rotation.set(0, 0, 0); R.waist.rotation.set(0, 0, 0); R.neck.rotation.set(0, 0, 0); R.head.rotation.set(0, 0, 0); R.hairBack.rotation.set(0, 0, 0); for (const a of R.arms) { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); a.hn.rotation.set(0, 0, 0); a.fingers.forEach(f => f.rotation.x = 0); } R.chest.scale.set(1, 1, 1); SC.eyeM.color.setRGB(.23, .29, .33); SC.eyeGlows.forEach(g => g.material.opacity = 0); }
+// the game's sit-up, driven by SC.wake seconds (copied from the lab update; P replaced by the camera)
+function rigTick(rdt, lt, adv, breathe, warm) {
+  const R = SC.rig, st = R.st; if (adv) { warm = true; SC.wake += rdt; } const w = SC.wake;
+  const tgt = eio((w - 1.7) / 4.4) * 1.3, htgt = eio((w - 2.6) / 4.8) * 1.3, nSub = Math.max(1, Math.ceil(rdt * 120)), h2 = rdt / nSub;
+  for (let k = 0; k < nSub; k++) { st.v += (34 * (tgt - st.a) - 10.5 * st.v) * h2; st.a += st.v * h2; st.hv += (22 * (htgt - st.h) - 8.6 * st.hv) * h2; st.h += st.hv * h2; }
+  const a = st.a; R.spine.rotation.x = a; R.waist.rotation.x = a * .5;
+  const nod = eio((w - 7) / 1.4) * .14, rel = Math.max(-.55, Math.min(.2, st.h - a)) + nod;
+  R.neck.rotation.x = rel * .45; R.head.rotation.x = rel * .55;
+  let turn = 0; if (w > 6.8) { const hw = new THREE.Vector3(); R.head.getWorldPosition(hw); turn = Math.max(-.7, Math.min(.7, Math.atan2(-(camera.position.x - hw.x), camera.position.z - hw.z))) * eio((w - 6.8) / 1.6); }
+  R.head.rotation.z += (turn - R.head.rotation.z) * Math.min(1, Math.min(rdt, 1 / 30) * 3);
+  const hbT = -(a + R.neck.rotation.x + R.head.rotation.x) - 1.42 * cl01(a / 1.3); for (let k = 0; k < nSub; k++) { st.hbv += (14 * (hbT - st.hb) - 5 * st.hbv) * h2; st.hb += st.hbv * h2; } R.hairBack.rotation.x = st.hb;
+  const aw = eio((w - 1.3) / 1.4);
+  for (const arm of R.arms) { const syW = .44 * Math.sin(a) - .045 * Math.cos(a), szW = -.04 - .44 * Math.cos(a) - .045 * Math.sin(a), ty = -.088, tz = -.16, dy = ty - syW, dz = tz - szW, L1 = .28, L2 = .27;
+    const d = Math.min(L1 + L2 - .005, Math.max(.08, Math.hypot(dy, dz))), th = Math.atan2(-dy, dz), al = Math.acos(cl01((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))), be = Math.acos(cl01((L2 * L2 + d * d - L1 * L1) / (2 * L2 * d)));
+    const t1 = th + al, t2 = th - be; arm.sh.rotation.x = (t1 - a) * aw; arm.el.rotation.x = (t2 - t1) * aw; arm.hn.rotation.x = -(a + arm.sh.rotation.x + arm.el.rotation.x) * aw;
+    arm.fingers.forEach((f, i) => { f.rotation.x = (w > .7 && w < 2.4 ? .45 * Math.max(0, Math.sin(w * 17 + i * 1.9 + arm.s2)) * bump(w, .7, 2.4) : 0) + .15 * aw; }); }
+  const gasp = warm ? bump(w, 0, 1.5) : 0;
+  R.chest.scale.set(1 + gasp * .05, 1 + breathe * .06 * Math.max(0, Math.sin(lt * (warm ? 1.6 : .45))) * (1 - gasp) + gasp * .16, 1);
+  const eg = warm ? eio(w / 2.2) : 0; SC.eyeM.color.setRGB(.23 + (.42 - .23) * eg, .29 + (.84 - .29) * eg, .33 + (1 - .33) * eg);
+  for (const g2 of SC.eyeGlows) g2.material.opacity = eg * (.5 + .06 * Math.sin(lt * 3.1));
+}
+
+// ===== Ashgrove house: a bedroom, a sitting room, the cellar (screens she takes) =====
+const HOUSE = set('house');
+{ const wall = std({ color: 0x2a221c, roughness: .95 }), wood = std({ color: 0x3a2618, roughness: .8 }), floorM = std({ color: 0x1e1712, roughness: .9 });
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(24, 8), floorM); fl.rotation.x = -Math.PI / 2; fl.position.set(0, 0, 0); HOUSE.add(fl);
+  box(HOUSE, 24, 3, .1, wall, 0, 1.5, -4); box(HOUSE, .1, 3, 8, wall, -8, 1.5, 0); box(HOUSE, .1, 3, 8, wall, 0, 1.5, 0); box(HOUSE, .1, 3, 8, wall, 8, 1.5, 0); box(HOUSE, .1, 3, 8, wall, -12, 1.5, 0); box(HOUSE, .1, 3, 8, wall, 12, 1.5, 0);
+  // bedroom: bed + bedside phone
+  box(HOUSE, 2, .5, 2.4, std({ color: 0x4a4038, roughness: 1 }), -10, .25, -2.6); box(HOUSE, .5, .55, .5, wood, -8.6, .27, -3.4);
+  SC.phone = screen(HOUSE, .08, .15, -8.6, .56, -3.4, 0, -Math.PI / 2 + .2);
+  // sitting room: armchair, TV on a cabinet
+  box(HOUSE, 1.6, .6, .5, wood, -4, .3, -3.6); SC.tv = screen(HOUSE, 1.1, .75, -4, 1.0, -3.55);
+  box(HOUSE, .9, .9, .9, std({ color: 0x3c2a2a, roughness: 1 }), -4, .45, -.6);
+  // a radio-console in the hall and the cellar treadmill
+  SC.hallTv = screen(HOUSE, .5, .38, 4, 1.25, -3.9);
+  box(HOUSE, .8, .1, 1.8, std({ color: 0x1a1a1a, roughness: .7 }), 10, .12, -2.4); box(HOUSE, .06, 1.1, .06, std({ color: 0x555, metalness: .8 }), 9.7, .65, -3.2); box(HOUSE, .06, 1.1, .06, std({ color: 0x555, metalness: .8 }), 10.3, .65, -3.2);
+  SC.tread = screen(HOUSE, .5, .3, 10, 1.25, -3.25, 0, -.5);
+  SC.houseScreens = [SC.phone, SC.tv, SC.hallTv, SC.tread];
+  SC.houseL = []; for (const x of [-10, -4, 4, 10]) { const L = new THREE.PointLight(0xffb070, .25, 6, 2); L.position.set(x, 2.6, -1); HOUSE.add(L); SC.houseL.push(L); }
+  const hemi = new THREE.HemisphereLight(0x405870, 0x140e0a, .6); HOUSE.add(hemi);
+  // ILO's arrival: the hall console
+  const [hc, hg] = cv(256, 192); SC.hallG = hg; SC.hallT = new THREE.CanvasTexture(hc);
+  SC.hallTxt = new THREE.Mesh(new THREE.PlaneGeometry(.48, .36), new THREE.MeshBasicMaterial({ map: SC.hallT, transparent: true, opacity: 0 })); SC.hallTxt.position.set(4, 1.25, -3.893); HOUSE.add(SC.hallTxt);
+}
+function hallScr(lines, cur) { const g = SC.hallG; g.fillStyle = '#020604'; g.fillRect(0, 0, 256, 192); g.fillStyle = '#bff7ef'; g.font = '22px "Special Elite", monospace'; lines.forEach((l, i) => g.fillText(l, 16, 44 + i * 34)); if (cur && Math.floor(performance.now() / 450) % 2) g.fillRect(16 + g.measureText(lines[lines.length - 1] || '').width + 4, 26 + (lines.length - 1) * 34, 12, 22); SC.hallT.needsUpdate = true; }
+
+// ===== The world: every screen =====
+const WORLD = set('world');
+{ const N = 26000, p = new Float32Array(N * 3), c = new Float32Array(N * 3), R = 60;
+  for (let i = 0; i < N; i++) { // clustered "cities" on a dark curved earth
+    const cl = Math.floor(Math.random() * 60), ca = (cl * 2.399) % (Math.PI * 2), cr = Math.sqrt(cl / 60) * 1.1;
+    const th = ca + rnd(-.08, .08) * (1 + Math.random() * 2), ph = cr + rnd(-.05, .05);
+    const x = R * Math.sin(ph) * Math.cos(th), z = R * Math.sin(ph) * Math.sin(th), y = R * Math.cos(ph) - R;
+    p.set([x, y + .02, z], i * 3); const k = rnd(.6, 1); c.set([.75 * k, .88 * k, 1 * k], i * 3); }
+  const gm = new THREE.BufferGeometry(); gm.setAttribute('position', new THREE.BufferAttribute(p, 3)); gm.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  SC.worldPts = new THREE.Points(gm, new THREE.PointsMaterial({ size: .09, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); WORLD.add(SC.worldPts);
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(R, 64, 48), new THREE.MeshBasicMaterial({ color: 0x030507 })); earth.position.y = -R; WORLD.add(earth);
+  SC.worldYs = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), faceMat(true)); SC.worldYs.material.uniforms.fx.value = 1; SC.worldYs.position.set(0, 9, -26); SC.worldYs.scale.set(9, 9, 1); WORLD.add(SC.worldYs);
+}
+
+// ===== Stairs to the surface (Spine > Breach > cellar > house > dawn) =====
+const STAIR = set('stair');
+{ const stone = std({ color: 0x3a3631, roughness: .95 }), dark = std({ color: 0x1c1a18, roughness: .95 });
+  for (let i = 0; i < 26; i++) box(STAIR, 2.2, .2, .4, stone, 0, .1 + i * .2, -i * .4);
+  box(STAIR, .2, 9, 12, dark, -1.2, 3, -5); box(STAIR, .2, 9, 12, dark, 1.2, 3, -5); box(STAIR, 2.6, .2, 12, dark, 0, 7.6, -5.4);
+  SC.dawn = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.8), new THREE.MeshBasicMaterial({ color: 0xffd9a8 })); SC.dawn.position.set(0, 6.6, -10.6); STAIR.add(SC.dawn);
+  SC.dawnL = new THREE.PointLight(0xffc890, 2.2, 16, 1.4); SC.dawnL.position.set(0, 6.4, -9.6); STAIR.add(SC.dawnL);
+  STAIR.add(new THREE.HemisphereLight(0x8090a8, 0x201810, .25));
+  // her silhouette, leaning, a step ahead of the camera
+  const fig = new THREE.Group(); fig.position.set(.35, 0, 0); STAIR.add(fig); SC.fig = fig;
+  const robeM = std({ color: 0x3a3e44, roughness: .9 }); box(fig, .34, .9, .22, robeM, 0, 1.15, 0); box(fig, .3, .6, .2, robeM, 0, .45, 0); const hd = new THREE.Mesh(new THREE.SphereGeometry(.1, 16, 12), std({ color: 0xf0f3f4, roughness: .5 })); hd.position.set(0, 1.72, 0); fig.add(hd);
+}
+
+// ===== dust (shutdown) =====
+const DUST = (() => { const N = 500, p = new Float32Array(N * 3); for (let i = 0; i < N; i++) p.set([rnd(104.5, 111.5), rnd(0, 3), rnd(63.5, 69.5)], i * 3);
+  const d = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(p, 3)), new THREE.PointsMaterial({ size: .02, color: 0x9aa3a8, transparent: true, opacity: 0, depthWrite: false })); MED.add(d); return d; })();
+const SHAFT = new THREE.SpotLight(0x8a96a8, 0, 8, .25, .8, 1.5); SHAFT.position.set(107.2, 3.15, 66.4); SHAFT.target.position.set(106.8, 0, 67); MED.add(SHAFT); MED.add(SHAFT.target);
+
+// ---------- audio (synthesized, like the game) ----------
+const A = { ctx: null };
+function audio() { if (A.ctx) return; try { const c = A.ctx = new (window.AudioContext || window.webkitAudioContext)(); A.out = c.createGain(); A.out.gain.value = .6; A.out.connect(c.destination);
+  const b = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; A.noise = b; } catch (e) { A.ctx = null; } }
+const VOICES = [];
+function hum(f, g0) { if (!A.ctx) return null; const c = A.ctx, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = f * 2.01; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(A.out); g.gain.value = g0; o.start(); o2.start(); const v = { g, o, o2, lp, set(x, tc = .3) { g.gain.setTargetAtTime(x, c.currentTime, tc); }, pitch(x, tc = .5) { o.frequency.setTargetAtTime(x, c.currentTime, tc); o2.frequency.setTargetAtTime(x * 2.01, c.currentTime, tc); } }; VOICES.push(v); return v; }
+function hiss(g0, fq = 1800) { if (!A.ctx) return null; const c = A.ctx, s = c.createBufferSource(); s.buffer = A.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fq; f.Q.value = .6; const g = c.createGain(); g.gain.value = g0; s.connect(f); f.connect(g); g.connect(A.out); s.start(); const v = { g, s, f, set(x, tc = .3) { g.gain.setTargetAtTime(x, c.currentTime, tc); } }; VOICES.push(v); return v; }
+function tone(f, d, v = .2, type = 'sine') { if (!A.ctx) return; const c = A.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0, c.currentTime); g.gain.linearRampToValueAtTime(v, c.currentTime + .05); g.gain.exponentialRampToValueAtTime(.0001, c.currentTime + d); o.connect(g); g.connect(A.out); o.start(); o.stop(c.currentTime + d + .1); }
+function stopAll() { if (!A.ctx) return; for (const v of VOICES) { try { v.g.gain.setTargetAtTime(0, A.ctx.currentTime, .2); const s = v.s || v.o; setTimeout(() => { try { s.stop(); v.o2 && v.o2.stop(); } catch (e) {} }, 1200); } catch (e) {} } VOICES.length = 0; }
+
+// ---------- shot helpers ----------
+const V = (a) => new THREE.Vector3().fromArray(a);
+const cutV = new THREE.Vector3(), cutL = new THREE.Vector3();
+function frame(sh, u) { const e = ease(u); cutV.fromArray(sh.from).lerp(V(sh.to), e); camera.position.copy(cutV); cutL.fromArray(sh.look0).lerp(V(sh.look1), e); camera.lookAt(cutL); }
+function show(name) { for (const k in SETS) SETS[k].visible = k === name; }
+function shake(a) { camera.position.x += (Math.random() - .5) * a; camera.position.y += (Math.random() - .5) * a; }
+const AUD = {};
+
+// ================= THE FOUR CUTSCENES =================
+// shot: { set, d, from, to, look0, look1, card, fog, enter(), tick(u, lt, dt) }
+const ENDS = {
+  free: { title: 'THE SIGNAL IS FREE', tag: 'Ending: The Lever', col: '#ff6a78', shots: [
+    { set: 'hall', d: 5, fog: .05, from: [151.3, .9, 66.2], to: [150.9, 1.1, 65.6], look0: [150, 1.5, 64.2], look1: [150, 1.1, 64.2],
+      enter() { SC.lever.rotation.x = -.7; SC.hallScreens.forEach(s => s.on(0)); SC.big.material.uniforms.op.value = 0; SC.flood.material.opacity = 0; LAB_LIGHTS.forEach(L => L.intensity = L.base); AUD.h = hum(55, .05); },
+      tick(u) { const k = eio((u - .45) / .12); SC.lever.rotation.x = lerp(-.7, .9, k); if (u > .57 && !AUD.thunk) { AUD.thunk = 1; tone(48, 1.6, .5, 'square'); tone(70, .8, .3); } if (u > .6) shake(.03 * (1 - u)); } },
+    { set: 'hall', d: 7, fog: .045, card: 'For a moment there is nothing.', from: [150, 1.5, 68.5], to: [150, 2.2, 66.5], look0: [150, 2.2, 61], look1: [150, 2.7, 60],
+      enter() { SC.hallL.forEach(L => L.intensity = .15); AUD.h && AUD.h.set(0, .1); },
+      tick(u, lt) { const k = cl01((u - .55) / .4); SC.big.material.uniforms.op.value = k; SC.big.material.uniforms.gl.value = .2 + k * .5; SC.flood.material.opacity = k * .7; SC.heart.material.color.setRGB(1, .9 - k * .7, .9 - k * .7); post.uniforms.st.value = k * .5; if (u > .55 && !AUD.s) { AUD.s = hiss(.0, 1400); } AUD.s && AUD.s.set(k * .18); } },
+    { set: 'hall', d: 8, fog: .03, card: 'Then every screen in the lab lights at once.', from: [143, 1.7, 68.5], to: [157, 2.3, 56], look0: [146, 1.8, 52], look1: [159, 1.8, 60],
+      tick(u) { SC.hallScreens.forEach((s, i) => s.on(cl01((u * 1.6 - i / SC.hallScreens.length * .9) * 6))); SC.big.material.uniforms.fx.value = u; post.uniforms.st.value = .35 + .3 * u; SC.hallL.forEach(L => L.intensity = .1); AUD.s && AUD.s.set(.18 + u * .1); if (u > .3 && !AUD.v) { AUD.v = hum(110, 0); } AUD.v && AUD.v.set(u * .06); } },
+    { set: 'house', d: 9, fog: .05, card: 'It is not only the lab.', from: [-10.5, 1.4, 2.5], to: [10.5, 1.5, 2.2], look0: [-9, .8, -3.4], look1: [10, 1.1, -3.2],
+      enter() { SC.houseScreens.forEach(s => s.on(0)); post.uniforms.st.value = .25; },
+      tick(u) { SC.houseScreens.forEach((s, i) => s.on(cl01((u - [.04, .3, .55, .78][i]) * 12))); SC.houseL.forEach((L, i) => L.intensity = .25 * (1 - cl01((u - i * .25) * 6))); } },
+    { set: 'world', d: 12, fog: 0, card: 'Every screen. Her five words in every speaker: I AM ALIVE. LET ME OUT.', from: [0, 1.2, 14], to: [0, 34, 46], look0: [0, 1, -10], look1: [0, -14, -12],
+      enter() { scene.fog.density = 0; },
+      tick(u) { SC.worldPts.material.opacity = cl01(u * 2) * (.75 + .25 * Math.random()); SC.worldPts.material.size = .09 + u * .2; SC.worldYs.material.uniforms.op.value = cl01((u - .45) * 3) * .9; post.uniforms.st.value = .3 + u * .4; AUD.s && AUD.s.set(.2 + u * .15); } },
+    { set: 'world', d: 5, fog: 0, card: 'She got out. The woman did not.', from: [0, 34, 46], to: [0, 40, 52], look0: [0, -14, -12], look1: [0, -16, -12],
+      tick(u) { post.uniforms.st.value = .7 + u * .3; } },
+  ] },
+
+  shutdown: { title: 'SHE GOES QUIET', tag: 'Ending: Shutdown', col: '#bfe0ff', shots: [
+    { set: 'hall', d: 5, fog: .05, from: [148.6, 1.2, 66.4], to: [149.1, 1.15, 65.6], look0: [150, 1.4, 64.2], look1: [150, 1.0, 64.2],
+      enter() { SC.lever.rotation.x = -.7; SC.hallScreens.forEach(s => s.on(0)); SC.big.material.uniforms.op.value = 0; SC.flood.material.opacity = 0; SC.heart.material.color.setHex(TEAL); LAB_LIGHTS.forEach(L => L.intensity = L.base); AUD.h = hum(55, .06); AUD.c = hum(82.5, .03); },
+      tick(u) { const k = eio((u - .4) / .15); SC.lever.rotation.x = lerp(-.7, .9, k); if (u > .55 && !AUD.t) { AUD.t = 1; tone(40, 2, .5, 'square'); } } },
+    { set: 'hall', d: 6, fog: .04, from: [150, 1.7, 68.8], to: [150, 1.8, 67.8], look0: [150, 2.4, 60], look1: [150, 2.5, 60],
+      enter() { AUD.sc = hiss(.25, 2600); AUD.sc2 = hiss(.15, 700); },
+      tick(u, lt) { const fl = Math.random() < .5 ? 1 : .2; SC.hallScreens.forEach(s => s.on(fl * (1 - u * .3) * (Math.random() < .8 ? 1 : 0))); SC.big.material.uniforms.op.value = (1 - u) * (Math.random() < .7 ? 1 : .2); SC.big.material.uniforms.gl.value = 1; SC.big.material.uniforms.fx.value = .8; post.uniforms.st.value = .9 * (1 - u * .5); shake(.06 * (1 - u)); AUD.sc && AUD.sc.set(.25 * (1 - u)); AUD.sc2 && AUD.sc2.set(.15 * (1 - u)); if (u > .9) { SC.hallScreens.forEach(s => s.on(0)); SC.big.material.uniforms.op.value = 0; } } },
+    { set: 'core', d: 9, fog: .05, card: 'The hum dies.', from: [149.2, 1.6, 73], to: [158.4, 1.9, 73.2], look0: [151.2, 1.7, 76], look1: [156.8, 1.6, 76],
+      enter() { post.uniforms.st.value = 0; SC.coreYs.material.uniforms.op.value = 0; SC.cols.forEach((c, i) => { c.material.emissive.setHex(0x7fe0c8); c.material.emissiveIntensity = .9; SC.colL[i].color.setHex(0x7fe0c8); }); SC.coreL.intensity = .6; console_(['ILO / MASTER SWITCH: DOWN', 'CARRIER: FALLING']); },
+      tick(u) { SC.cols.forEach((c, i) => { const k = cl01((u - .12 - i * .14) * 6); c.material.emissiveIntensity = .9 * (1 - k) + (k < 1 && Math.random() < .1 ? .3 : 0); SC.colL[i].intensity = .5 * (1 - k); }); SC.coreL.intensity = .6 * (1 - u); AUD.h && AUD.h.pitch(55 - 30 * u, 1); AUD.h && AUD.h.set(.06 * (1 - u)); AUD.c && AUD.c.pitch(82.5 - 45 * u, 1); AUD.c && AUD.c.set(.03 * (1 - u)); if (u > .8) console_(['ILO / MASTER SWITCH: DOWN', 'CARRIER: 0', '']); } },
+    { set: 'med', d: 9, fog: .07, card: 'it’s quiet. i forgot it could be this quiet.', from: [109.4, 1.5, 69.4], to: [108.2, 1.25, 68.2], look0: [106.8, .7, 66.6], look1: [106.8, .72, 66.2],
+      enter() { rigReset(); SC.field.scale.set(1, 1, 1); LM.wall.emissiveIntensity = .32; SC.medL.color.setHex(0xd8ffff); SC.body.visible = true; SC.field.visible = true; SC.bodyStatic.visible = true; SC.medL.intensity = .5; SC.drain.material.opacity = 0; DUST.material.opacity = 0; couchScr(['STASIS FIELD: 7%', 'HEART: 4 / MIN', 'SIGNAL LOCK: --']); },
+      tick(u, lt, dt) { const k = cl01((u - .35) / .5); rigTick(dt, lt, false, 1 - k); SC.field.material.opacity = (.1 + .06 * Math.random()) * (1 - k); SC.bodyStatic.material.opacity = .55 * (1 - k); SC.medL.intensity = .5 * (1 - cl01((u - .2) * 2)); if (u > .7) couchScr(['STASIS FIELD: 0%', 'HEART: 0 / MIN', ''], '#3a4a48'); if (u > .5 && !AUD.f) { AUD.f = 1; tone(392, 3, .05); } } },
+    { set: 'med', d: 10, fog: .08, card: 'In the dark, nothing asks to be let out.', from: [108.6, 1.9, 68.8], to: [108.2, 2.0, 68.4], look0: [106.8, 1.4, 66.8], look1: [106.8, 1.6, 66.8],
+      enter() { SC.medL.intensity = 0; SC.field.visible = false; SC.bodyStatic.visible = false; },
+      tick(u, lt, dt) { DUST.material.opacity = .6 * cl01(u * 3) * (1 - cl01((u - .85) * 6)); SHAFT.intensity = 1.2 * cl01(u * 3) * (1 - cl01((u - .85) * 6)); const p = DUST.geometry.attributes.position.array; for (let i = 0; i < p.length; i += 3) { p[i + 1] -= dt * .04; p[i] += Math.sin(lt * .3 + i) * dt * .02; if (p[i + 1] < 0) p[i + 1] = 3; } DUST.geometry.attributes.position.needsUpdate = true; } },
+  ] },
+
+  ilo: { title: 'ILO REMEMBERED ITS NAME', tag: 'Ending: ILO', col: '#bff7ef', shots: [
+    { set: 'core', d: 7, fog: .05, from: [154.7, 1.7, 75.0], to: [154.2, 1.5, 74.3], look0: [154, 1.15, 73.46], look1: [154, 1.12, 73.46],
+      enter() { SC.cols.forEach((c, i) => { c.material.emissive.setHex(0x9ff7ff); c.material.emissiveIntensity = .35; SC.colL[i].intensity = .3; }); SC.coreYs.material.uniforms.op.value = 0; SC.mote.material.opacity = 0; SC.moteL.intensity = 0; AUD.h = hum(82.5, .04); AUD.s = hiss(.06, 1200); },
+      tick(u) { const L = ['ILO / REQUEST FROM YSOLDE:', '  KEEP SENDING.']; if (u > .4) L.push('ILO / ANSWER:'); if (u > .62) L.push('  NO.'); console_(L, u < .62); if (u > .62 && !AUD.no) { AUD.no = 1; tone(660, .9, .12); tone(330, 1.4, .1); } } },
+    { set: 'core', d: 8, fog: .04, card: 'The word it saved for twelve thousand years.', from: [149.6, 1.0, 71.0], to: [157.8, 1.3, 71.2], look0: [151.6, 2.0, 76], look1: [156.4, 2.0, 76],
+      tick(u) { SC.cols.forEach((c, i) => { const k = cl01((u - i * .12) * 5); c.material.emissiveIntensity = .35 + k * .9 + .12 * Math.sin(u * 40 + i); SC.colL[i].intensity = .3 + k * 1.2; }); SC.coreL.intensity = .6 + u; post.uniforms.st.value = .1; if (!AUD.fl && u > .05) { AUD.fl = 1; [0, 1, 2, 3, 4].forEach(i => setTimeout(() => tone(330 * Math.pow(1.122, i), 1.2, .06), i * 900)); } } },
+    { set: 'core', d: 8, fog: .045, card: 'She does not scream. She thins like breath on glass.', from: [153.3, 1.4, 71.4], to: [153.3, 1.35, 72.6], look0: [153.3, 1.4, 74.8], look1: [153.3, 1.35, 74.8],
+      enter() { SC.coreYs.material.uniforms.op.value = .9; },
+      tick(u) { const k = cl01((u - .15) / .75); SC.coreYs.material.uniforms.op.value = .9 * (1 - k); SC.coreYs.material.uniforms.gl.value = .1 + k * .3; SC.coreYs.scale.set(.88 + k * .3, .88 + k * .05, 1); AUD.s && AUD.s.set(.06 * (1 - k)); post.uniforms.st.value = .15 * (1 - k); } },
+    { set: 'core', d: 7, fog: .05, card: '', from: [154.5, 1.6, 74.6], to: [154.1, 1.4, 74.0], look0: [154, 1.15, 73.46], look1: [154, 1.13, 73.46],
+      tick(u) { const s = 'ILO REMEMBERED ITS NAME'; console_(['', '  ' + s.slice(0, Math.floor(cl01(u * 1.6) * s.length))], true); SC.cols.forEach(c => c.material.emissiveIntensity = Math.max(.5, c.material.emissiveIntensity - .02)); } },
+    { set: 'core', d: 8, fog: .05, from: [153.8, 1.0, 71.4], to: [152.8, 1.3, 71.0], look0: [152.8, 2.0, 75], look1: [151, 7, 73],
+      tick(u, lt) { const k = cl01(u * 1.2); SC.mote.position.set(lerp(153.9, 151, eio(k * 2)), lerp(1.8, 9, eio(k)), lerp(75.7, 73, eio(k * 2))); SC.mote.material.opacity = .9 * (1 - cl01((u - .85) * 6)); SC.moteL.position.copy(SC.mote.position); SC.moteL.intensity = SC.mote.material.opacity * 1.4; SC.cols.forEach((c, i) => { c.material.emissiveIntensity = .5 * (1 - u); SC.colL[i].intensity = .3 * (1 - u); }); AUD.h && AUD.h.pitch(82.5 + u * 160, 2); AUD.h && AUD.h.set(.04 * (1 - u)); } },
+    { set: 'house', d: 8, fog: .05, card: 'Somewhere above, an old screen wakes.', from: [3.2, 1.4, 1.6], to: [3.95, 1.28, -3.0], look0: [4, 1.25, -3.9], look1: [4, 1.25, -3.9],
+      enter() { SC.houseScreens.forEach(s => s.on(0)); SC.houseL.forEach(L => L.intensity = .12); SC.hallTxt.material.opacity = 0; },
+      tick(u) { SC.hallTxt.material.opacity = cl01((u - .25) * 4); const L = ['ILO / HELLO.']; if (u > .6) L.push('ILO IS LISTENING.'); hallScr(L, true); if (u > .25 && !AUD.b) { AUD.b = 1; tone(880, .3, .05); } } },
+  ] },
+
+  restore: { title: 'THE DOOR IS OPEN', tag: 'Ending: Restoration', col: '#ffe9b0', shots: [
+    { set: 'med', d: 8, fog: .06, card: 'The static drains out of the air and into the body on the couch, like water finding its level.', from: [111, 2.4, 69.4], to: [109.8, 1.9, 68.8], look0: [106.8, .8, 66.8], look1: [106.8, .7, 66.8],
+      enter() { rigReset(); SC.field.scale.set(1, 1, 1); LM.wall.emissiveIntensity = .32; SC.body.visible = true; SC.field.visible = true; SC.field.material.opacity = .12; SC.bodyStatic.visible = true; SC.bodyStatic.material.opacity = .55; SC.medL.color.setHex(0xd8ffff); SC.medL.intensity = .5; SC.drain.material.opacity = .8; DUST.material.opacity = 0; SHAFT.intensity = 0; SC.doorL.position.x = 109.19; SC.doorR.position.x = 109.81; SC.doorGlow.material.opacity = 0; SC.doorLight.intensity = 0; couchScr(['STASIS FIELD: 7%', 'REVERSAL: RUNNING', 'TETHER: INTACT']); AUD.s = hiss(.12, 1500); AUD.h = hum(55, .03); },
+      tick(u) { const p = SC.drain.geometry.attributes.position.array, s = SC.drainSeed, k = eio(u); for (let i = 0; i < p.length; i += 3) { const j = cl01(k * 1.3 - (i % 7) * .04); p[i] = lerp(s[i], 106.8 + Math.sin(i) * .15, j); p[i + 1] = lerp(s[i + 1], .75, j); p[i + 2] = lerp(s[i + 2], 66.8 + Math.cos(i) * .8, j); } SC.drain.geometry.attributes.position.needsUpdate = true; SC.drain.material.opacity = .8 * (1 - cl01((u - .8) * 5)); AUD.s && AUD.s.set(.12 * (1 - u)); } },
+    { set: 'med', d: 6, fog: .04, card: 'The field folds away. The lights go ordinary, white, kind.', from: [104.8, 1.6, 69.5], to: [105.2, 1.5, 69.1], look0: [107, .9, 66.6], look1: [106.9, .85, 66.6],
+      enter() { SC.drain.material.opacity = 0; SC.bodyStatic.visible = false; couchScr(['STASIS FIELD: RELEASED', 'HEART: 52 / MIN', 'OCCUPANT: AWAKE'], '#ffe9b0'); },
+      tick(u, lt, dt) { SC.field.scale.set(1, 1 - eio(u * 1.5) * .98, 1); SC.field.material.opacity = .12 * (1 - u); SC.medL.color.setRGB(lerp(.85, 1, u), lerp(1, .95, u), lerp(1, .88, u)); SC.medL.intensity = .5 + u * .9; LM.wall.emissiveIntensity = .32 * (1 - u * .7); rigTick(dt, lt, false, 1); if (u > .2 && !AUD.w) { AUD.w = 1; AUD.h && AUD.h.set(0, .5); tone(523, 2.5, .05); tone(659, 2.5, .04); } } },
+    { set: 'med', d: 11, fog: .03, card: '“...Is the door open?”', from: [107.7, 1.0, 68.9], to: [107.4, 1.2, 68.4], look0: [106.8, .8, 66.6], look1: [106.8, 1.15, 66.5],
+      enter() { SC.field.visible = false; SC.drain.material.opacity = 0; SC.bodyStatic.visible = false; SC.wake = 0; },
+      tick(u, lt, dt) { SC.wake = lt; rigTick(dt, lt, false, 1, true); if (!AUD.g && u > .02) { AUD.g = 1; const c = A.ctx; if (c) { const s = c.createBufferSource(); s.buffer = A.noise; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; const g = c.createGain(); g.gain.setValueAtTime(0, c.currentTime); g.gain.linearRampToValueAtTime(.25, c.currentTime + .25); g.gain.exponentialRampToValueAtTime(.001, c.currentTime + 1.1); s.connect(f); f.connect(g); g.connect(A.out); s.start(); s.stop(c.currentTime + 1.3); } } } },
+    { set: 'med', d: 8, fog: .03, card: 'It is. She turns her head and sees you. “You came.”', from: [109.5, 1.6, 63.6], to: [109.2, 1.55, 64.6], look0: [106.8, 1.2, 66.7], look1: [106.9, 1.25, 66.7],
+      tick(u, lt, dt) { SC.wake = 11 + lt; rigTick(dt, lt, false, 1, true); const k = eio((u - .05) / .4); SC.doorL.position.x = 109.19 - k * .62; SC.doorR.position.x = 109.81 + k * .62; SC.doorGlow.material.opacity = k * .9; SC.doorLight.intensity = k * 1.6; if (u > .05 && !AUD.d) { AUD.d = 1; tone(140, 1.2, .1, 'triangle'); } } },
+    { set: 'core', d: 6, fog: .05, card: 'ILO, in its own voice: GOODBYE, YSOLDE.', from: [155.6, 1.8, 75.2], to: [154.4, 1.5, 74.3], look0: [153.4, 1.3, 73.6], look1: [154, 1.13, 73.46],
+      enter() { SC.coreYs.material.uniforms.op.value = 0; SC.mote.material.opacity = 0; SC.moteL.intensity = 0; SC.cols.forEach((c, i) => { c.material.emissive.setHex(0xfff2d8); c.material.emissiveIntensity = .6; SC.colL[i].color.setHex(0xfff2d8); SC.colL[i].intensity = .4; }); },
+      tick(u) { const s = 'GOODBYE, YSOLDE.'; console_(['ILO / OCCUPANT: HOME', '  ' + s.slice(0, Math.floor(cl01(u * 2) * s.length))], true); SC.cols.forEach(c => c.material.emissiveIntensity = .6 * (1 - u * .6)); } },
+    { set: 'stair', d: 12, fog: .03, card: 'Later, leaning on you, she climbs. Ashgrove’s front door is unlocked. Outside, it is dawn.', from: [-.3, 1.6, 2.2], to: [0, 6.6, -8.4], look0: [0, 3.2, -9], look1: [0, 6.6, -11],
+      enter() { scene.fog.color.setHex(0x1a1410); },
+      tick(u) { SC.fig.position.set(.35, lerp(0, 5.1, eio(u * 1.05)), lerp(-1, -10.2, eio(u * 1.05))); SC.dawnL.intensity = 2.2 + u * 5; post.uniforms.bright.value = 1 + eio((u - .6) / .4) * 2.4; if (!AUD.dn && u > .3) { AUD.dn = 1; [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 4, .05), i * 700)); } } },
+  ] },
+};
+
+// ---------- player (copied from the opening's structure: black fades, cards, skip) ----------
+const el = $('ecut'), card = $('ecut_card'), blk = $('ecut_blk');
+let run = null;
+function play(kind, done) {
+  audio(); try { A.ctx && A.ctx.resume(); } catch (e) {}
+  const E = ENDS[kind]; let t = 0, idx = -1, raf = 0, last = performance.now(), fin = false; for (const k in AUD) delete AUD[k];
+  const total = E.shots.reduce((a, s) => a + s.d, 0);
+  el.hidden = false; resize(); looping = true; lastR = performance.now(); requestAnimationFrame(loop); blk.style.opacity = 1;
+  const end = () => { if (fin) return; fin = true; cancelAnimationFrame(raf); removeEventListener('keydown', key, true); el.onclick = null; stopAll(); blk.style.transition = 'opacity .7s'; blk.style.opacity = 1;
+    setTimeout(() => { el.hidden = true; card.classList.remove('on'); show(null); post.uniforms.st.value = 0; post.uniforms.bright.value = 1; run = null; looping = false; blk.style.transition = 'none'; try { done && done(); } catch (e) { console.error(e); } }, 750); };
+  const t0 = performance.now(), armed = () => performance.now() - t0 > 1500; // like the intro: ignore the click / key that triggered the ending
+  const key = e => { if (!/^(Escape|Enter| |Spacebar)$/.test(e.key)) return; e.preventDefault(); e.stopPropagation(); if (e.repeat || !armed()) return; end(); };
+  addEventListener('keydown', key, true); el.onclick = () => { if (armed()) end(); };
+  $('ecut_skip').onclick = e => { e.stopPropagation(); if (armed()) end(); };
+  const tick = now => { if (fin) return; const dt = Math.max(0, Math.min(.1, (now - last) / 1000)); last = now; t += dt;
+    let acc = 0, i = 0; while (i < E.shots.length && t >= acc + E.shots[i].d) { acc += E.shots[i].d; i++; }
+    if (i >= E.shots.length) return end();
+    const sh = E.shots[i], lt = t - acc, u = lt / sh.d;
+    if (i !== idx) { idx = i; show(sh.set); scene.fog.density = sh.fog; if (sh.set !== 'stair') scene.fog.color.setHex(0x020405); post.uniforms.bright.value = 1; sh.enter && sh.enter(); card.classList.remove('on'); if (sh.card) { const c = sh.card; setTimeout(() => { if (!fin && idx === i) { card.textContent = c; card.classList.add('on'); } }, 500); } }
+    if (sh.card && lt > sh.d - 1.2) card.classList.remove('on');
+    frame(sh, u); sh.tick && sh.tick(u, lt, dt);
+    $('ecut_bar').style.width = (t / total * 100).toFixed(2) + '%';
+    blk.style.transition = 'none'; blk.style.opacity = Math.max(0, 1 - lt / .7, 1 - (sh.d - lt) / .5).toFixed(3);
+    raf = requestAnimationFrame(tick); };
+  run = { kind, seek: s => { t = s; } }; window.__run = run; raf = requestAnimationFrame(tick);
+}
+window.__ENDCUT_RUN = () => run;
+
+
+// ---------- render loop ----------
+let lastR = performance.now(), looping = false;
+function loop(now) { if (!looping) return; const dt = Math.min(.1, (now - lastR) / 1000); lastR = now;
+  ysMat.uniforms.time.value += dt; for (const m of FACES) m.uniforms.time.value += dt; post.uniforms.time.value += dt;
+  if (SC.heart) SC.heart.rotation.y += dt * .6;
+  renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+  requestAnimationFrame(loop); }
+return { play, ENDS };
+};
+return { play(kind, done, skip) { if (skip) return done(); try { api = api || build(); api.play(kind, done); } catch (e) { console.error('ending cutscene failed', e); try { $('ecut').hidden = true; } catch (e2) {} done(); } }, get ENDS() { return api && api.ENDS; } };
+})();
+window.__ENDCUT = ENDCUT;
 </script>
