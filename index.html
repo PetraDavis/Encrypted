@@ -3786,15 +3786,15 @@ QUERY CLOSED.</div>
     const tok = ++NL.tok, inp = $('ninp'), out = $('nout'); if (!inp) return;
     const alive = () => tok === NL.tok && inp.isConnected;
     const sp = ms => new Promise((r, j) => setTimeout(() => alive() ? r() : j('gone'), S.fast ? ms / 25 : ms));
-    const type = async (el, text, ms) => { for (const ch of text) { el.textContent += ch; await sp(ms); } };
+    const type = async (el, text, ms) => { if (S.fast) { el.textContent += text; return sp(ms); } for (const ch of text) { el.textContent += ch; await sp(ms); } };
     let eC = 0, mode = 'wait', busy = false, iloCount = 0, iloTimer = null, n = 0, wN = 0, angry = 0; const kwN = {};
     const line = cls => { const d = document.createElement('div'); d.className = 'nout' + (cls ? ' ' + cls : ''); out.appendChild(d); return d; };
     const ysay = async t => { const d = line(''); await type(d, t, 45); return d; };
     const isay = async t => { const d = line('i'); await type(d, t, 25); return d; };
-    const bksp = async d => { while (d.textContent.length) { d.textContent = d.textContent.slice(0, -1); await sp(18); } };
+    const bksp = async d => { if (S.fast) { d.textContent = ''; return sp(18); } while (d.textContent.length) { d.textContent = d.textContent.slice(0, -1); await sp(18); } };
     const open = ph => { inp.placeholder = ph || ''; inp.disabled = false; busy = false; try { inp.focus({ preventScroll: true }); } catch (e) {} };
     const warn = () => N_WARN[wN++ % N_WARN.length];
-    const armIlo = ms => { clearTimeout(iloTimer); iloTimer = setTimeout(() => { if (alive() && mode === 'ilo' && !busy) ysoldeTakes().catch(() => {}); }, S.fast ? ms / 25 : ms); };
+    const armIlo = ms => { clearTimeout(iloTimer); iloTimer = setTimeout(() => { if (alive() && mode === 'ilo' && !busy) ysoldeTakes().catch(() => {}); }, S.fast ? ms * 2 : ms); };
     async function ysoldeTakes() {
       clearTimeout(iloTimer); busy = true; inp.disabled = true; mode = 'taking';
       const ds = out.querySelectorAll('.nout'); for (let i = ds.length - 1; i >= 0; i--) { await bksp(ds[i]); ds[i].remove(); }
@@ -3834,7 +3834,7 @@ QUERY CLOSED.</div>
         const l = document.createElement('div'); l.id = 'nlock'; l.textContent = 'you don\'t get to leave. not this time.'; document.body.appendChild(l);
         const block = e => { e.preventDefault(); e.stopImmediatePropagation(); };
         NL.lock = true; addEventListener('keydown', block, true);
-        try { await new Promise(r => setTimeout(r, S.fast ? 300 : 4200)); } finally { NL.lock = false; removeEventListener('keydown', block, true); l.remove(); }
+        try { await new Promise(r => setTimeout(r, S.fast ? 2500 : 4200)); } finally { NL.lock = false; removeEventListener('keydown', block, true); l.remove(); }
         if (!alive()) return;
         await ysay('...fine. but you\'ll come back. you always come back.');
         if (mode === 'ilo') return ysoldeTakes();
