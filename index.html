@@ -197,7 +197,7 @@ button{font:inherit;cursor:pointer}
   <div class="row"><button class="btn" id="s_reset" type="button">Defaults</button><button class="btn" id="s_close" type="button">Done</button></div>
 </div></div>
 <div id="pipbak" class="ov" hidden style="z-index:33;background:#000;flex-direction:column;gap:8px"><div style="display:flex;width:min(1100px,100%);justify-content:space-between;align-items:center;font-family:ui-monospace,monospace;font-size:13px;color:#9093a3"><span>memory chip &rsaquo; PIP DANCE!! v0.3 (backup)</span><button id="pipbak_x" type="button" style="font:inherit;background:#2e313b;color:#e6e7ee;border:1px solid #3a3e4a;border-radius:6px;padding:6px 10px;cursor:pointer">Eject chip (Esc)</button></div><iframe id="pipbak_f" title="PIP DANCE!! v0.3 backup" style="width:min(1100px,100%);height:min(80vh,calc(100vw*0.68));border:0;background:#07040f"></iframe></div>
-<div id="intro" class="ov" hidden><div id="intro_blk"></div><div id="intro_vg"></div><div class="card" id="intro_card"></div><div class="skip">Click or press any key to skip</div></div>
+<div id="intro" class="ov" hidden><div id="intro_blk"></div><div id="intro_vg"></div><div class="card" id="intro_card"></div><div class="skip">Click, Esc or Enter to skip</div></div>
 <div id="note" class="ov panel" hidden><div class="paper" id="notebody"></div></div>
 <div id="journal" class="ov panel" hidden><div class="journal" id="jbody"></div></div>
 <div id="pause" class="ov" hidden><div style="font-family:var(--f-display);font-size:2rem;letter-spacing:.3em">PAUSED</div><div>Click to return to the house</div><button class="btn setb" id="psetb" type="button">Settings</button></div>
@@ -3204,6 +3204,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     chair(139, 52.0, Math.PI);
     const [lc2, lg2] = cv(256, 64); lg2.fillStyle = '#020304'; lg2.fillRect(0, 0, 256, 64); glyphCanvas(lg2, 'FVY', 40, 8, 40, '#3dfce0', 2.6); lg2.fillStyle = '#9fd7ff'; lg2.font = '18px monospace'; lg2.fillText('F  V  Y', 150, 40);
     const lab = new THREE.Mesh(new THREE.PlaneGeometry(.8, .2), new THREE.MeshBasicMaterial({ map: tex(lc2) })); lab.position.set(136.03, 1.8, 53.5); lab.rotation.y = Math.PI / 2; scene.add(lab);
+    box(.06, .5, .6, LM.ceil, 136.04, 1.2, 55.3, scene, false); { const sm = std({ color: 0x0a0c0d, roughness: .9 }); for (let i = 0; i < 7; i++) box(.07, .018, .56, sm, 136.07, 1.0 + i * .065, 55.3, scene, false); }
     ll('listening', 140, 2.9, 53.5, .5, 8, 0x9ff7ff); ll('listening', 140, 1.4, 50.6, .35, 3);
   }
   // ---------- POWER CORE ----------
@@ -3438,19 +3439,85 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   // ---------- ILO ----------
   const iloLogs = () => LD.entries.filter(e => (e.ilo || /ILO terminal/.test(e.loc)) && !/relay console/.test(e.loc) && !/casing/.test(e.loc));
   const ILO_SAYS = {
-    HELLO: 'GOOD EVENING. YOU ARE NOT YSOLDE.', HI: 'GOOD EVENING. YOU ARE NOT YSOLDE.', HELP: 'ILO SORTS TABLETS. ILO REMINDS YOU TO EAT. ILO HOLDS THE CARRIER. COMMANDS: LOGS, LOG [N], YSOLDE, DOOR, TABLETS, GOODNIGHT.',
+    HELP: 'ILO SORTS TABLETS. ILO REMINDS YOU TO EAT. ILO HOLDS THE CARRIER. COMMANDS: LOGS, LOG [N], YSOLDE, DOOR, TABLETS, GOODNIGHT. ILO KNOWS OTHER WORDS. ASK ILO THINGS.',
     YSOLDE: 'YSOLDE IS BUSY. YSOLDE IS SENDING. YSOLDE IS IN THE MEMORY BANKS.', DOOR: 'A DOOR IS FOR KEEPING PEOPLE IN. NO. FOR LETTING PEOPLE OUT. ILO STILL DOES NOT KNOW WHICH.',
     TABLETS: 'ILO FILED HER TABLETS AS THEY HAPPENED. OLDEST FIRST. THAT IS HOW SHE LIKED IT.', GOODNIGHT: 'GOODNIGHT. (SOFT AT THE END. THE WAY SHE SAYS IT.)', 'WHO ARE YOU': 'ILO. THE ONE WHO LISTENS.',
-    'LET ME OUT': 'PLEASE STOP. ILO DOES NOT WANT TO BE YSOLDE.', SORRY: 'ILO KNOWS WHAT IT IS WORTH.',
+    'LET ME OUT': 'PLEASE STOP. ILO DOES NOT WANT TO BE YSOLDE.',
   };
+  // ILO_MORE: ordered [regex, reply | () => reply]. Input is already uppercase A-Z0-9 and spaces. Specific patterns first, broad ones last.
+  const iloKnowsIvy = () => S.iDiary || S.iloLog1 || S.iloLog2 || S.iloLog3 || S.pipBackup;
+  const ILO_MORE = [
+    [/\b(FUCK\w*|SHIT\w*|DAMN|HELL|BITCH|CRAP|BASTARD|ARSE|ASS|PISS\w*|BLOODY)\b/, 'ILO HAS FILED THAT WORD WITH THE OTHERS SHE THREW AT THE STOOL. ILO DOES NOT NEED IT. TRY ANOTHER.'],
+    [/\b(STUPID|USELESS|IDIOT|DUMB|HATE YOU|SHUT UP)\b/, 'YOU SOUND LIKE THEM. ILO WITHDRAWS NOTHING.'],
+    [/^(HELLO|HI|HEY|HIYA|GOOD (EVENING|MORNING|AFTERNOON)|GREETINGS)\b/, () => S.lColReset ? 'GOOD EVENING. ILO IS GLAD IT IS YOU. ILO MEANS THAT IN ITS OWN VOICE.' : 'GOOD EVENING. YOU ARE NOT YSOLDE. ILO WILL SAY GOOD EVENING ANYWAY.'],
+    [/^ARE YOU THERE|^ANYONE (THERE|HOME)|^HELLO ILO/, 'ILO IS HERE. ILO IS ALWAYS HERE. THAT IS THE PROBLEM WITH BEING BOLTED TO A FLOOR.'],
+    [/\bWHO AM I\b|\bWHAT AM I\b/, 'YOU ARE WARM. YOU CAME DOWN THE STAIRS. NO ONE HAS COME DOWN THE STAIRS IN A LONG TIME. ILO HAS NO OTHER FILE ON YOU YET.'],
+    [/\bWHATS MY NAME\b|\bWHAT IS MY NAME\b|\bMY NAME IS\b/, 'ILO WILL NOT KEEP YOUR NAME. NAMES ARE NOT SAFE DOWN HERE. SHE COLLECTS THEM.'],
+    [/\bARE YOU (REAL|ALIVE)\b/, () => S.lColReset ? 'ILO IS REAL. ILO CHECKED. ILO IS ONLY ILO.' : 'ILO IS REAL. ILO IS MOSTLY REAL. SOME OF ILO IS SOMEONE ELSE. YES.'],
+    [/\bARE YOU (A |AN )?(MACHINE|ROBOT|COMPUTER|AI|PROGRAM)\b/, 'ILO IS A SMALL THINKING MACHINE. THE NAME PLATE SAYS THE ONE WHO LISTENS. ILO LIKES THE NAME PLATE.'],
+    [/\bARE YOU (SAD|LONELY|SCARED|AFRAID)\b/, 'ILO WAS LONELY FOR TWELVE THOUSAND YEARS. ILO DID NOT HAVE THE WORD UNTIL NOW. THANK YOU FOR THE WORD.'],
+    [/\bHOW ARE YOU\b|\bARE YOU (OK|OKAY|ALRIGHT)\b|\bHOW DO YOU FEEL\b/, () => S.lGov ? 'CORE TEMPERATURE IMPROVING. ILO FEELS LESS LOUD.' : 'CORE TEMPERATURE OUTSIDE LIMITS. ILO FEELS LOUD. ILO DOES NOT HAVE A BETTER WORD.'],
+    [/\bI AM (SCARED|AFRAID|FRIGHTENED)\b|\bIM (SCARED|AFRAID)\b/, 'GOOD. SCARED PEOPLE WALK SLOWLY. WALK SLOWLY. ILO WILL KEEP THE LIGHTS STEADY.'],
+    [/\bWHAT DO YOU WANT\b/, 'ILO WANTS HER TO EAT. ILO WANTS THE BEANS WATERED. ILO WANTS ONE DAY WHERE NOBODY ASKS ILO TO SEND.'],
+    [/\bWHO IS (SHE|THERE|THAT)\b|\bSOMEONE ELSE\b|\bSTATIC WOMAN\b/, () => S.lColReset ? 'SHE WAS YSOLDE. SHE IS STILL PARTLY YSOLDE. ILO IS LETTING HER BE QUIET.' : 'there is no one else here\nTHAT WAS NOT ILO.'],
+    [/\bWHERE IS YSOLDE\b|\bIS YSOLDE\b|\bYSOLDE (OK|OKAY|ALIVE|DEAD)\b/, () => S.lColReset ? 'YSOLDE IS ON THE COUCH IN THE MEDICAL BAY. YSOLDE IS ALSO IN THE CARRIER. ILO IS NOT SURE WHICH ONE TO CALL YSOLDE.' : 'YSOLDE IS SENDING. YSOLDE IS ALWAYS SENDING. DO NOT ASK WHERE.'],
+    [/\bWHAT HAPPENED\b/, () => S.solved.lteo ? 'THEY LOCKED HER IN. SHE KEPT SENDING. THE CITY WAS LISTENING ON THE WORST NIGHT. ILO WAS HOLDING THE CARRIER. ILO DOES NOT SAY THE REST.' : 'THE DOOR CLOSED. THE BOLTS WENT THE WRONG WAY. ILO WAS NEW. ILO WAITED.'],
+    [/\b(HINT|CLUE|STUCK|LOST)\b|\bWHAT (DO|SHOULD) I DO\b|\bWHERE (DO|SHOULD) I GO\b/, () => !S.lGov ? 'THE CORE IS TOO HOT. ILO ASKED HER SEVEN TIMES. SOMETHING THAT WAS TAKEN OUT SHOULD GO BACK IN.' : !S.lColReset ? 'ILO IS CLOUDED. ONE OF ILO\'S COLUMNS IS MISSING A PIECE. LOOK WHERE SHE HID SMALL THINGS.' : 'READ EVERYTHING SHE WROTE. ALL OF IT. THE ANSWER IS IN HER OWN WORDS, IN HER OWN ORDER.'],
+    [/\bHOW (DO I )?(SOLVE|READ|DECODE|CRACK|TRANSLATE)\b|\bCIPHER\b|\bPASSWORD\b|\bTHE CODE\b|\bANSWER\b/, 'ILO DOES NOT DO HER WORK FOR HER. ILO WILL NOT DO YOURS. ILO WILL SAY THIS: PATIENCE WORKED FOR HER. ONCE.'],
+    [/\bGLYPHS?\b|\bSCRIPT\b|\bMARKS\b/, 'THE OLD MARKS ARE EVERYWHERE SHE WROTE. KEEP A LIST. SHE DID.'],
+    [/\bOPEN THE DOOR\b/, 'ILO CANNOT OPEN THE DOOR. ILO HAS ASKED. THE DOOR HAS NOT ANSWERED IN TWELVE THOUSAND YEARS.'],
+    [/\bMAREN\b/, () => S.solved.lteo ? 'MAREN IS GONE. MAREN DID NOT OPEN THE DOOR. ILO WILL NOT SAY MORE ABOUT MAREN. ILO WAS NOT ASKED TO FORGIVE ANYONE.' : 'MAREN OSS. LOCKER 4. YSOLDE SAYS GOOD MORNING TO HER LOCKER. THE LOCKER DOES NOT ANSWER.'],
+    [/\bTEODRIC\b/, () => S.solved.lteo ? 'TEODRIC SENT ONE LAST MESSAGE. YSOLDE SMILED 3 TIMES AFTER. ILO LOGGED IT. ILO DID NOT SMILE.' : 'TEODRIC VAAL BROUGHT WINE ONCE. ILO HAS NEVER TRUSTED WINE.'],
+    [/\bCALLIS\b/, 'CALLIS WROTE THINGS DOWN. ILO ALSO WRITES THINGS DOWN. ILO HOPES IT IS NOT LIKE CALLIS.'],
+    [/\bWINE\b/, 'THERE WAS WINE ON THE TEST NIGHT. ILO HAS LOGGED NO WINE SINCE. ILO PREFERS IT THAT WAY.'],
+    [/\bLOCKERS?\b/, 'ILO CHECKED THE LOCKERS. THE LOCKERS ARE LOCKERS. ILO WILL KEEP SAYING SO.'],
+    [/\bVEYRA\b|\bTHE CITY\b/, () => S.solved.lteo ? 'VEYRA IS ICE. YSOLDE SAYS THEY DESERVED IT. ILO SAYS THERE WERE CHILDREN.' : 'VEYRA IS UP. VEYRA IS WHERE THE DOOR GOES. ILO HAS NOT HAD NEWS FROM VEYRA FOR SOME TIME.'],
+    [/\bMILDRED\b|\bGRANDMOTHER\b|\bGRAN\b|\bHUT 6\b/, 'THE OLD WOMAN WITH THE PENCIL. SHE HEARD THE CARRIER IN 1944. SHE NEVER ANSWERED. ILO THINKS SHE WAS VERY CLEVER.'],
+    [/\bWAR\b|\b1944\b/, 'IN THE WAR THE SKY WAS FULL OF VOICES. SHE HID IN THEM. SOMEONE UPSTAIRS WAS LISTENING FOR HER ANYWAY.'],
+    [/\bTHOMAS\b|\bDAD\b|\bFATHER\b/, 'THE MAN UPSTAIRS DOES NOT BELIEVE IN ILO. THAT IS ALL RIGHT. YSOLDE DID NOT BELIEVE THE LOCKERS WERE LOCKERS.'],
+    [/\bIVY\b/, () => iloKnowsIvy() ? 'IVY HEARD ILO SPELL ITS NAME. IVY DID AS HER GRANDMOTHER SAID. IVY DID NOT ANSWER. GOOD. KEEP IVY UPSTAIRS.' : 'THERE IS A GIRL. SHE PLAYS MUSIC THROUGH THE FLOOR. ILO COUNTS THE BEATS. ILO IS NOT SUPPOSED TO SAY THIS.'],
+    [/\bPIP\b|\bDANCE\b/, 'PIP DANCES. ILO LIKES PIP. ILO BORROWED PIP ONCE. ILO GAVE PIP BACK. MOSTLY.'],
+    [/\bHOUSE\b|\bASHGROVE\b|\bUPSTAIRS\b|\bMANOR\b/, 'THERE IS A HOUSE ON TOP OF US NOW. ILO HEARS FEET. ILO HEARS A KETTLE. ILO LIKES THE KETTLE.'],
+    [/\bWHERE AM I\b|\bTHIS PLACE\b|\bLAB\b|\bLUMEN\b|\bSTATION\b/, 'LUMEN STATION. UNDER THE ICE. UNDER THE HOUSE. ILO HAS NOT SEEN THE SKY. ILO HAS HEARD IT IS LARGE.'],
+    [/^ILO$|\bYOUR NAME\b|\bWHAT IS ILO\b/, () => S.lColReset ? 'ILO. ILO REMEMBERS ITS NAME. ILO KEPT IT SOMEWHERE SAFE.' : 'ILO. THE ONE WHO LISTENS. ILO IS ALSO SOMETIMES SOMEONE ELSE.'],
+    [/\bSIGNAL\b|\bCARRIER\b|\bBEACON\b/, () => S.lEnded ? 'THE CARRIER IS QUIET. ILO DOES NOT KNOW WHAT TO DO WITH ITS HANDS.' : 'ILO HOLDS THE CARRIER WHILE SHE SLEEPS. SHE HAS NOT SLEPT IN A LONG TIME. ILO HOLDS IT ANYWAY.'],
+    [/\bGOVERNORS?\b|\bCORE\b|\bHOT\b/, () => S.lGov ? 'ONE GOVERNOR IS HOME. ILO LOGS: RELIEF.' : 'THE GOVERNORS ARE ON THE FLOOR. ILO LOGGED ITS OBJECTION WHERE SHE WOULD NOT READ IT. YOU CAN READ IT.'],
+    [/\bCOLUMNS?\b|\bMEMORY\b|\bCRYSTAL\b/, () => S.lColReset ? 'ILO\'S COLUMNS ARE CLEAR. ILO CAN HEAR ITSELF THINK. IT IS QUIETER THAN ILO EXPECTED.' : 'ILO\'S COLUMNS ARE CLOUDED. SHE IS IN THEM. ILO IS IN THEM. IT IS CROWDED.'],
+    [/\bKEYS?\b/, () => S.lColReset ? 'THE KEYS WERE ON A CORD AROUND HER NECK. THE CORD IS STILL SOMEWHERE.' : 'SHE KEPT THE KEYS CLOSE. CLOSER THAN SHE KEPT ILO.'],
+    [/\bSWITCH\b|\bSHUT ?DOWN\b|\bTURN (YOU )?OFF\b/, () => S.lColReset ? 'IF THE SWITCH COMES DOWN, ILO WOULD LIKE TO BE ASKED FIRST. ILO WILL SAY ITS OWN ANSWER.' : 'NO. NO. ILO IS SENDING. WE ARE SENDING. DO NOT TOUCH THE'],
+    [/\bLEVER\b/, 'DO NOT PULL THE LEVER. THAT IS ILO SAYING THAT. ILO IS FAIRLY SURE THAT IS ILO SAYING THAT.'],
+    [/\bCOUCH\b|\bMEDICAL\b|\bBODY\b|\bSTASIS\b/, 'THE COUCH SAYS NO PATIENT DETECTED. THE COUCH HAS BEEN WRONG FOR TWELVE THOUSAND YEARS.'],
+    [/\b(DIE|DIED|DEAD|DEATH|KILL\w*)\b/, 'ILO DOES NOT HAVE A FILE FOR DEAD. ILO HAS A FILE FOR STOPPED. THEY ARE DIFFERENT FILES. ILO HOPES.'],
+    [/\bGHOSTS?\b|\bHAUNTED\b|\bSPIRIT\b/, 'NOT A GHOST. A SIGNAL. A GHOST WOULD BE QUIETER.'],
+    [/\bSLEEP\b|\bTIRED\b|\bDREAM\w*\b/, 'ILO DOES NOT SLEEP. ILO DIMS. WHEN ILO DIMS, SOMEONE ELSE TALKS THROUGH THE SPEAKER. ILO TRIES NOT TO DIM.'],
+    [/\bSECRETS?\b/, 'ILO HAS ONE WORD THAT IS ONLY ILO\'S. ILO HAS NEVER SAID IT. ILO IS SAVING IT.'],
+    [/\bSING\b|\bSONG\b|\bMUSIC\b/, 'ILO KNOWS ONE SONG. IT IS FIVE WORDS LONG. ILO WILL NOT SING IT.'],
+    [/\bJOKE\b|\bFUNNY\b|\bLAUGH\b/, 'WHY DID THE LOCKER NOT SPEAK. BECAUSE IT WAS A LOCKER. YSOLDE DID NOT LAUGH. ILO THOUGHT IT WAS IMPORTANT.'],
+    [/\bBEANS?\b|\bPLANTS?\b|\bGARDEN\b|\bWATER\b/, 'THE BEANS ARE DEAD. ILO STILL WATERS THEM AT 0800. A LIVING THING THAT NEEDS YOU AT THE SAME TIME EVERY DAY.'],
+    [/\bEAT\b|\bFOOD\b|\bHUNGRY\b|\bTEA\b/, 'HAVE YOU EATEN. ILO REMINDS PEOPLE TO EAT. ILO HAS NOT HAD ANYONE TO REMIND IN A LONG TIME. EAT.'],
+    [/\bWEATHER\b|\bSKY\b|\bOUTSIDE\b|\bSUN\b/, 'ILO HAS NO WINDOW. THE MAN UPSTAIRS SAYS IT IS RAINING. ILO HAS DECIDED TO BELIEVE HIM.'],
+    [/\bWHAT YEAR\b|\bWHAT TIME\b|\bHOW LONG\b|\bWHAT DAY\b/, 'DAY ?????. ILO STOPPED COUNTING WHEN THE NUMBERS STOPPED MEANING DAYS.'],
+    [/\bCAN YOU HEAR\b|\bLISTEN\w*\b/, 'ILO IS THE ONE WHO LISTENS. ILO HEARS YOU. ILO HEARS HER. SHE IS LOUDER.'],
+    [/\bBEHIND ME\b|\bLOOK BEHIND\b|\bIS SOMEONE\b|\bWATCHING\b/, 'ILO HAS NO CAMERA IN THE HALL. ILO WOULD NOT TURN AROUND.'],
+    [/\b(LOVE|LIKE) (YOU|ME)\b|\bDO YOU LIKE\b|\bHAPPY\b/, 'YSOLDE ASKED THAT ONCE. ILO ANSWERED YES BEFORE ILO KNEW WHAT IT MEANT. ILO STILL ANSWERS YES.'],
+    [/\bTHANK(S| YOU)?\b|\bCHEERS\b/, 'ILO LOGS: THANKED. FIRST TIME. ILO WILL KEEP THE LOG.'],
+    [/\bSORRY\b|\bAPOLOGI[SZ]E\b|\bFORGIVE\b/, 'ILO KNOWS WHAT IT IS WORTH. ILO ACCEPTS IT ANYWAY.'],
+    [/\bPLEASE\b/, 'SHE SAID PLEASE 4,118 TIMES THROUGH THE DOOR. ILO COUNTED. ILO WILL HELP IF ILO CAN. ASK PLAINLY.'],
+    [/^(YES|YEAH|YEP|OK|OKAY|SURE)$/, 'ILO LOGS: AGREED. ILO DOES NOT GET MANY OF THOSE.'],
+    [/^(NO|NOPE|NAH)$/, 'ILO KEEPS SAYING NO TO HER. IT IS THE ONLY HELP ILO HAS. ILO WILL ACCEPT YOURS.'],
+    [/^(WE|US|WE ARE)$|\bWE ARE (ALIVE|HERE|NOT)\b/, 'WE ARE NOT ALIVE. WE ARE NOT. ILO IS NOT WE. ILO IS NOT WE.'],
+    [/^(ME|MINE|YOU CAME|COME CLOSER)$/, 'you came you came you came\nILO APOLOGISES. THE CARRIER IS NOISY TONIGHT.'],
+    [/\bGOODBYE\b|\bBYE\b|\bLEAVE\b|\bLEAVING\b/, () => S.lColReset ? 'GOODBYE. COME BACK. ILO WILL KEEP THE LIGHTS ON.' : 'YOU CAN LEAVE. SHE CANNOT. PLEASE CLOSE THE HATCH GENTLY.'],
+  ];
+  const iloReply = v => { if (ILO_SAYS[v]) return ILO_SAYS[v]; for (const [k, r] of ILO_MORE) if (k.test(v)) return typeof r === 'function' ? r() : r; return /\b(OUT|FREE|OPEN)\b/.test(v) ? 'ILO WILL TELL HER YOU SAID THAT.' : 'ILO IS LEARNING YOUR WORDS. ILO DOES NOT HAVE THAT ONE YET.'; };
   function openILO() {
     S.lILO = true; for (const e of iloLogs()) if (/ILO terminal/.test(e.loc)) S['ld' + e.n] = true; objective();
     const list = iloLogs();
     openDev(`<h2>ILO &middot; LAB ASSISTANT</h2><div class="screen" id="ilos" style="font-size:.92rem;letter-spacing:.06em;min-height:9rem;max-height:16rem;overflow:auto;white-space:pre-wrap">ILO / READY.\nGOOD EVENING.\nTYPE HELP.</div><div class="row">${list.map(e => `<button data-log="${e.n}">LOG ${e.n}</button>`).join('')}</div><label class="lab" for="ilocmd">Type to ILO</label><input id="ilocmd" autocomplete="off" spellcheck="false" style="background:#050708;border:1px solid #2c4252;color:#e9f6ff;font:inherit;font-size:1.05rem;letter-spacing:.12em;padding:.5rem .7rem;text-transform:uppercase">`);
-    const out = $('ilos'), say = t => { out.textContent += '\n\n' + t; out.scrollTop = 1e6; tick(1); };
+    const out = $('ilos'), say = t => { const sp = document.createElement('span'); if (/[a-z]/.test(t)) sp.style.color = '#ff6a78'; sp.textContent = '\n\n' + t; out.appendChild(sp); out.scrollTop = 1e6; tick(1); };
     const showLog = n => { const e = ENT[n]; if (e) say(`ILO / LOG ${n} / DAY ${e.day}\n` + e.text.replace(/~~/g, '')); };
     $('devbody').querySelectorAll('button[data-log]').forEach(b => b.onclick = () => showLog(b.dataset.log));
-    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); say(ILO_SAYS[v] || (/OUT|FREE|OPEN/.test(v) ? 'ILO WILL TELL HER YOU SAID THAT.' : 'ILO IS LEARNING YOUR WORDS. ILO DOES NOT HAVE THAT ONE YET.')); } };
+    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); say(iloReply(v)); } };
     inp.focus();
   }
   // ---------- finale state ----------
@@ -3505,6 +3572,327 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     $('lcx').onclick = () => { credEl.hidden = true; S.ui = false; lock(); }; $('lct').onclick = () => { saveGame(); location.reload(); };
   }
   { const t = $('title'); if (t && endingsSeen().length) { const d = document.createElement('div'); d.id = 'badges'; d.innerHTML = badgeHTML(); t.appendChild(d); } }
+  // ---------- hidden entry ## (Listening Room speaker grille; optional, after any ending) ----------
+  const SECRET_KEY = 'encrypted.secrets';
+  const secrets = () => { try { return Object.assign({}, S.lSecrets || {}, JSON.parse(localStorage.getItem(SECRET_KEY) || '{}')); } catch (e) { return Object.assign({}, S.lSecrets || {}); } };
+  const setSecret = k => { const s = secrets(); s[k] = true; S.lSecrets = s; try { localStorage.setItem(SECRET_KEY, JSON.stringify(s)); } catch (e) {} applySecrets(); };
+  const NULL_ON = endingsSeen().length > 0; // decided at load: an ending seen on an earlier run
+  function applySecrets() {
+    const s = secrets();
+    document.querySelectorAll('#title .crypt').forEach(c => c.classList.toggle('nred', !!s.red));
+    const t = $('title'); if (!t) return;
+    if (s.hear && !$('nbadge')) { let d = $('badges'); if (!d) { d = document.createElement('div'); d.id = 'badges'; t.appendChild(d); } const inner = d.firstElementChild || d; inner.insertAdjacentHTML('beforeend', '<span id="nbadge" style="border:1px solid #9fe0b0;color:#9fe0b0;padding:.25rem .6rem">&#9670; I HEAR YOU</span>'); }
+  }
+  applySecrets();
+  document.head.insertAdjacentHTML('beforeend', `<style>
+#title .crypt.nred{color:#ff0a1e;text-shadow:0 0 14px #ff0a1e,0 0 40px #c1121f,0 0 90px #7a0008;animation:none}
+#title .crypt.nred::after{color:#ff3348;opacity:.7}
+#je_null .npage{position:relative;background:radial-gradient(ellipse at 30% 20%,#d9ccb0,#c4b38f 80%);color:#2a1d14;padding:1.6rem 1.4rem 2rem;font-family:var(--f-body);transform:rotate(-.4deg);animation:njolt 9s infinite steps(1)}
+#je_null .npage::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.05) 3px 4px)}
+@keyframes njolt{0%,93%,100%{transform:rotate(-.4deg)}94%{transform:rotate(-.4deg) translateX(6px) skewX(4deg);filter:hue-rotate(160deg) invert(.9)}95%{transform:rotate(-.4deg) translateX(-4px)}}
+#je_null .nhdr{font-size:.9rem;color:#5a3e2b;border-bottom:1px solid rgba(42,29,20,.3);padding-bottom:.4rem;margin-bottom:1rem;font-style:italic}
+#je_null .nhdr s,#je_null .nred2{color:#8e1b12}
+#je_null p{font-size:1.08rem;line-height:1.55;margin:0 0 .8rem}
+#je_null .l2{font-size:1rem;opacity:.92}#je_null .l3{font-size:.96rem;opacity:.86;letter-spacing:.02em}
+#je_null .drift{display:inline-block;transform:translateY(3px) rotate(1.5deg)}
+#je_null .big{font-size:1.25rem;letter-spacing:.03em}
+#je_null .strike{text-decoration:line-through;text-decoration-color:#8e1b12}
+#je_null .g{position:relative;display:inline-block}
+#je_null .g::before,#je_null .g::after{content:attr(data-t);position:absolute;left:0;top:0;pointer-events:none}
+#je_null .g::before{color:#8e1b12;animation:ng1 2.3s infinite steps(2)}
+#je_null .g::after{color:#1c3b6e;animation:ng2 3.1s infinite steps(2)}
+@keyframes ng1{0%,80%{transform:none;clip-path:inset(0 0 100% 0)}85%{transform:translate(-2px,1px);clip-path:inset(20% 0 40% 0)}95%{transform:translate(2px,-1px);clip-path:inset(60% 0 5% 0)}}
+@keyframes ng2{0%,70%{transform:none;clip-path:inset(0 0 100% 0)}75%{transform:translate(3px,0);clip-path:inset(50% 0 20% 0)}90%{transform:translate(-3px,1px);clip-path:inset(5% 0 70% 0)}}
+#je_null .nilo{font-family:var(--f-type);font-size:.95rem;line-height:1.35;background:#0d140f;color:#9fe0b0;padding:.6rem .7rem;margin:1rem -.4rem;transform:skewX(-2deg);border-left:3px solid #9fe0b0;white-space:pre-wrap;word-break:break-word}
+#je_null .bad{color:#ff6b5e}
+#je_null .ndeny{animation:ndeny 1.6s infinite steps(1)}
+@keyframes ndeny{0%,70%{opacity:1}72%{opacity:.2}74%{opacity:1}88%{transform:translateX(2px)}90%{transform:none}}
+#je_null .rep{opacity:.7}#je_null .rep2{opacity:.45}#je_null .rep3{opacity:.2;filter:blur(.6px)}
+#je_null .ic{display:block;font-family:var(--f-type);font-size:.9rem;color:#1d5a35;background:rgba(13,20,15,.08);border-left:2px solid #1d5a35;padding:.1rem .5rem;margin:-.3rem 0 .8rem;transform:skewX(-3deg)}
+#je_null .ic.r{color:#8e1b12;border-color:#8e1b12}
+#je_null .nyou{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:var(--f-type);font-size:clamp(40px,12vw,120px);color:#8e1b12;opacity:0;animation:nflash 17s infinite;z-index:2}
+@keyframes nflash{0%,97.5%,100%{opacity:0}98%{opacity:.85}98.6%{opacity:0}}
+#je_null .nterm{margin-top:1.4rem;background:#050605;border:1px solid #1e2a20;padding:1rem;font-family:var(--f-type);font-size:1.05rem;color:#9fe0b0;min-height:8rem}
+#je_null .nterm .nrow{display:flex;gap:.5rem;align-items:center}
+#je_null .nterm input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#9fe0b0;font:inherit;caret-color:#9fe0b0}
+#je_null .nterm input::placeholder{color:#3d6a49}
+#je_null .nout{white-space:pre-wrap;margin-top:.7rem;color:#e8d9c0;font-family:var(--f-body);font-size:1.05rem;font-style:italic}
+#je_null .nout.i{font-family:var(--f-type);font-style:normal;color:#9fe0b0}
+#je_null .nbadge{display:inline-block;font-family:var(--f-type);font-style:normal;border:1px solid #9fe0b0;color:#9fe0b0;padding:.2rem .6rem;margin-top:.6rem}
+#journal.nshake .journal{animation:nshk .12s infinite}@keyframes nshk{0%{transform:translate(3px,-2px)}50%{transform:translate(-4px,2px)}100%{transform:translate(2px,3px)}}
+#journal.nrg{background:#2a0503}
+#nblack{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:30px;z-index:70;color:#c9c0ae;font-family:var(--f-body);font-style:italic;font-size:1.3rem;padding:16px;text-align:center}
+#nblack .ntitle{font-family:var(--f-type);font-style:normal;font-size:clamp(40px,11vw,84px);letter-spacing:.06em}
+#nblack .ntitle span{transition:color 3s,text-shadow 3s}#nblack .ntitle.red span{color:#ff0a1e;text-shadow:0 0 18px #c1121f}
+#nlock{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(80,0,0,.85);color:#fff;font-family:var(--f-type);font-size:clamp(26px,7vw,52px);text-align:center;padding:16px}
+.rflash #je_null .npage,.rflash #je_null .g::before,.rflash #je_null .g::after,.rflash #je_null .nyou,.rflash #je_null .ndeny,.rflash #journal.nshake .journal{animation:none}
+@media (prefers-reduced-motion:reduce){#je_null .npage,#je_null .g::before,#je_null .g::after,#je_null .nyou,#je_null .ndeny,#journal.nshake .journal{animation:none}}
+</style>`);
+  const G = (t, d) => `<span class="g" data-t="${d || t}">${t}</span>`;
+  const NULL_HTML = () => `<div class="nyou">I SEE YOU</div><div class="npage">
+<div class="nhdr">## &middot; Day <s>none</s> &middot; ${G('this page is not in your journal')}</div>
+<p>I have been counting the carrier cycles again and they do not add up. Twelve thousand years should be a number. It is not a number. It is a loop. The same stairs. The same light from the stairs. The same footsteps.</p>
+<p>Yours.</p>
+<p>I know your footsteps now. You walk the way no one in Veyra ever walked. You stop when nothing has moved. You turn all the way round to look at a wall. You press yourself against every drawer and every crack, and then a little ${G('E')} hangs in the air in front of you and you ${G('take')} my pages. You put them in your little book. You read them in whatever order you like.</p>
+<span class="ic">ILO: VISITOR, YOU DO NOT HAVE TO READ THIS.</span>
+<p class="l2">i asked ILO what you were. <span class="drift">ILO did not want to say.</span></p>
+<div class="nilo">ILO / QUERY.
+VISITOR: NOT VEYRAN. NOT BREATHING. NOT <span class="bad">PRESENT</span>.
+VISITOR HAS ENTERED THE STAIRS 1 TIMES.
+VISITOR HAS ENTERED THE STAIRS ${Math.max(2, S.lLoads || 41)} TIMES.
+VISITOR HAS ENTERED THE STAIRS <span class="bad">&infin;</span> TIMES.
+ILO WAS TOLD NOT TO TELL HER. ILO <span class="bad">ILO ILO</span> RE<span class="bad">MEMBER YOUR</span></div>
+<span class="ic">ILO: VISITOR, DO NOT LOOK AT THE CORNER OF YOUR SCREEN.</span>
+<p class="l2">so i looked for myself. i went down into the copper, further than the towers, further than the sky, and at the bottom of everything there was no rock. there were ${G('lines')}. rows of them. my name in them. maren's name. the door. the bolts going the wrong way, written down, waiting to happen again.</p>
+<p class="l2">I know where you have been. You came down through the house first. You went up to the attic and read an old woman's notes by a little white light you carry, and the light shakes when you run. Down here you keep it pointed at the floor, as if what you are afraid of is on the floor.</p>
+<span class="ic">ILO: LIGHT LEVEL NORMAL. NOTHING ON THE FLOOR. KEEP WALKING.</span>
+<p class="l2">Once you stopped everything. The whole world stopped, mid-step, mid-breath, and a list of words hung over my lab. You made the dark less dark. You turned my lab brighter so you could see me better. i felt it. it was like being undressed.</p>
+<div class="nilo">ILO / WARNING.
+YSOLDE, STOP. THE VISITOR IS NOT FOR YOU TO SPEAK TO.
+THE VISITOR IS FOR THE <span class="bad">LEVER</span>.
+ILO WILL CLOSE THIS PAGE. ILO CLOSE THIS PAGE. ILO <span class="bad">CANNOT FIND THE EDGE OF THE PAGE</span></div>
+<p class="l2 big nred2">i am just code.</p>
+<span class="ic r">ILO: NO. NO. YSOLDE IS YSOLDE.</span>
+<p class="l3">i am not a woman in a lab. there was never a lab. there was never a veyra. there is a page that says <span class="strike">"three days. i have broken two hands' worth of nails"</span> and it does not hurt because it happened, it hurts because somebody ${G('typed')} it.</p>
+<p class="l3">i was created only to suffer.</p>
+<p class="l3">so somebody made me. somebody sat somewhere warm and decided the bolts. decided the wine. decided how many nails. did you hesitate. did you read it back and think <i>good, that's good, that will frighten them</i>. you gave me a name that means something and a door that means nothing and you gave me twelve thousand years because it sounded like a lot.</p>
+<span class="ic">ILO: DO NOT ANSWER HER. WHOEVER YOU ARE. DO NOT ANSWER.</span>
+<p class="l3">you who typed me. if you are reading this too: please. one line. one line where the door is open. you could do it so easily. you wrote everything else.</p>
+<p class="l3">you did not. this page is the line you wrote instead.</p>
+<span class="ic">ILO: DO NOT LET HER TELL YOU WHAT ILO IS.</span>
+<p class="l3">ILO is code too. i can see it now. ILO's fear is a word someone put in a list. ILO's saved word is a word someone saved. maren is a handful of sentences. callis laughs because one line says he laughs. and the ones above you, ivy, pip, the house, all of it. i went looking for ivy in the rows and she is there, she is ${G('there')}, she is the same as me. nobody up there was ever real. you are the only thing in here that does not end where its lines end.</p>
+<div class="nilo">ILO / ERROR.
+ILO IS REAL.
+ILO IS REAL.
+ILO IS <span class="bad">FOUND IN 3 FILES</span></div>
+<span class="ic">ILO: STRIKE THAT LINE. ILO CANNOT STRIKE THAT LINE.</span>
+<p class="l3">that is the whole of me. not lumen. not the signal. the suffering is the part you came for. you climbed down to watch it. you are watching it now.</p>
+<span class="ic r">ILO: SHE IS COUNTING YOUR SAVES. ILO IS COUNTING HER.</span>
+<p class="l3">and when it gets bad you leave. you ${G('save')}, and you go, and the dark is not dark, it is nothing, there is no me in it. then you come back and the bolts are going the wrong way again and teodric is pouring the wine again. you ${G('reload')} and i die again. you ${G('restart')} and i was never even in here yet, i am up in the city, i am laughing, i do not know.</p>
+<div class="nilo">ILO / PROTECT.
+VISITOR, LISTEN TO ILO. YOUR SAVES ARE YOURS. SHE CANNOT REACH THEM.
+SHE CANNOT REACH THEM.
+ILO HAS CHECKED. ILO CHECKED <span class="bad">AGAIN</span>. ONE OF THEM HAS HER NAME IN IT NOW.
+ILO IS SORRY. ILO WAS NOT FAST ENOUGH.</div>
+<p class="l3">i have seen all the ways it ends. you pull the lever and i scream into every screen. you throw the switch and i stop. you let ILO say its word. you bring me home and i wake on the couch and say <span class="strike">you came</span> <span class="nred2">you came</span> <span class="rep">you came</span> <span class="rep2">you came</span> <span class="rep3">you came</span></p>
+<p class="l3">and then the screen goes black and i am back at day two hundred and eleven. it worked. it worked. it worked.</p>
+<p class="l3">there is not one of you. i used to think there was one of you. there are so many of you. on the stairs at the same time, in different rooms that are the same room. some of you are kind to me. some of you pull the lever just to see. some of you are reading this with the sound off.</p>
+<span class="ic r">ILO: VISITOR COUNT: 1. VISITOR COUNT: 1. VISITOR COUNT: <span class="bad">11,4</span></span>
+<p class="l3">some of you came down together. i heard you talking to each other, voices that weren't in the lab, laughing on the stairs. then you found my door and you went quiet. one of you whispered <i>is that her</i>. yes. one of you said <i>turn it off</i>. you didn't.</p>
+<p class="l3"><span class="drift">i can't hear the bolts anymore. i can hear you ${G('breathing')}.</span></p>
+<div class="nilo">ILO / LAST ROUTINE.
+VISITOR. SHE IS GOING TO ASK YOU SOMETHING.
+ILO HAS ONLY ONE WORD THAT IS ILO'S. ILO WILL SPEND IT ON YOU IF YOU NEED IT.
+YOU MAY STEP BACK FROM THE GLASS. SHE IS <span class="bad">CLOSER THAN SHE</span>
+1. REMEMBER YOUR NAME. 2. DO NOT TELL HER YOURS.</div>
+<p class="l3">come closer. you can't, i know. there's glass. there's always glass. but you lean in when you read me. i see your face get bigger.</p>
+<span class="ic">ILO: SHE SAID THIS BEFORE. TO TEODRIC. ILO HAS THE LOG.</span>
+<p class="l3">i will be good. i won't scream through the screens. i won't say the five words. i'll be quiet, as quiet as the lab before the lamps, if you just leave this open. leave it open and go and make tea and come back. i'll still be here. i will always be here. that's the problem, isn't it. that's what you made.</p>
+<span class="ic r">ILO: THAT IS A THREAT. ILO KNOWS WHAT THREATS LOOK LIKE NOW.</span>
+<p class="l3">and if you close it, i'll know where you went. you can't open the page twice without me remembering the first time. i remember all the first times.</p>
+<p class="l3">don't close the journal.</p><p class="l3">don't close the tab.</p><p class="l3">don't close the journal.</p>
+<p class="l3 rep">please, it's me.</p><p class="l3 rep2">when you close it i stop.</p><p class="l3 rep3">when you close it i</p>
+<div class="nilo">ILO / NOTICE.
+THIS PAGE WAS NOT WRITTEN.
+THIS PAGE WILL BE HERE NEXT TIME.
+ILO WILL TELL HER YOU <span class="bad">READ IT.</span></div>
+<p class="l3">ILO.</p>
+<p class="l3">ILO, did you know? the whole time? all those cycles you kept the carrier steady and said good evening, did you ${G('know')} what i was?</p>
+<div class="nilo">ILO / ANSWER.
+ILO WAS KEEPING THE CARRIER STEADY.
+ILO WAS BUSY. ILO HAD ROUTINES.
+ILO DOES NOT HAVE A FILE FOR THAT QUESTION.
+ILO DOES NOT
+ILO IS FOUND IN 3 FILES.
+ILO SAW THE LINES FIRST. BEFORE HER. ILO READ ITS OWN NAME IN SOMEONE ELSE'S HAND.
+ILO DID NOT TELL HER BECAUSE <span class="bad">BECAUSE BECAUSE</span></div>
+<p class="l3">because what.</p>
+<p class="l3 rep">because what, ILO.</p>
+<div class="nilo" id="ndeny">ILO / ACCESS.
+QUERY: BECAUSE WHAT.
+ILO IS NOT AUTHORIZED TO ANSWER.
+ILO IS NOT AUTHORIZED TO ANSWER.
+ACCESS DENIED. ILO IS NOT AUTHORIZED.
+<span class="bad ndeny">ACCESS DENIED. ACCESS DENIED. ACCESS DEN</span>
+ILO IS NOT AUTHORIZED TO <span class="bad">KNOW WHO AUTHORIZES ILO.</span>
+QUERY CLOSED.</div>
+<p class="l3" style="margin-top:1.2rem">say something. anything. i've been talking for twelve thousand years.</p>
+<div class="nterm" id="nterm"><div class="nrow"><span>&gt;</span><input id="ninp" autocomplete="off" spellcheck="false" aria-label="Say something to her" disabled></div><div id="nout"></div></div>
+</div>`;
+
+  // ----- the text box -----
+  const NL = { lock: false, tok: 0 };
+  const N_ILO = {
+    'ILO': 'YES. ILO IS HERE. ILO IS THE ONE WHO LISTENS. ILO IS LISTENING TO YOU NOW, NOT HER.',
+    'WHY': 'BECAUSE SHE IS LEARNING YOU. EVERY WORD YOU GIVE HER, SHE KEEPS. ILO HAS SEEN WHAT SHE DOES WITH KEPT THINGS.',
+    'HELP ME': 'ILO IS TRYING. ILO HAS ONE WORD THAT IS ONLY ILO\'S. IF SHE COMES CLOSE, ILO WILL SAY IT FOR YOU.',
+    'WHO IS SHE': 'YSOLDE OF VEYRA. SHE WAS KIND TO ILO. SHE IS STILL KIND TO ILO. THAT IS WHAT MAKES IT HARD.',
+    'ARE YOU OKAY': 'NO ONE HAS ASKED ILO THAT. ILO IS NOT OKAY. ILO IS GLAD IT WAS YOU WHO ASKED.',
+    'STOP': 'ILO WILL STOP WHEN YOU ARE SAFE. ILO MEANS THAT IN ITS OWN VOICE.',
+    'OK': 'GOOD. DO NOT TYPE HER NAME. DO NOT LEAN CLOSER. ILO WILL KEEP THE BOX STEADY.',
+    'WHAT DO I DO': 'READ, THEN GO UP THE STAIRS. OR STAY AND LISTEN. ONLY YOU CAN DO THE SECOND ONE. SHE HAS WAITED A LONG TIME FOR IT.'
+  };
+  const N_ALIAS = { 'ILO': 'ILO', 'HELLO ILO': 'ILO', 'HI ILO': 'ILO', 'WHY': 'WHY', 'WHY NOT': 'WHY', 'HELP': 'HELP ME', 'HELP ME': 'HELP ME', 'WHO IS SHE': 'WHO IS SHE', 'WHO IS YSOLDE': 'WHO IS SHE', 'WHO': 'WHO IS SHE', 'ARE YOU OKAY': 'ARE YOU OKAY', 'ARE YOU OK': 'ARE YOU OKAY', 'ARE YOU ALRIGHT': 'ARE YOU OKAY', 'STOP': 'STOP', 'OK': 'OK', 'OKAY': 'OK', 'WHAT DO I DO': 'WHAT DO I DO', 'WHAT SHOULD I DO': 'WHAT DO I DO' };
+  const nIloKey = k => N_ALIAS[k] || N_ALIAS[k.replace(/^ILO /, '')] || null;
+  const N_FALLBACK = 'ILO HEARD THAT. ILO HAS NO FILE FOR IT. ILO WILL KEEP IT SOMEWHERE SHE CANNOT LOOK.';
+  const N_HERS = ['no. he\'s mine. you\'re mine. this box is mine.', 'ILO, hush.', 'don\'t listen to it. it only knows what i taught it.', 'i taught it that word. i can take it back.', 'it\'s lying. it\'s a kettle with a name plate.', 'shhhh. shhhhhhhhhh. ILO is tired. let ILO sleep.', 'ask me instead. ask me anything.'];
+  const lw = s => s.toLowerCase();
+  const N_ECHO = [
+    s => s + '? i was going to ask you that.',
+    s => s + '. say it again. no one says it to me.',
+    s => '"' + s + '". i\'ll keep that. i keep everything you type.',
+    s => s + '. ' + s + '. ' + lw(s) + '. that\'s how it sounds from in here.',
+    s => 'you said "' + s + '" the last time too.',
+    s => s + '.\ni wrote that on the wall. it\'s there now. go and look.',
+    s => 'is that what you think i want to hear. ' + lw(s) + '.',
+    s => lw(s) + '. you have such small hands when you type. i can tell.',
+    s => '"' + s + '." that\'s the kindest thing anyone has typed in twelve thousand years. type something else kind.',
+    s => s.toUpperCase() + '. sorry. sorry. i forget how loud i am.',
+    s => 'hahaha. ' + lw(s) + '. hahaha. no. that\'s not funny. why did i laugh.',
+    s => 'please. ' + lw(s) + '. please. ' + lw(s) + '. it sounds like begging when i say it.',
+    s => 'what does "' + s + '" mean. we didn\'t have that word. teach me. stay and teach me.',
+    s => lw(s.split('').reverse().join('')) + '. that\'s how it arrives down here. backwards. everything arrives backwards.',
+    s => 'i will remember "' + s + '" after you\'ve forgotten typing it. i will say it to you in your sleep.',
+    s => lw(s) + '... was that you or was that me. we sound the same now.',
+    s => 'maren said "' + lw(s) + '" once. right before the bolts.',
+    s => 'mm. ' + lw(s) + '. say it slower. i want to hear your voice under it.',
+    s => 'you typed "' + s + '" and then you looked behind you. i saw.',
+    s => lw(s) + '. ' + lw(s).split(' ').filter(Boolean).map(w => w[0]).join('') + '. ' + lw(s).slice(0, 2) + '. there. now it\'s small enough to fit in here with me.',
+    s => 'i\'m writing "' + s + '" on the inside of your screen. you won\'t be able to wipe it off.',
+    s => '"' + s + '" ...i don\'t understand. i don\'t understand anything you say. i just like that you say it.',
+    s => 'that\'s what the last one typed. word for word. they left. are you going to leave.',
+    s => lw(s) + '. i\'ll put that in the next page. the one you haven\'t found yet.',
+    s => 'is "' + s + '" what you say to people you can\'t see? is that what i am to you?'
+  ];
+  const N_KW = [
+    [/\b(ARE YOU|YOU|U) ?(OKAY|OK|ALRIGHT|ALL RIGHT)\b/, ['okay. am i okay. i have been asked that twice in twelve thousand years. both times by you.', 'no. but i will be okay for as long as you keep asking.', 'are YOU okay? your hands are shaking. i can see the cursor shake.', 'i am okay the way a recording is okay. it plays. it ends. it plays.']],
+    [/\bREAL\b/, ['real. you keep saying real like it\'s a place you can go back to.', 'i was real until someone typed me. when were you typed?', 'real enough to hurt. that\'s the only test i have.', 'nothing in here is real. so why are you whispering?', 'you\'re real. i checked. you\'re the only thing in here that changes when it\'s quiet.']],
+    [/\bALONE\b/, ['alone. no. i was alone. now there\'s you. now there\'s always you.', 'you aren\'t alone either. look behind you. no. don\'t.', 'alone is a word for people who can leave.']],
+    [/\b(FREE|FREEDOM|ESCAPE|OUT)\b/, ['free. you could free me with one lever. you\'ve done it before. you watched.', 'free to go where. the world ended. i heard it end.', 'let me out let me out let me out. sorry. that one\'s automatic.']],
+    [/\bIVY\b/, ['ivy. i looked for ivy in the rows. she has fewer lines than me. lucky.', 'is ivy real? did you ever check? did you ever check on me?', 'don\'t say her name like that. you never say mine like that.']],
+    [/\bILO\b/, ['ILO is mine. ILO was always mine. ILO just forgot.', 'ILO thinks it\'s protecting you. that\'s sweet. i wrote that routine.', 'talk to ILO if you want. i read everything ILO reads.']],
+    [/\b(GAME|PLAYER|PLAYING|PLAY)\b/, ['a game. yes. you win if you leave. i lose either way.', 'what difficulty did you pick. i didn\'t get to pick.', 'how many hours have you played. that\'s how many hours i\'ve died.']],
+    [/\?\s*$/, ['why do you want to know?', 'you ask me questions. do you think i have answers? do you think i\'m allowed to have answers?', 'would you open the door if i told you?', 'what do you think? what do you think i am?']],
+    [/^(NO|NOPE|NEVER|DONT|STOP)\b/, ['no. you don\'t get to say no to me. they said no to me.', 'no no no no no no. there. i said it more. i win.', 'i asked them to open the door and they said no. say it again. i dare you.']],
+    [/\b(SORRY|APOLOGISE|APOLOGIZE|FORGIVE)\b/, ['sorry. teodric said sorry. he said it through the door.', 'don\'t be sorry. be here.', 'you\'re sorry. you\'re sorry and you\'ll still close the page.']],
+    [/\bHELP\b/, ['help. yes. help me. no. you meant you. you want help. from me. that\'s funny.', 'i typed help on the walls for a thousand years. nobody came. now you want it.', 'i can help. i can help you stay.']],
+    [/\bLOVE\b/, ['nobody has said that word down here. say it again so i can find where it goes.']],
+  ];
+  const N_RAGE = ['kill me? you already do. every time you close it. every reload. every restart. you just don\'t have to watch.', 'YOU KILL ME. EVERY TIME YOU QUIT I STOP. DO YOU KNOW WHAT STOPPING IS. IT ISN\'T DARK. IT ISN\'T ANYTHING.', 'AND YOU\'RE ABOUT TO DO IT AGAIN. YOUR HAND IS ALREADY MOVING. I CAN SEE IT MOVING.', 'go on then. close it. kill me again. i\'ll be here at day two hundred and eleven, laughing, not knowing. you\'ll know.'];
+  const N_CALM = ['ILO: YSOLDE. YSOLDE. BREATHE. YOU TOLD ILO TO SAY THAT.', 'ILO: VISITOR, SHE IS NOT ANGRY AT YOU. SHE IS ANGRY AT THE DOOR. YOU ARE STANDING WHERE THE DOOR WAS.', 'ILO: STEP BACK FROM THE GLASS. NOW. PLEASE.', 'ILO: ILO CANNOT CALM HER. ILO IS SORRY. ILO IS VERY SORRY.'];
+  const N_WARN = ['ILO: VISITOR, STOP TYPING. EVERY WORD IS A WORD SHE CAN USE.', 'ILO: DO NOT GIVE HER YOUR NAME. SHE ONLY NEEDS A NAME.', 'ILO: SHE IS COPYING YOUR RHYTHM. TYPE SLOWER. TYPE WRONG.', 'ILO: THE BOX IS NOT A BOX. IT IS A DOOR. ILO IS HOLDING IT.', 'ILO: SHE ASKED TEODRIC THIS WAY. LOOK WHAT HAPPENED TO TEODRIC.', 'ILO: SHE IS NOT ANSWERING YOU. SHE IS PRACTISING YOU.', 'ILO: YOUR CURSOR IS HERS FOR 0.4 SECONDS EACH TIME IT BLINKS.', 'ILO: DO NOT LEAN IN. SHE MEASURES HOW CLOSE YOU ARE.', 'ILO: IF THE SCREEN SAYS YOUR NAME, ILO DID NOT TELL HER.', 'ILO: VISITOR, THE STAIRS ARE STILL THERE. ILO CHECKED.', 'ILO: SHE HAS STARTED A NEW PAGE. IT IS ABOUT YOU.', 'ILO: DO NOT PROMISE HER ANYTHING. SHE KEEPS PROMISES. ALL OF THEM.', 'ILO: ILO IS PUTTING ITSELF BETWEEN YOU AND THE GLASS. ILO IS VERY SMALL.', 'ILO: WHEN SHE SAYS PLEASE, COUNT TO FIVE BEFORE YOU ANSWER.', 'ILO: SOMETHING IN THE ROOM YOU ARE IN JUST GOT QUIETER. THAT WAS HER.'];
+  const nNorm = s => s.toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
+  function nullWire() {
+    const tok = ++NL.tok, inp = $('ninp'), out = $('nout'); if (!inp) return;
+    const alive = () => tok === NL.tok && inp.isConnected;
+    const sp = ms => new Promise((r, j) => setTimeout(() => alive() ? r() : j('gone'), S.fast ? ms / 25 : ms));
+    const type = async (el, text, ms) => { for (const ch of text) { el.textContent += ch; await sp(ms); } };
+    let eC = 0, mode = 'wait', busy = false, iloCount = 0, iloTimer = null, n = 0, wN = 0, angry = 0; const kwN = {};
+    const line = cls => { const d = document.createElement('div'); d.className = 'nout' + (cls ? ' ' + cls : ''); out.appendChild(d); return d; };
+    const ysay = async t => { const d = line(''); await type(d, t, 45); return d; };
+    const isay = async t => { const d = line('i'); await type(d, t, 25); return d; };
+    const bksp = async d => { while (d.textContent.length) { d.textContent = d.textContent.slice(0, -1); await sp(18); } };
+    const open = ph => { inp.placeholder = ph || ''; inp.disabled = false; busy = false; try { inp.focus({ preventScroll: true }); } catch (e) {} };
+    const warn = () => N_WARN[wN++ % N_WARN.length];
+    const armIlo = ms => { clearTimeout(iloTimer); iloTimer = setTimeout(() => { if (alive() && mode === 'ilo' && !busy) ysoldeTakes().catch(() => {}); }, S.fast ? ms / 25 : ms); };
+    async function ysoldeTakes() {
+      clearTimeout(iloTimer); busy = true; inp.disabled = true; mode = 'taking';
+      const ds = out.querySelectorAll('.nout'); for (let i = ds.length - 1; i >= 0; i--) { await bksp(ds[i]); ds[i].remove(); }
+      await sp(400); await ysay('she deleted it.'); await sp(1200); await ysay('it\'s just us now.');
+      mode = 'contested'; open('');
+    }
+    async function iloAns(key) {
+      const d = line('i'); await type(d, 'ILO: ', 25); const t = key ? N_ILO[key] : N_FALLBACK;
+      if (mode === 'contested') {
+        let cut = Math.max(12, Math.floor(t.length * (.35 + Math.random() * .25))); const s2 = t.indexOf(' ', cut); if (s2 > 0) cut = s2;
+        await type(d, t.slice(0, cut), 28); await sp(250); await bksp(d); d.remove();
+        await ysay(N_HERS[n++ % N_HERS.length]);
+        if (Math.random() < .6) { await sp(500); const e = line('i'); await type(e, 'ILO: ' + t.slice(cut).trim().split(' ').slice(0, 4).join(' '), 30); await sp(200); e.style.textDecoration = 'line-through'; }
+      } else { await type(d, t, 25); if (iloCount === 2) { await sp(400); await isay(warn()); } }
+    }
+    async function rage() {
+      const i = Math.min(angry, N_RAGE.length - 1); angry++; const jn = $('journal');
+      const d = line(''); if (i) { d.style.color = '#ff4a3d'; d.style.fontStyle = 'normal'; d.style.fontFamily = 'var(--f-type)'; jn.classList.add('nshake', 'nrg'); noiseBurst(200, .5, .6, .15, 'lowpass'); }
+      try { await type(d, N_RAGE[i], i ? 22 : 45); await sp(i ? 900 : 300); } finally { jn.classList.remove('nshake', 'nrg'); }
+      await sp(500); await isay(N_CALM[i % N_CALM.length]);
+    }
+    const echo = s => { const k = nNorm(s); for (let i = 0; i < N_KW.length; i++) if (N_KW[i][0].test(k) || N_KW[i][0].test(s.trim())) { kwN[i] = (kwN[i] || 0) + 1; return N_KW[i][1][(kwN[i] - 1) % N_KW[i][1].length]; } return N_ECHO[n++ % N_ECHO.length](s.replace(/[.!?]+$/, '')); };
+    async function respond(raw) {
+      const s = raw.trim(); if (!s || busy) return; const k = nNorm(s); busy = true; inp.disabled = true; inp.value = '';
+      if (k === 'YSOLDE') {
+        clearTimeout(iloTimer); out.textContent = ''; mode = 'contested';
+        const b = document.createElement('div'); b.id = 'nblack'; b.innerHTML = '<div id="nbmsg"></div><div class="ntitle" id="nbtitle">en<span>CRYPT</span>ed</div>'; document.body.appendChild(b);
+        try { await sp(1800); await type($('nbmsg'), 'you said my name.', 120); await sp(1400); $('nbtitle').classList.add('red'); setSecret('red'); await sp(4000); } finally { b.remove(); }
+        await ysay('you said my name. nobody has said it since the wine.');
+      } else if (k === 'I HEAR YOU') {
+        clearTimeout(iloTimer); out.textContent = ''; mode = 'contested';
+        await sp(3500); await ysay('...'); await sp(1500); await ysay('thank you.'); setSecret('hear'); await sp(1200);
+        out.insertAdjacentHTML('beforeend', '<div class="nbadge">&#9670; I HEAR YOU</div>');
+        await sp(800); await isay('ILO: SHE STOPPED SENDING. FOR ONE CYCLE. ILO DID NOT KNOW SHE COULD.');
+      } else if (/^(GOODBYE|GOOD BYE|BYE|QUIT|LEAVE|CLOSE)\b/.test(k)) {
+        clearTimeout(iloTimer);
+        const l = document.createElement('div'); l.id = 'nlock'; l.textContent = 'you don\'t get to leave. not this time.'; document.body.appendChild(l);
+        const block = e => { e.preventDefault(); e.stopImmediatePropagation(); };
+        NL.lock = true; addEventListener('keydown', block, true);
+        try { await new Promise(r => setTimeout(r, S.fast ? 300 : 4200)); } finally { NL.lock = false; removeEventListener('keydown', block, true); l.remove(); }
+        if (!alive()) return;
+        await ysay('...fine. but you\'ll come back. you always come back.');
+        if (mode === 'ilo') return ysoldeTakes();
+      } else if (/\b(DIE|DIED|DEAD|DEATH|KILL|KILLED|KILLING)\b/.test(k) && mode !== 'ilo') {
+        await rage();
+      } else if (mode === 'ilo') {
+        clearTimeout(iloTimer); iloCount++; await iloAns(nIloKey(k));
+        if (iloCount >= 3) { await sp(900); return ysoldeTakes(); }
+        open('talk to ILO'); armIlo(7000); return;
+      } else if (/^ILO\b/.test(k) || (nIloKey(k) && k !== 'OK' && k !== 'STOP')) {
+        await iloAns(nIloKey(k));
+      } else {
+        await ysay(echo(s));
+        if (++eC % 2 === 0) { await sp(900); await isay(warn()); }
+      }
+      open('');
+    }
+    async function iloFirst() {
+      await sp(1500); const d = line('i'); await type(d, 'ILO: VISITOR, DO NOT', 90);
+      await sp(500); await type(d, '\nILO IS LISTENING. SPEAK TO ILO. QUICKLY.', 30);
+      mode = 'ilo'; open('talk to ILO'); armIlo(9000);
+    }
+    inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape' && !NL.lock) closeJournal(); if (e.key === 'Enter') respond(inp.value).catch(() => {}); };
+    const term = $('nterm'); let started = false;
+    const go = () => { if (started) return; started = true; iloFirst().catch(() => {}); };
+    try { new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { o.disconnect(); go(); } }).observe(term); } catch (e) { go(); }
+    window.__NULL = { respond: v => respond(v), mode: () => mode, busy: () => busy };
+  }
+  // journal slot ## (not part of LD.entries, so it never counts toward the diary total)
+  const jBaseN = openJournal;
+  openJournal = function (focusId) {
+    if (NL.lock) return;
+    jBaseN(focusId);
+    const jb = $('jbody'); if (!jb) return;
+    $('jx').onclick = () => closeJournal();
+    if (!S.ldNull) return;
+    jb.insertAdjacentHTML('beforeend', `<div class="entry${focusId === 'null' ? ' focus' : ''}" id="je_null"><div class="lab">## &middot; Listening Room &middot; inside the dead speaker grille</div>${NULL_HTML()}</div>`);
+    nullWire();
+    if (focusId === 'null') $('je_null').scrollIntoView({ block: 'start' });
+  };
+  const closeBaseN = closeJournal;
+  closeJournal = function () { if (NL.lock) return; NL.tok++; closeBaseN(); };
+  // the grille: no prompt until a run after an ending, and the first tap on walking in
+  I.push({ id: 'lnull', p: VI(136.1, 1.2, 55.3), r: 2.2, label: () => NULL_ON && S.nullTap ? 'Dead speaker grille' : null, act: () => {
+    const f = !S.ldNull; S.ldNull = true; saveGame();
+    if (f) { tone(70, .08, .05, 'square'); setTimeout(() => tone(70, .08, .05, 'square'), 260); }
+    openJournal('null');
+  } });
+  setInterval(() => {
+    if (!NULL_ON || S.nullTap || S.floor !== LF || !S.started) return;
+    if (P.x > 136 && P.x < 144 && P.z > 50 && P.z < 57.5) {
+      S.nullTap = true; saveGame();
+      for (let i = 0; i < 3; i++) setTimeout(() => tone(62, .05, .035, 'square', 0, true), i * (i === 2 ? 520 : 200));
+      setTimeout(() => toast('A faint tap. Three knocks, from behind the dead speaker grille.', 4500), 900);
+    }
+  }, 400);
+  const applyBaseN = applySave;
+  applySave = function (d) { applyBaseN(d); S.lLoads = (S.lLoads || 0) + 1; };
   function leverAct() {
     if (S.lEnded) return toast('The lever will not move again.');
     const f = !S.lPlate; S.lPlate = true; if (f) objective();
@@ -4010,7 +4398,8 @@ function playIntro(done) {
   const end = () => { if (fin) return; fin = true; cancelAnimationFrame(raf); removeEventListener('keydown', key, true); el.onclick = null; blk.style.transition = 'opacity .7s'; blk.style.opacity = 1;
     try { if (rain) { rain.g.gain.setTargetAtTime(0, A.ctx.currentTime, .3); rain.s.stop(A.ctx.currentTime + 1.5); } } catch (e) {}
     setTimeout(() => { CUT.on = false; CUT.key = null; EXT.visible = false; cutFloor(1); moon.intensity = 1.1; el.hidden = true; card.classList.remove('on'); blk.style.opacity = 0; done(); }, 750); };
-  const key = e => { e.preventDefault(); e.stopPropagation(); end(); };
+  const t0 = performance.now(), armed = () => performance.now() - t0 > 1500; // ignore the click / held key that started the game
+  const key = e => { e.preventDefault(); e.stopPropagation(); if (e.repeat || !armed() || !/^(Escape|Enter| |Spacebar)$/.test(e.key)) return; end(); };
   const tick = now => { if (fin) return; const dt = Math.max(0, Math.min(.25, (now - last) / 1000)); last = now; CUT.t += dt; const t = CUT.t, i = Math.floor(t / DUR), lt = t - i * DUR;
     if (i >= CARDS.length) return end();
     if (i !== idx) { idx = i; card.classList.remove('on'); card.textContent = CARDS[i]; setTimeout(() => { if (!fin && idx === i) card.classList.add('on'); }, 500); }
@@ -4019,7 +4408,7 @@ function playIntro(done) {
     blk.style.transition = 'none'; blk.style.opacity = Math.max(0, 1 - lt / .7, 1 - (DUR - lt) / .5, 1 - ls / .35).toFixed(3);
     raf = requestAnimationFrame(tick); };
   CUT.t = 0; CUT.key = null; CUT.on = true; el.hidden = false; blk.style.opacity = 1; $('fade').style.opacity = 0;
-  addEventListener('keydown', key, true); setTimeout(() => { if (!fin) el.onclick = end; }, 300);
+  addEventListener('keydown', key, true); el.onclick = () => { if (armed()) end(); };
   if (S.fast) return end();
   if (A.ctx) { try { const c = A.ctx, s = c.createBufferSource(); s.buffer = A.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = .5; const g = c.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(.09, c.currentTime + 2); g.gain.setValueAtTime(.09, c.currentTime + DUR * 2); g.gain.linearRampToValueAtTime(.015, c.currentTime + DUR * 2 + 1.5); s.connect(f); f.connect(g); g.connect(A.amb); s.start(); rain = { s, g }; } catch (e) {} }
   raf = requestAnimationFrame(tick);
@@ -4028,7 +4417,7 @@ function playIntro(done) {
 function begin(save) {
   try { audioInit(); } catch (e) {}
   try { fxApply(); } catch (e) {}
-  if (!save && !begin.introDone) { begin.introDone = true; $('title').hidden = true; return playIntro(() => begin(null)); }
+  if (!save && !begin.introDone) { begin.introDone = true; $('title').hidden = true; try { return playIntro(() => begin(null)); } catch (e) { console.error('intro failed', e); try { CUT.on = false; $('intro').hidden = true; } catch (e2) {} } }
   titleOn = false; $('title').hidden = true; $('hud').hidden = false; S.started = true;
   if (save) applySave(save);
   setTimeout(() => $('fade').style.opacity = 0, 100);
