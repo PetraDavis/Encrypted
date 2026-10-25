@@ -4881,8 +4881,48 @@ const CLAIRE = (() => {
     'The counter says 0:53. The file was last modified tonight.',
     'The counter says 0:54. It stops there. It has said what it wanted to say.',
   ];
-  const VM_MAX = 2 + VM_ADD.length, vmLen = n => n < 2 ? '0:41' : '0:' + (42 + n);
-  const vm = n => { n = Math.min(+n || 1, VM_MAX); const later = n > 1; return `<h2>An audio file, alone in a folder called <i>mum</i></h2><p style="${T}">voicemail_mum_DONT_DELETE.m4a &middot; copied from old phone &middot; Sun 11 Aug 2024, 17:52 &middot; ${vmLen(n)}</p><p>The player has made its own transcript, in grey:</p><p><i>Hiya Ivy-bee, it's me. Your phone's off again, which means you're either asleep or sulking, and I love you either way.</i></p><p><i>I'm just leaving Jo's. It's chucking it down, the wipers are going like the clappers, so I'll be a bit later than I said. Tell Dad not to start the pasta without me. He turns it into glue.</i></p><p><i>Oh, and I found that blue nail varnish you wanted. Don't tell Dad what it cost.</i></p><p><i>Right. The radio's gone all crackly, I've lost Jo's station.${later ? ' Somebody humming on it instead. Funny little tune.' : ''}${VM_ADD.slice(0, Math.max(0, n - 2)).join('')}${n >= 7 ? ' <span style="opacity:.35">[under the hum, something ticks]</span>' : ''} Love you. Love you more than chips. See you in an hour, bee. Bye. Bye-bye.</i></p><p class="sig">${n > 2 ? VM_SIG[n - 3] : later ? 'The counter says 0:44. You are almost sure it said 0:41.' : 'The play count beside it says 1,206.'}</p>` };
+  const VM_MAX = 2 + VM_ADD.length, vmLen = n => n < 2 ? '0:41' : '0:' + (42 + n), vmSec = n => n < 2 ? 41 : 42 + n;
+  const vmEnd = (n, later) => n > 2 ? VM_SIG[n - 3] : later ? 'The counter says 0:44. You are almost sure it said 0:41.' : 'The play count beside it says 1,206.';
+  // subtitle timeline: each line is spoken (say), an effect (fx) or a whisper, timed across the stage length
+  const vmLines = n => { const later = n > 1, L = [
+    { k: 'say', h: "Hiya Ivy-bee, it's me. Your phone's off again, which means you're either asleep or sulking, and I love you either way." },
+    { k: 'say', h: "I'm just leaving Jo's. It's chucking it down, the wipers are going like the clappers, so I'll be a bit later than I said. Tell Dad not to start the pasta without me. He turns it into glue." },
+    { k: 'say', h: "Oh, and I found that blue nail varnish you wanted. Don't tell Dad what it cost." },
+    { k: 'say', h: "Right. The radio's gone all crackly, I've lost Jo's station." + (later ? ' Somebody humming on it instead. Funny little tune.' : '') }];
+    VM_ADD.slice(0, Math.max(0, n - 2)).forEach(h => L.push({ k: /humming/.test(h) ? 'hum' : /static/.test(h) ? 'static' : 'whisper', h }));
+    if (n >= 7) L.push({ k: 'note', h: ' <span style="opacity:.35">[under the hum, something ticks]</span>' });
+    L.push({ k: 'say', h: 'Love you. Love you more than chips. See you in an hour, bee. Bye. Bye-bye.' });
+    const D = vmSec(n), base = [.6, 8, 20, 26], extra = L.length - 5, a = 31, b = D - 8;
+    L.forEach((l, i) => { l.t = i < 4 ? base[i] : i === L.length - 1 ? b : a + (i - 4) * (b - a) / Math.max(1, extra); }); return L; };
+  const VMCSS = '<style>.vmp{background:#14161b;color:#e8e6e1;border-radius:14px;padding:14px 16px;margin:.6rem 0;font-family:system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.35)}.vmp .fn{font-family:ui-monospace,monospace;font-size:.85rem;word-break:break-all}.vmp .mt{font-size:.72rem;opacity:.6;margin:.15rem 0 .6rem}.vmp canvas{width:100%;height:56px;display:block;background:#0c0d10;border-radius:8px}.vmp .vmbar{height:4px;background:#2a2d35;border-radius:2px;margin:.6rem 0 .3rem;overflow:hidden}.vmp .vmbar i{display:block;height:100%;width:0;background:#7fb2ff}.vmp .tm{display:flex;justify-content:space-between;font-size:.72rem;font-variant-numeric:tabular-nums;opacity:.75}.vmp .sub{min-height:4.5em;margin-top:.6rem;font-size:.92rem;line-height:1.45;color:#cfd3da}.vmp .sub p{margin:.25rem 0;animation:vmin .5s ease}.vmp button{background:#2a2d35;color:#e8e6e1;border:0;border-radius:20px;padding:.35rem .9rem;margin-top:.5rem;cursor:pointer}@keyframes vmin{from{opacity:0;transform:translateY(4px)}}</style>';
+  const vm = (n, live) => { n = Math.min(+n || 1, VM_MAX); const later = n > 1, L = vmLines(n);
+    return `${VMCSS}<h2>An audio file, alone in a folder called <i>mum</i></h2><div class="vmp" id="vmp"><div class="fn">voicemail_mum_DONT_DELETE</div><div class="mt">.m4a &middot; copied from old phone &middot; Sun 11 Aug 2024, 17:52</div>${live ? '<canvas id="vmwave" width="600" height="112"></canvas>' : ''}<div class="vmbar"><i id="vmbar" style="width:${live ? 0 : 100}%"></i></div><div class="tm"><span id="vmcur">${live ? '0:00' : vmLen(n)}</span><span>${vmLen(n)}</span></div><div class="sub" id="vmsub">${live ? '' : L.map(l => `<p><i>${l.h}</i></p>`).join('')}</div>${live ? '<button id="vmpp">Pause</button>' : ''}</div><p class="sig" id="vmsig"${live ? ' hidden' : ''}>${vmEnd(n, later)}</p>` };
+  // live playback: speech for Claire, Web Audio for the road, the hum, the static; everything tolerant of missing APIs
+  let VMP = null;
+  const vmStop = () => { const p = VMP; VMP = null; if (!p) return; try { speechSynthesis.cancel(); } catch (e) {} try { p.bed.forEach(x => x.stop()); } catch (e) {} };
+  const vmVoice = () => { try { const vs = speechSynthesis.getVoices() || []; return vs.find(v => /en[-_]GB/i.test(v.lang) && /female|libby|sonia|maisie|serena|kate|hazel|susan|martha|fiona|stephanie/i.test(v.name)) || vs.find(v => /en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; } catch (e) { return null; } };
+  const vmSay = (txt, o) => { try { if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return; const u = new SpeechSynthesisUtterance(txt), v = vmVoice(); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-GB'; Object.assign(u, o); speechSynthesis.speak(u); } catch (e) {} };
+  const vmNoise = (c, sec) => { const b = c.createBuffer(1, c.sampleRate * sec, c.sampleRate), d = b.getChannelData(0); let l = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; l = (l + .02 * w) / 1.02; d[i] = w * .5 + l * 3; } return b; };
+  const vmBed = c => { const out = A.master || c.destination, src = [], mk = (f, type, q, g0) => { const s = c.createBufferSource(); s.buffer = vmNoise(c, 4); s.loop = true; const f1 = c.createBiquadFilter(); f1.type = type; f1.frequency.value = f; f1.Q.value = q; const g = c.createGain(); g.gain.value = g0; s.connect(f1); f1.connect(g); g.connect(out); s.start(); src.push(s); return g; };
+    mk(5200, 'highpass', .5, .012); mk(180, 'lowpass', .7, .05); const w = mk(900, 'bandpass', 1.2, 0), t = c.currentTime; for (let i = 0; i < 60; i++) { w.gain.setValueAtTime(0, t + i * .9); w.gain.linearRampToValueAtTime(.018, t + i * .9 + .25); w.gain.linearRampToValueAtTime(0, t + i * .9 + .6); } return src; };
+  const vmStatic = c => { const s = c.createBufferSource(); s.buffer = vmNoise(c, 1.4); const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = .6; const g = c.createGain(), t = c.currentTime; for (let i = 0; i < 8; i++) { g.gain.setValueAtTime(Math.random() < .5 ? .07 : .01, t + i * .17); } g.gain.setValueAtTime(0, t + 1.38); s.connect(f); f.connect(g); g.connect(A.master || c.destination); s.start(); s.stop(t + 1.4); };
+  const vmPlay = n => { vmStop(); n = Math.min(+n || 1, VM_MAX); const L = vmLines(n), D = vmSec(n), c = A.ctx, fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+    const p = VMP = { at: 0, last: performance.now(), on: true, i: 0, bed: [], fx: 0, humd: false };
+    try { if (c && !S.fast) p.bed = vmBed(c); } catch (e) {}
+    const pp = $('vmpp'); if (pp) pp.onclick = () => { p.on = !p.on; pp.textContent = p.on ? 'Pause' : 'Play'; try { p.on ? speechSynthesis.resume() : speechSynthesis.pause(); } catch (e) {} };
+    const fire = l => { const sub = $('vmsub'); if (sub) { sub.insertAdjacentHTML('beforeend', `<p><i>${l.h}</i></p>`); sub.scrollTop = 1e6; } const txt = l.h.replace(/<[^>]+>/g, '').replace(/\[[^\]]*\]/g, '').replace(/\.{2,}/g, ' ').trim();
+      if (l.k === 'say') vmSay(txt, { rate: .9, pitch: 1, volume: 1 });
+      else if (l.k === 'whisper') { vmSay(txt, { rate: .55, pitch: .2, volume: .12 }); p.fx = 3; }
+      else if (l.k === 'static') { try { if (c) vmStatic(c); } catch (e) {} p.fx = 1.4; }
+      else if (l.k === 'hum' && !p.humd) { p.humd = true; hum(n); p.fx = 3 + n; } };
+    const cv = $('vmwave'), g = cv && cv.getContext && cv.getContext('2d');
+    const loop = () => { const now = performance.now(); if (VMP !== p) return clearInterval(p.iv); if (!document.contains($('vmp') || null) || $('note').hidden) { clearInterval(p.iv); return vmStop(); } const dt = Math.min(1, (now - p.last) / 1000); p.last = now;
+      if (p.on && p.at < D) { p.at = Math.min(D, p.at + dt); p.fx = Math.max(0, p.fx - dt); while (p.i < L.length && L[p.i].t <= p.at) fire(L[p.i++]); }
+      const bar = $('vmbar'), cur = $('vmcur'); if (bar) bar.style.width = (100 * p.at / D) + '%'; if (cur) cur.textContent = fmt(p.at);
+      if (g) { const W = cv.width, H = cv.height, N = 60; let sp = false; try { sp = speechSynthesis.speaking; } catch (e) {} const amp = !p.on || p.at >= D ? .04 : (sp ? .75 : .25) + (p.fx > 0 ? .35 : 0); g.clearRect(0, 0, W, H); for (let k = 0; k < N; k++) { const x = k * W / N, frac = k / N, h = Math.max(2, H * amp * (.25 + .75 * Math.abs(Math.sin(now / 160 + k * .7) * Math.sin(now / 410 + k * 1.9))) * (.7 + Math.random() * .3)); g.fillStyle = frac <= p.at / D ? '#7fb2ff' : '#444a56'; g.fillRect(x + 1, (H - h) / 2, W / N - 3, h); } }
+      if (p.at >= D && !p.done) { p.done = true; const s = $('vmsig'); if (s) s.hidden = false; try { p.bed.forEach(x => x.stop()); } catch (e) {} p.bed = []; if (pp) pp.hidden = true; }
+    };
+    p.iv = setInterval(loop, 50); };
   const card = () => `<h2>A birthday card, soft at the folds, inside the pillowcase</h2><p>On the front, a felt-tip bee in a party hat, drawn badly on purpose. Inside, in green pen:</p><p style="${H}">To my Ivy-bee. TWELVE!!</p><p style="${H}">Twelve is when it gets good, I promise. When I was twelve I wrote song words all up my arm and Nana Rose scrubbed them off with a nailbrush, and I did it again the next day. Be a bit like that.</p><p style="${H}">Things I know about you at twelve: you hum when you're concentrating. You draw on everything, including the bath. You are kinder than you let on, and funnier than your dad (don't tell him).</p><p style="${H}">Things I hope: that you stay loud. That you always tell me things, even the weird ones. Especially the weird ones.</p><p style="${H}">Love you more than chips,<br>Mum xxx</p><p style="${H}">P.S. Dad says the voucher is from both of us. The voucher is from me. He forgot. Love him anyway.</p><p>On the back, in Ivy's biro, much newer: <i>sleeps here. don't read this Dad. (ok you can.)</i></p>`;
   const list = () => `<h2>A mustard wool scarf on the hook by the bed, and a list folded inside it</h2><p>The back of a gas bill envelope, in a quick round hand:</p><p style="${H}"><s>milk</s><br><s>bread (the seedy one)</s><br>pasta (NOT the shells)<br>bin bags<br>suncream, factor 50, she WILL burn<br>plasters?? Ivy has eaten all the plasters??<br>ring garage re: wipers<br><br>T. The boiler man is coming Thurs between 8 and 12, which means 12. I'm at Jo's Sunday, back for tea. Kiss kiss.</p><p>Below it, in pencil, in Thomas's hand, pressed hard:</p><p style="${H}">I said I'd ring them.</p>`;
   const NOTES = [
@@ -4913,7 +4953,7 @@ const CLAIRE = (() => {
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   I.push(
     { id: 'cl_vm', p: V3(-9.55, .85, -57.3), r: 1.8, label: () => { const on = lit() && !!S.solved.mirror; bud.visible = on; return on ? (S.clVm ? "Ivy's earbuds: play Mum's voicemail" : 'Earbuds beside the laptop') : null; },
-      act: () => { if (!lit() || !S.solved.mirror) return; S.clVmPlays = (S.clVmPlays || 0) + 1; if (S.clVmPlays > 1) hum(S.clVmPlays); read(NOTES[0], vm(S.clVmPlays)); } },
+      act: () => { if (!lit() || !S.solved.mirror) return; S.clVmPlays = (S.clVmPlays || 0) + 1; read(NOTES[0], vm(S.clVmPlays, true)); vmPlay(S.clVmPlays); } },
     { id: 'cl_card', p: V3(-14.3, .62, -53.75), r: 2.0, label: () => S.clCard ? "Mum's birthday card" : "Ivy's pillow", act: () => read(NOTES[1], card()) },
     { id: 'cl_list', p: V3(12.2, 1.2, -57.85), r: 2.0, label: () => S.clList ? "Claire's list" : 'Mustard scarf on a hook', act: () => read(NOTES[2], list()) },
   );
@@ -4926,7 +4966,7 @@ const CLAIRE = (() => {
     jb.insertAdjacentHTML('beforeend', got.map(n => `<div class="entry${focusId === n.id ? ' focus' : ''}" id="je_${n.id}"><div class="lab">${n.lab}</div><div style="background:var(--paper);color:var(--ink);padding:.6rem 1.1rem;line-height:1.55">${n.html()}</div></div>`).join(''));
     const fe = focusId && $('je_' + focusId); if (fe && /^cl_/.test(focusId)) fe.scrollIntoView({ block: 'start' });
   };
-  return window.__CLAIRE = { NOTES, vm };
+  return window.__CLAIRE = { NOTES, vm, vmPlay, vmStop };
 })();
 console.log('%cILO: SHE IS IN THE COMMENTS. DO NOT READ THEM.', 'color:#3ff0e0;font-weight:bold');
 // ---------- opening cutscene, rendered in the game's own scene, lights, fog and post-processing ----------
