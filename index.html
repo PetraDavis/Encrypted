@@ -3581,6 +3581,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   // ---------- hidden entry ## (Listening Room speaker grille; optional, after any ending) ----------
   const SECRET_KEY = 'encrypted.secrets';
   const secrets = () => { try { return Object.assign({}, S.lSecrets || {}, JSON.parse(localStorage.getItem(SECRET_KEY) || '{}')); } catch (e) { return Object.assign({}, S.lSecrets || {}); } };
+  const clearSecret = k => { const s = secrets(); delete s[k]; S.lSecrets = s; try { localStorage.setItem(SECRET_KEY, JSON.stringify(s)); } catch (e) {} applySecrets(); };
   const setSecret = k => { const s = secrets(); s[k] = true; S.lSecrets = s; try { localStorage.setItem(SECRET_KEY, JSON.stringify(s)); } catch (e) {} applySecrets(); };
   const NULL_ON = endingsSeen().length > 0; // decided at load: an ending seen on an earlier run
   function applySecrets() {
@@ -3828,8 +3829,11 @@ QUERY CLOSED.</div>
       if (k === 'YSOLDE') {
         clearTimeout(iloTimer); out.textContent = ''; mode = 'contested';
         const b = document.createElement('div'); b.id = 'nblack'; b.innerHTML = '<div id="nbmsg"></div><div class="ntitle" id="nbtitle">en<span>CRYPT</span>ed</div>'; document.body.appendChild(b);
-        try { await sp(1800); await type($('nbmsg'), 'you said my name.', 120); await sp(1400); $('nbtitle').classList.add('red'); setSecret('red'); await sp(4000); } finally { b.remove(); }
-        await ysay('you said my name. nobody has said it since the wine.');
+        const again = !!secrets().red; if (again) $('nbtitle').classList.add('red');
+        if (again) { try { await sp(1800); await type($('nbmsg'), 'again.', 160); await sp(1400); $('nbtitle').classList.remove('red'); clearSecret('red'); await sp(4000); } finally { b.remove(); }
+          await ysay('again. so you can take it back. that\'s what they did too.'); }
+        else { try { await sp(1800); await type($('nbmsg'), 'you said my name.', 120); await sp(1400); $('nbtitle').classList.add('red'); setSecret('red'); await sp(4000); } finally { b.remove(); }
+        await ysay('you said my name. nobody has said it since the wine.'); }
       } else if (k === 'I HEAR YOU') {
         clearTimeout(iloTimer); out.textContent = ''; mode = 'contested';
         await sp(3500); await ysay('...'); await sp(1500); await ysay('thank you.'); setSecret('hear'); await sp(1200);
