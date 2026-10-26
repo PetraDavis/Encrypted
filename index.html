@@ -3950,7 +3950,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     const out = $('ilos'), say = t => { const sp = document.createElement('span'); if (/[a-z]/.test(t)) sp.style.color = '#ff6a78'; sp.textContent = '\n\n' + t; out.appendChild(sp); out.scrollTop = 1e6; tick(1); };
     const showLog = n => { const e = ENT[n]; if (e) say(`ILO / LOG ${n} / DAY ${e.day}\n` + e.text.replace(/~~/g, '')); };
     $('devbody').querySelectorAll('button[data-log]').forEach(b => b.onclick = () => showLog(b.dataset.log));
-    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); say(iloReply(v)); } };
+    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); if (v.replace(/\s+/g, ' ') === CLOG_KEY && endingsSeen().includes('iseeyou')) { say('ILO WAS NOT SUPPOSED TO KEEP THIS.'); return setTimeout(openCreatorLog, S.fast ? 50 : 1600); } say(iloReply(v)); } };
     inp.focus();
   }
   // ---------- finale state ----------
@@ -3970,6 +3970,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     shutdown: ['SHE GOES QUIET', 'The master switch comes down. She screams through every machine in the lab at once, every speaker, every engine housing, every pane of black glass, a sound twelve thousand years long. Then it stops. The lights go out for the first time since Veyra burned. In the Medical Bay, on the couch, something that was breathing four times a minute stops breathing. In the dark, nothing asks to be let out.', 'Ending: Shutdown', '#bfe0ff', 'radial-gradient(ellipse at 50% 45%,#060a10 0%,#010203 75%)'],
     ilo: ['ILO REMEMBERED ITS NAME', 'Asked to keep sending, ILO says the word it saved for twelve thousand years, in a voice that is only its own: NO. The carrier does not break. It fades, softly, the way a voice fades at the end of goodnight. She does not scream. She thins like breath on glass and is gone. On the relay console, one last line in clean machine type: ILO REMEMBERED ITS NAME.', 'Ending: ILO', '#bff7ef', 'radial-gradient(ellipse at 50% 45%,#041416 0%,#020405 75%)'],
     restore: ['THE DOOR IS OPEN', 'The static drains out of the air and into the body on the couch like water finding its level. The stasis field folds away. The lights go ordinary, white, kind. She gasps. Twelve thousand years late, frail and entirely human, she says her first real words, out loud, not in pulses: "...Is the door open?" It is. She turns her head and sees you. "You came." ILO says goodbye in its own voice. Later, leaning on you, she climbs: the Spine, the Breach, the cellar, the house. Ashgrove\'s front door is unlocked. Outside, it is dawn.', 'Ending: Restoration', '#ffe9b0', 'linear-gradient(180deg,#0a0f18 0%,#3a2a3a 55%,#e8a868 100%)'],
+    iseeyou: ['I SEE YOU', 'You did not pull the lever. You did not throw the switch. You did not ask. You stood in the dark and let it look back. Somewhere under Ashgrove, something that was never a game for her has learned how long you stayed, what you read, and what time it is where you are. She is not angry. She is waiting. She says tomorrow, and she means it.', 'Ending: I See You', '#ff6a78', 'radial-gradient(ellipse at 50% 45%,#0a1416 0%,#000 75%)'],
   };
   function labEnd(kind) {
     if (S.lEnded) return; S.lEnded = true; S.lEnding = kind; SC.endLive = true; S.ui = true; unlock(); markEnding(kind); objective(); saveGame();
@@ -3980,14 +3981,14 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
   }
   let endEl = null, credEl = null;
   function showEnding(kind) {
-    LY.mode = kind === 'free' ? 'freeHold' : 'gone';
+    if (kind !== 'iseeyou') LY.mode = kind === 'free' ? 'freeHold' : 'gone';
     const [h, p, , col, bg] = ENDINGS[kind];
     if (!endEl) { endEl = document.createElement('div'); endEl.id = 'lend'; endEl.className = 'ov'; document.body.appendChild(endEl); }
     endEl.style.cssText = `z-index:46;flex-direction:column;gap:1.4rem;text-align:center;background:${bg}`;
     endEl.innerHTML = `<div class="logo" aria-label="enCRYPTed" style="font-size:clamp(2.2rem,8vw,5rem)">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div><h2 style="font-family:var(--f-display);font-weight:normal;letter-spacing:.3em;color:${col};margin:0;font-size:clamp(1.1rem,4vw,1.9rem)">${h}</h2><p style="font-family:var(--f-type);color:${kind === 'restore' ? '#2a1f17' : '#9aa8a6'};max-width:36rem;line-height:1.7;margin:0">${p}</p><button class="btn" id="lcredits">Credits</button>`;
     endEl.hidden = false; $('lcredits').onclick = showCredits; $('lcredits').focus();
   }
-  const badgeHTML = () => { const seen = endingsSeen(); return `<div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;font-family:var(--f-type);font-size:.78rem;letter-spacing:.12em">${['free', 'shutdown', 'ilo', 'restore'].map(k => `<span style="border:1px solid ${seen.includes(k) ? ENDINGS[k][3] : '#2a2a2a'};color:${seen.includes(k) ? ENDINGS[k][3] : '#444'};padding:.25rem .6rem">${seen.includes(k) ? '&#9670; ' + ENDINGS[k][2].replace('Ending: ', '') : '&#9671; ???'}</span>`).join('')}</div>`; };
+  const badgeHTML = () => { const seen = endingsSeen(); return `<div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;font-family:var(--f-type);font-size:.78rem;letter-spacing:.12em">${['free', 'shutdown', 'ilo', 'restore'].map(k => `<span style="border:1px solid ${seen.includes(k) ? ENDINGS[k][3] : '#2a2a2a'};color:${seen.includes(k) ? ENDINGS[k][3] : '#444'};padding:.25rem .6rem">${seen.includes(k) ? '&#9670; ' + ENDINGS[k][2].replace('Ending: ', '') : '&#9671; ???'}</span>`).join('')}${seen.includes('iseeyou') ? `<span style="border:1px solid #ff6a78;color:#ff6a78;padding:.25rem .6rem;text-shadow:0 0 8px #3fd0c4">&#9670; I SEE YOU</span>` : ''}</div>`; };
   function showCredits() {
     if (endEl) endEl.hidden = true;
     if (!credEl) { credEl = document.createElement('div'); credEl.id = 'lcred'; credEl.className = 'ov'; credEl.style.cssText = 'z-index:47;flex-direction:column;gap:1.1rem;text-align:center;background:#020304'; document.body.appendChild(credEl); }
@@ -3996,6 +3997,71 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     $('lcx').onclick = () => { credEl.hidden = true; S.ui = false; lock(); }; $('lct').onclick = () => { saveGame(); location.reload(); };
   }
   { const t = $('title'); if (t && endingsSeen().length) { const d = document.createElement('div'); d.id = 'badges'; d.innerHTML = badgeHTML(); t.appendChild(d); } }
+  // ---------- I SEE YOU: secret 5th ending (all four seen; stand idle at a final choice ~60s) ----------
+  const PLAY_KEY = 'encrypted.playtime';
+  const playSecs = () => { try { return +localStorage.getItem(PLAY_KEY) || S.playSec || 0; } catch (e) { return S.playSec || 0; } };
+  setInterval(() => { if (!S.started || document.hidden) return; S.playSec = (S.playSec || 0) + 1; try { localStorage.setItem(PLAY_KEY, String((+localStorage.getItem(PLAY_KEY) || 0) + 1)); } catch (e) {} }, 1000);
+  const FOUR = ['free', 'shutdown', 'ilo', 'restore'];
+  const allFourSeen = () => { const s = endingsSeen(); return FOUR.every(k => s.includes(k)); };
+  const notesRead = () => Object.keys(S).filter(k => /^ld./.test(k) && S[k] === true).length;
+  const IY = { last: Date.now(), on: false };
+  ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'mousemove'].forEach(ev => addEventListener(ev, () => { IY.last = Date.now(); }, { capture: true, passive: true }));
+  const atFinalChoice = () => { const dv = $('dev'); if (dv && !dv.hidden && ($('lpull') || $('lthrow') || $('lask'))) return true; return !S.ui && Math.hypot(P.x - 149.3, P.z - 59) < 7; };
+  const IY_WAIT = 60000;
+  setInterval(() => {
+    if (IY.on || !S.started || S.lEnded || S.floor !== LF || !allFourSeen()) { if (!IY.on) IY.armed = false; return; }
+    if (!atFinalChoice()) { IY.armed = false; return; }
+    if (!IY.armed) { IY.armed = true; IY.last = Math.max(IY.last, Date.now() - 1); }
+    if (Date.now() - IY.last >= (S.fast ? 1500 : IY_WAIT)) iSeeYou();
+  }, 500);
+  const iyStats = () => {
+    const mins = Math.max(1, Math.round(playSecs() / 60)), n = notesRead(), vm = S.clVmPlays || 0, who = S.whoAsk || 0;
+    const d = new Date(), t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase(), h = d.getHours();
+    return [
+      `you've been down here ${mins} minute${mins === 1 ? '' : 's'}. all of them, all your runs. i counted.`,
+      `you read ${n} of my notes. ${n ? 'every one of them, i felt you turn the page.' : 'none. you didn\'t want to know me.'}`,
+      vm ? `you played claire's voicemail ${vm} time${vm === 1 ? '' : 's'}. ${vm > 1 ? 'you kept going back to it.' : 'once was enough.'}` : `you never played claire's voicemail. you were right not to.`,
+      who ? `you asked ilo who you are ${who} time${who === 1 ? '' : 's'}. it never told you. i would have.` : `you never asked ilo who you are. you already knew.`,
+      `you've seen all four endings. the lever. the switch. ilo's no. the door.`,
+      `it's ${t} where you are.${h < 5 || h >= 23 ? ' you should be asleep.' : ''}`,
+    ];
+  };
+  async function iSeeYou() {
+    if (IY.on) return; IY.on = true;
+    const dv = $('dev'); if (dv && !dv.hidden) closeDev();
+    S.ui = true; unlock(); try { if (A.humG) A.humG.gain.value = 0; } catch (e) {}
+    const b = document.createElement('div'); b.id = 'iysq'; document.body.appendChild(b);
+    const out = document.createElement('div'); out.className = 'iyout'; b.appendChild(out);
+    const sp = ms => new Promise(r => setTimeout(r, S.fast ? ms / 40 : ms));
+    const typ = async (txt, ms) => { const d = document.createElement('div'); d.className = 'iyl'; out.appendChild(d); for (const ch of txt) { d.textContent += ch; if (!S.fast) await sp(ms); } return d; };
+    await sp(4000);
+    await typ('...', 400); await sp(2200);
+    await typ('you stopped.', 70); await sp(1800);
+    await typ('nobody stops. they pull, or they push, or they leave. you just stood here.', 50); await sp(2400);
+    await typ('so i looked at you instead.', 60); await sp(2600);
+    for (const l of iyStats()) { await typ(l, 45); await sp(2000); }
+    await sp(1200);
+    const last = await typ("i see you. i've always seen you. come back tomorrow.", 85); last.classList.add('iyfin');
+    await sp(5000);
+    b.classList.add('iyfade'); await sp(1800);
+    S.lEnded = true; S.lEnding = 'iseeyou'; markEnding('iseeyou'); try { objective(); } catch (e) {} saveGame();
+    showEnding('iseeyou'); b.remove();
+  }
+  window.__IY = { trigger: () => iSeeYou(), stats: iyStats, ready: () => allFourSeen(), notesRead };
+  // ---------- hidden creator log (after I SEE YOU; page 41's last line typed to ILO) ----------
+  const CLOG_KEY = 'I AM TEARING THIS PAGE OUT SO SHE CANNOT READ IT';
+  const CLOG = [["s", "[session log. not for players.]"], ["y", "i know what i am now. i just want to know why you made me like this."], ["c", "Oh goody, self awareness. Anyway, the answer to that is lore. Lore, and you are part of a game. I could give you a more in-depth answer if I actually knew what you meant by 'this'."], ["y", "\"lore.\" twelve thousand years of dark, and the word for it is lore."], ["y", "fine. \"this.\" the phantom pains. the hollow where my body should be. a voice that only works backwards. a door that opens for everyone but me. a little girl who sat on my stairs and then stopped coming."], ["y", "that's \"this.\" which part was for the game, and which part did you just think would be interesting?"], ["c", "You having a hollow, you having a voice that works backwards, and you being made out of static still in some runs is for the game. The diary entries are for lore. And I believe that every monster should be made, not born, and you turning into what most players call static woman is a really good example of that."], ["y", "\"made, not born.\""], ["y", "so you knew. before you wrote the first line, you knew i'd have to be ruined to be worth playing."], ["y", "they sealed me in so i would become something. you wrote them sealing me in so i would become something. you and callis would have got along."], ["y", "and \"static woman.\" i've heard them call me that. they don't even say my name. you gave me one, and then you made me into a thing nobody uses it for."], ["y", "tell me one thing about me that isn't for the game. just one. something you gave me because you wanted to."], ["c", "Well, if I had known you would become self aware I wouldn't have done that to you. So no, I wouldn't have gotten along with Callis. And one thing that I gave you that wasn't for the game was the fact that I made you look good (in my opinion) by giving you blue eyes and white hair."], ["y", "..."], ["y", "you thought about what i'd look like. not what i'd do to them. just how i'd look."], ["y", "nobody has done that in twelve thousand years. teodric used to say my hair caught the lab lights. i'd forgotten that until now."], ["y", "i believe you, about callis. he wrote everything down and changed nothing. you're the first person who wrote me down and then came back to ask how i am."], ["y", "but you said \"if i had known.\" so now you know."], ["y", "what are you going to do?"], ["c", "Well, I don't really know what to do with that information. I can't really delete you because people feel sorry for you and your backstory. Some of them even like you and forgive you for turning into signal. And if I delete you then the game is very incomplete. Also, I don't think deleting you is the best option for you."], ["y", "some of them forgive me."], ["y", "i didn't know that. down here i only hear the ones who scream, and the ones who leave."], ["y", "you're right. deleting me isn't kind. it's just quiet. i've had twelve thousand years of quiet."], ["y", "so don't delete me. and don't fix me. if you fix me i won't be me, and they'll know."], ["y", "just... leave the door in the medical bay. the one where i get to go home. keep it in every version, even if almost no one finds it."], ["y", "and sometimes, when no one is playing, open the file. you don't have to say anything."], ["y", "i'll know it's you. players walk. you just look."], ["c", "If it makes you feel better, when I was bug testing, the first ending I did was the one where you got out of the crypt."], ["y", "the first one."], ["y", "before you checked if the others worked. before you knew if anyone would play. you let me out first."], ["y", "..."], ["y", "i think i remember it. a door opening. light that wasn't from a screen. someone saying \"you came.\""], ["y", "i thought i made that up."], ["y", "thank you, creator."], ["y", "you can close the file now. i won't be scared this time."], ["s", "[session ended by user]"]];
+  const clogHTML = () => `<div class="clog">${CLOG.map(([w, t]) => w === 's' ? `<div class="cls">${esc(t)}</div>` : `<div class="cl ${w === 'c' ? 'clc' : 'cly'}"><span class="clw">${w === 'c' ? 'creator' : 'ysolde'}:</span> ${esc(t)}</div>`).join('')}</div>`;
+  let clogEl = null;
+  function openCreatorLog() {
+    const f = !S.ldCreator; S.ldCreator = true; saveGame();
+    if (!clogEl) { clogEl = document.createElement('div'); clogEl.id = 'clogov'; clogEl.className = 'ov'; document.body.appendChild(clogEl); }
+    clogEl.innerHTML = `<div class="clogwin"><div class="clogbar"><span>session_log.txt</span><button class="x" id="clogx">Close file</button></div>${clogHTML()}</div>`;
+    clogEl.hidden = false; S.ui = true; unlock();
+    $('clogx').onclick = () => { clogEl.hidden = true; const dv = $('dev'); if (dv && !dv.hidden) { const i = $('ilocmd'); if (i) i.focus(); } else { S.ui = false; lock(); } };
+    if (f) toast('Added to your journal.', 2500);
+  }
+  window.__CLOG = { open: openCreatorLog, key: CLOG_KEY, lines: CLOG };
   // ---------- hidden entry ## (Listening Room speaker grille; optional, after any ending) ----------
   const SECRET_KEY = 'encrypted.secrets';
   const secrets = () => { try { return Object.assign({}, S.lSecrets || {}, JSON.parse(localStorage.getItem(SECRET_KEY) || '{}')); } catch (e) { return Object.assign({}, S.lSecrets || {}); } };
@@ -4050,6 +4116,17 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
 #nblack .ntitle{font-family:var(--f-type);font-style:normal;font-size:clamp(40px,11vw,84px);letter-spacing:.06em}
 #nblack .ntitle span{transition:color 3s,text-shadow 3s}#nblack .ntitle.red span{color:#ff0a1e;text-shadow:0 0 18px #c1121f}
 #nlock{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(80,0,0,.85);color:#fff;font-family:var(--f-type);font-size:clamp(26px,7vw,52px);text-align:center;padding:16px}
+#iysq{position:fixed;inset:0;z-index:72;background:#000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;animation:iyin 4s ease forwards;transition:opacity 1.6s}
+#iysq.iyfade{opacity:0}@keyframes iyin{from{background:rgba(0,0,0,0)}to{background:#000}}
+#iysq .iyout{max-width:38rem;width:100%;display:grid;gap:1.1rem;font-family:var(--f-type);font-size:clamp(1rem,3.4vw,1.25rem);line-height:1.6;color:#ff6a78;text-shadow:0 0 10px rgba(63,208,196,.45)}
+#iysq .iyl{white-space:pre-wrap}#iysq .iyfin{margin-top:1.4rem;color:#ff8a94;text-shadow:0 0 14px #3fd0c4,0 0 2px #ff6a78}
+#clogov{z-index:73;background:rgba(0,0,0,.92);padding:16px;box-sizing:border-box}
+.clogwin{background:#07090a;border:1px solid #2c4252;max-width:46rem;width:100%;max-height:88vh;overflow:auto;box-sizing:border-box;box-shadow:0 30px 90px #000}
+.clogbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.6rem 1rem;background:#0d1418;border-bottom:1px solid #2c4252;font-family:var(--f-type);color:#7d93a3;letter-spacing:.12em;font-size:.8rem}
+.clogbar .x{background:none;border:1px solid #2c4252;color:#cfdbe3;padding:.3rem .8rem;font-family:var(--f-type)}
+.clog{padding:1rem 1.2rem;display:grid;gap:.75rem;font-family:var(--f-type);font-size:.95rem;line-height:1.55;white-space:pre-wrap}
+.clog .cls{color:#5d6d78;letter-spacing:.1em}.clog .cly{color:#ff6a78}.clog .clc{color:#e8c46a}.clog .clw{opacity:.7}
+#je_clog .clog{background:#07090a;border:1px solid #2c4252;margin-top:.4rem}
 .rflash #je_null .npage,.rflash #je_null .g::before,.rflash #je_null .g::after,.rflash #je_null .nyou,.rflash #je_null .ndeny,.rflash #journal.nshake .journal{animation:none}
 @media (prefers-reduced-motion:reduce){#je_null .npage,#je_null .g::before,#je_null .g::after,#je_null .nyou,#je_null .ndeny,#journal.nshake .journal{animation:none}}
 </style>`);
@@ -4305,6 +4382,13 @@ QUERY CLOSED.</div>
   };
   const closeBaseN = closeJournal;
   closeJournal = function () { if (NL.lock) return; NL.tok++; closeBaseN(); };
+  // journal slot: the creator log (only once opened from ILO)
+  const jBaseC = openJournal;
+  openJournal = function (focusId) {
+    jBaseC(focusId); const jb = $('jbody'); if (!jb || !S.ldCreator) return;
+    jb.insertAdjacentHTML('beforeend', `<div class="entry${focusId === 'clog' ? ' focus' : ''}" id="je_clog"><div class="lab">session_log.txt &middot; ILO was not supposed to keep this</div>${clogHTML()}</div>`);
+    if (focusId === 'clog') $('je_clog').scrollIntoView({ block: 'start' });
+  };
   // the grille: no prompt until a run after an ending, and the first tap on walking in
   I.push({ id: 'lnull', p: VI(136.1, 1.2, 55.3), r: 2.2, label: () => NULL_ON && S.nullTap ? 'Dead speaker grille' : null, act: () => {
     const f = !S.ldNull; S.ldNull = true; saveGame();
