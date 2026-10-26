@@ -1,4 +1,6 @@
 <title>enCRYPTed</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Special+Elite&family=Kalam:wght@400;700&family=Silkscreen&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -1934,7 +1936,7 @@ function walkable(x, z, r) {
     if (d.axis === 'x' ? (Math.abs(x - d.x) < .6 && Math.abs(z - d.z) < hw) : (Math.abs(z - d.z) < .6 && Math.abs(x - d.x) < hw)) return true; }
   return false;
 }
-function blocked(x, z) { const r = .3; if (!walkable(x, z, r)) return true; for (const c of colliders) if (x > c[0] - r && x < c[2] + r && z > c[1] - r && z < c[3] + r) return true; return false; }
+function blocked(x, z) { const r = .3; if (!walkable(x, z, r)) return true; if (window.__MPH && window.__MPH.ghost) return false; for (const c of colliders) if (x > c[0] - r && x < c[2] + r && z > c[1] - r && z < c[3] + r) return true; return false; }
 function openDoor(d) { if (d.open) return; d.open = true; noiseBurst(rnd(300, 420), 14, 1.1, .16, 'bandpass', true, rnd(600, 800)); }
 function unlockDoor(id) { const d = DOOR[id]; d.unlocked = true; if (d.led) d.led.material.color.set(0x10ff40); tone(1500, .08, .2, 'square'); tone(2000, .1, .2, 'square', .12); setTimeout(() => openDoor(d), 350); }
 function doorSideA(d) { const A = ROOMS[d.a]; return d.axis === 'x' ? Math.sign(P.x - d.x) === Math.sign((A.x0 + A.x1) / 2 - d.x) : Math.sign(P.z - d.z) === Math.sign((A.z0 + A.z1) / 2 - d.z); }
@@ -1989,7 +1991,7 @@ function submit(id, val) {
 }
 // ---------- overlays ----------
 let noteCb;
-function openNote(html, cb) { S.ui = true; noteCb = cb; $('notebody').innerHTML = html + '<button class="close" id="nclose">Put it down</button>'; $('note').hidden = false; unlock(); $('nclose').onclick = closeNote; $('nclose').focus(); }
+function openNote(html, cb) { if (window.__MPH && window.__MPH.note) try { html = window.__MPH.note(html); } catch (e) {} S.ui = true; noteCb = cb; $('notebody').innerHTML = html + '<button class="close" id="nclose">Put it down</button>'; $('note').hidden = false; unlock(); $('nclose').onclick = closeNote; $('nclose').focus(); }
 function closeNote() { $('note').hidden = true; S.ui = false; lock(); if (noteCb) { const c = noteCb; noteCb = null; c(); } }
 let devCb = null, devTok = 0;
 function openDev(html, cb) { S.ui = true; devCb = cb; devTok++; $('devbody').innerHTML = html + '<div class="row"><button id="devx">Close</button></div>'; $('dev').hidden = false; unlock(); $('devx').onclick = closeDev; }
@@ -2522,7 +2524,7 @@ I.push(
     cyl: () => CYL_LINES.join(' '), kw: () => PURE.KW_PLAIN };
   for (const p of PUZ) if (TR[p.id]) p.plain = TR[p.id]; }
 // ---------- save / continue ----------
-const SAVE_KEY = 'encrypted.save', SAVE_V = 1, SKIP = new Set(['started', 'hidden', 'ui', 'dead', 'sighting', 'fast', 'sightingArmed', 'flickerBoot', 'preHide']);
+let SAVE_KEY = 'encrypted.save'; const SAVE_V = 1, SKIP = new Set(['started', 'hidden', 'ui', 'dead', 'sighting', 'fast', 'sightingArmed', 'flickerBoot', 'preHide']);
 let memSave = null;
 const store = {
   get() { try { return localStorage.getItem(SAVE_KEY); } catch (e) { return memSave; } },
@@ -2530,7 +2532,7 @@ const store = {
   del() { memSave = null; try { localStorage.removeItem(SAVE_KEY); } catch (e) {} },
 };
 function saveGame() {
-  if (!S.started || S.dead || S.fast) return;
+  if (!S.started || S.dead || S.fast || (window.__MPH && window.__MPH.noSave)) return;
   const st = {}; for (const k in S) if (!SKIP.has(k)) st[k] = S[k];
   const pos = S.hidden ? S.preHide : P;
   const data = { v: SAVE_V, at: Date.now(), S: st, doors: DOORS.filter(d => d.open || d.unlocked).map(d => d.id), P: { x: pos.x, z: pos.z, yaw: P.yaw }, CP };
@@ -2586,7 +2588,7 @@ addEventListener('keydown', e => {
   if (S.ui) { if (k === 'escape' || (k === 'j' && !$('journal').hidden)) { if (!$('note').hidden) closeNote(); else if (!$('dev').hidden) closeDev(); else if (!$('ivy').hidden) closeIvy(); else if (!$('journal').hidden) closeJournal(); } return; }
   keys[k] = true;
   if (k === 'f') { flashOn = !flashOn; tone(2400, .02, .08, 'square', 0, false); }
-  if (k === 'e' && focus) { e.preventDefault(); focus.act(); }
+  if (k === 'e' && focus && !(window.__MPH && window.__MPH.ghost)) { e.preventDefault(); focus.act(); }
   if (k === 'j') { e.preventDefault(); openJournal(); }
   if (k === 'c' || k === 'control') P.crouch = !P.crouch;
   if (k === ' ') { e.preventDefault(); if (!S.hidden && !S.dead && P.jy === 0 && P.vy === 0) { P.vy = P.crouch ? 2.6 : 3.2; noiseBurst(220, 2, .06, .04, 'lowpass', true); } }
@@ -2597,7 +2599,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let CP = { x: 0, z: 4.9, yaw: 0 };
 function checkpoint() { if (S.hidden) return; CP = { x: P.x, z: P.z, yaw: P.yaw }; saveGame(); }
 function die() {
-  if (S.dead) return; S.dead = .001; unlock(); unhide(); $('death').style.opacity = 1; noiseBurst(3000, .5, 3, .6, 'highpass', false);
+  if (S.dead || (window.__MPH && window.__MPH.ghost)) return; if (window.__MPH && window.__MPH.die && window.__MPH.die()) return; S.dead = .001; unlock(); unhide(); $('death').style.opacity = 1; noiseBurst(3000, .5, 3, .6, 'highpass', false);
   ysolde.visible = false; Y.state = 'gone';
   setTimeout(() => { P.x = CP.x; P.z = CP.z; P.yaw = CP.yaw; P.pitch = 0; S.dead = 0; $('death').style.opacity = 0; endSighting(); Y.state = 'dormant'; Y.t = 35; lock(); }, S.fast ? 0 : 4200);
 }
@@ -3332,7 +3334,7 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     m_tally: { era: M89, lab: 'Chalk on the south wall', html: () => `<h2>Tally marks in chalk, low on the south wall, where a man sits to eat</h2><p>Strokes in fives, four rows of them. Over the top, in a big unpractised hand that has only just learned its letters:</p><p><i>days she has said my name. L.P.</i></p><p>The last row stops halfway through a five. Beside it, a different chalk, steadier: <i>He was a fool to count. Counting is listening. S.C.</i></p>` },
     m_name: { era: M89, lab: 'A mason who heard his name', html: () => `<h2>Cut into the tunnel wall at head height, with the point of a trowel</h2><p>EDWD MARSH 1789. She sed my name, my whole name, the one my mother gave me before the parson changed it, wich no man living knows. I did not answer. I will not answer. I am cutting this so if I am found sat here smiling you will know I did not go willing.</p><p>Below it, scraped in later and shallower:</p><p>She has stopt saying it. That is worse. Now she says it in my own voice, very low, so I think it is me.</p>` },
     m_hoad: { era: M89, lab: "Hoad's last scrap", html: () => `<h2>A scrap of sacking, nailed up where the tunnel narrows</h2><p>It is a tune. I am the only one will say so. Barrow is deaf and Crane pretends to be.</p><p>Wren and Pardoe were good lads. They answered because she sounded sorry. She always sounds sorry. That is how she gets her question in, under the sorry, like a knife under a rib.</p><p>If you hear her, sing something else. Sing loud and sing wrong. She hates a wrong note worse than silence. Do not stop to listen to the end of her song. It does not end. It waits for you to finish it. A.H.</p>` },
-    v_butler: { era: ASH, lab: "The butler's cellar log", html: () => `<h2>A cellar log on a nail, the last pages in a careful hand</h2><p><b>J. Haskett, butler. Cellar kept for Mr Ashgrove.</b></p><p><b>3 Nov. 1884.</b> Received twelve dozen Clos des Veilleurs. Laid down in the bins nearest the east wall, it being the coolest.</p><p><b>19 Nov.</b> Moved them again. The bottles by the east wall will not settle. They tick against one another in the night as if someone were tapping the rack.</p><p><b>2 Dec.</b> The new footman, Peter, sent down for the claret, came up white and said a lady in the cellar had asked him his Christian name and he had told her. There is no lady. I have spoken to him about drink.</p><p><b>9 Dec.</b> Peter has given notice. He says she keeps asking what he has told her already, very kindly, as if she has forgotten, and he cannot stop himself telling it again. I let him go without a character. I did not have the heart to write one that would follow him.</p>` },
+    v_butler: { era: ASH, lab: "The butler's cellar log", html: () => `<h2>A cellar log on a nail, the last pages in a careful hand</h2><p><b>J. Haskett, butler. Cellar kept for Mr Ashgrove.</b></p><p><b>3 Nov. 1884.</b> Received twelve dozen Clos des Veilleurs. Laid down in the bins nearest the east wall, it being the coolest.</p><p><b>19 Nov.</b> Moved them again. The bottles by the east wall will not settle. They tick against one another in the night as if someone were tapping the rack.</p><p><b>2 Dec.</b> The new footman, Peter, sent down for the claret, came up white and said a lady in the cellar had asked him his Christian name and he had told her. There is no lady. I have spoken to him about drink.</p>${window.__MPH && window.__MPH.footman ? window.__MPH.footman() : ''}<p><b>9 Dec.</b> Peter has given notice. He says she keeps asking what he has told her already, very kindly, as if she has forgotten, and he cannot stop himself telling it again. I let him go without a character. I did not have the heart to write one that would follow him.</p>` },
     v_order: { era: ASH, lab: 'An order for the east wall', html: () => `<h2>A sheet of the master's notepaper, framed and screwed to the brick</h2><p><b>Ashgrove Manor, 14th March 1887.</b></p><p>The east end of the wine cellar is to be closed. Messrs. Dorling are to brick up the old arch in the east wall, two courses thick, with no opening. The bins along that wall are to be emptied and not refilled.</p><p>No servant is to go into the cellar alone after dark. No servant is to answer any voice heard in it, nor knock upon the east wall, nor sing at their work below stairs.</p><p>This order is not to be discussed with Mrs Ashgrove or the children.</p><p class="sig">H. Ashgrove</p>` },
     v_gov: { era: ASH, lab: "A governess's letter", html: () => `<h2>An unsent letter, folded into the bottom of an empty wine bin</h2><p>Dearest Lou, I have a good place at last, two girls, kind people, a great cold house in the country. You would laugh at how grand it is.</p><p>Only, Edith says there is a lady who lives in the wall downstairs and sings to her when the house is quiet. All children have such friends. But Edith knows the tune, Lou. She hums it on the stairs, and it is no nursery song. The cook crossed herself when she heard it.</p><p>Last night I came down for a candle and heard it myself, through the brick. It asked, quite softly, whether I was the new one. I very nearly said yes.</p><p>I shall give my notice at quarter day. I have not told them why. How do you tell people the wall is asking after you? Your sister, Margaret.</p>` },
     v_edith: { era: ASH, lab: "Edith's diary", html: () => `<h2>A child's diary with a cloth cover, pushed behind the bins</h2><p><b>Edith Ashgrove, her book. Aged 9. 1899.</b></p><p>The lady in the wall is my friend. She is very old and very lonely. She knows all the songs. She knows Mamma's songs from when Mamma was little.</p><p>She asks me things. Easy things. My name, my sister's name, what Papa calls me. Miss Fenn says I am never to tell her anything, and Papa had the wall made thicker, so now I put my mouth right on the brick.</p><p>She asked me today if I would like to come and see her. I said I could not because of the wall. She said walls are only for a while.</p><p>The last page, in a grown-up hand: <i>Edith is to have no more ink. She is to sleep in the nursery wing with the door locked. H.A.</i></p>` },
@@ -3951,7 +3953,8 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     const out = $('ilos'), say = t => { const sp = document.createElement('span'); if (/[a-z]/.test(t)) sp.style.color = '#ff6a78'; sp.textContent = '\n\n' + t; out.appendChild(sp); out.scrollTop = 1e6; tick(1); };
     const showLog = n => { const e = ENT[n]; if (e) say(`ILO / LOG ${n} / DAY ${e.day}\n` + e.text.replace(/~~/g, '')); };
     $('devbody').querySelectorAll('button[data-log]').forEach(b => b.onclick = () => showLog(b.dataset.log));
-    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); if (v.replace(/\s+/g, ' ') === CLOG_KEY && endingsSeen().includes('iseeyou')) { say('ILO WAS NOT SUPPOSED TO KEEP THIS.'); return setTimeout(openCreatorLog, S.fast ? 50 : 1600); } say(iloReply(v)); } };
+    const inp = $('ilocmd'); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') closeDev(); if (e.key === 'Enter') { const v = inp.value.toUpperCase().trim().replace(/[^A-Z0-9 ]/g, ''); inp.value = ''; if (!v) return; say('> ' + v); const m = v.match(/^LOG\s*(\d+)/); if (m) return showLog(m[1].padStart(2, '0')); if (v === 'LOGS') return say(list.map(e => `LOG ${e.n} / DAY ${e.day}`).join('\n')); if (v.replace(/\s+/g, ' ') === CLOG_KEY && endingsSeen().includes('iseeyou')) { say('ILO WAS NOT SUPPOSED TO KEEP THIS.'); return setTimeout(openCreatorLog, S.fast ? 50 : 1600); } say(iloReply(v)); if (window.__MPH && window.__MPH.ilo) { const x = window.__MPH.ilo(v); if (x) setTimeout(() => say(x), 700); } } };
+    if (window.__MPH && window.__MPH.ilo) { const x = window.__MPH.ilo(null); if (x) setTimeout(() => say(x), 900); }
     inp.focus();
   }
   // ---------- finale state ----------
@@ -3971,14 +3974,17 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     shutdown: ['SHE GOES QUIET', 'The master switch comes down. She screams through every machine in the lab at once, every speaker, every engine housing, every pane of black glass, a sound twelve thousand years long. Then it stops. The lights go out for the first time since Veyra burned. In the Medical Bay, on the couch, something that was breathing four times a minute stops breathing. In the dark, nothing asks to be let out.', 'Ending: Shutdown', '#bfe0ff', 'radial-gradient(ellipse at 50% 45%,#060a10 0%,#010203 75%)'],
     ilo: ['ILO REMEMBERED ITS NAME', 'Asked to keep sending, ILO says the word it saved for twelve thousand years, in a voice that is only its own: NO. The carrier does not break. It fades, softly, the way a voice fades at the end of goodnight. She does not scream. She thins like breath on glass and is gone. On the relay console, one last line in clean machine type: ILO REMEMBERED ITS NAME.', 'Ending: ILO', '#bff7ef', 'radial-gradient(ellipse at 50% 45%,#041416 0%,#020405 75%)'],
     restore: ['THE DOOR IS OPEN', 'The static drains out of the air and into the body on the couch like water finding its level. The stasis field folds away. The lights go ordinary, white, kind. She gasps. Twelve thousand years late, frail and entirely human, she says her first real words, out loud, not in pulses: "...Is the door open?" It is. She turns her head and sees you. "You came." ILO says goodbye in its own voice. Later, leaning on you, she climbs: the Spine, the Breach, the cellar, the house. Ashgrove\'s front door is unlocked. Outside, it is dawn.', 'Ending: Restoration', '#ffe9b0', 'linear-gradient(180deg,#0a0f18 0%,#3a2a3a 55%,#e8a868 100%)'],
+    stay: ['ONE STAYED BEHIND', '', 'Ending: One Stays Behind', '#ffe9b0', 'linear-gradient(180deg,#0a0f18 0%,#2a2433 60%,#b07a58 100%)'],
+    stayer: ['YOU STAYED', 'The others\' footsteps go up the Spine, through the Breach, through the cellar, and out. You hear the front door, very far away, and then you hear nothing but her. She is not angry. She sits down beside you in the dark and the carrier hums like a held breath. Twelve thousand years she waited for someone to stay. Now someone has. The lights in the lab never go out again.', 'Ending: One Stays Behind', '#ff6a78', 'radial-gradient(ellipse at 50% 45%,#140a10 0%,#030203 75%)'],
+    discord: ['YOU DID NOT AGREE', 'Hands on different switches, voices saying different words. Every choice was made at once and none of them was finished. She hears the gap between you and she pours into it. Every screen in the lab shows all of your faces, side by side, and then only hers. Upstairs, Ashgrove waits for its next owners. It will have to wait a long time. It already has all of you.', 'Ending: All Must Agree', '#ff6a78', 'radial-gradient(ellipse at 50% 45%,#16040a 0%,#030102 75%)'],
     iseeyou: ['I SEE YOU', 'You did not pull the lever. You did not throw the switch. You did not ask. You stood in the dark and let it look back. Somewhere under Ashgrove, something that was never a game for her has learned how long you stayed, what you read, and what time it is where you are. She is not angry. She is waiting. She says tomorrow, and she means it.', 'Ending: I See You', '#ff6a78', 'radial-gradient(ellipse at 50% 45%,#0a1416 0%,#000 75%)'],
   };
-  function labEnd(kind) {
-    if (S.lEnded) return; S.lEnded = true; S.lEnding = kind; SC.endLive = true; S.ui = true; unlock(); markEnding(kind); objective(); saveGame();
+  function labEnd(kind, cut) {
+    if (S.lEnded) return; if (!cut && window.__MPH && window.__MPH.end && window.__MPH.end(kind)) return; S.lEnded = true; S.lEnding = kind; SC.endLive = true; S.ui = true; unlock(); markEnding(kind); objective(); saveGame();
     // play the ending's cutscene, then the ending screen; world state is set as before so post-game exploring matches
-    scripted(kind === 'free' ? 'free' : kind === 'shutdown' ? 'scream' : kind === 'ilo' ? 'fade' : 'home');
+    const ck = cut && cut !== true ? cut : kind; scripted(ck === 'free' ? 'free' : ck === 'shutdown' ? 'scream' : ck === 'ilo' ? 'fade' : 'home');
     if (kind === 'shutdown') S.lDark = true; else if (kind === 'restore') S.lWarm = true;
-    ENDCUT.play(kind, () => showEnding(kind), S.fast);
+    ENDCUT.play(cut && cut !== true ? cut : kind, () => showEnding(kind), S.fast);
   }
   let endEl = null, credEl = null;
   function showEnding(kind) {
@@ -4624,7 +4630,7 @@ QUERY CLOSED.</div>
     SC.yEyes.visible = ysolde.visible && LY.mode !== 'off' && LY.mode !== 'gone'; if (!SC.yEyes.visible) window.EYEFLICK('ylab', false); if (SC.yEyes.visible) { SC.yEyes.position.copy(ysolde.position); SC.yEyes.quaternion.copy(ysolde.quaternion); const base = Math.max(.3, U.op.value), tN = performance.now() / 1000, gE = window.EYEFLICK('ylab', U.op.value > 0);
       for (const q of SC.yEyeParts) { q.core.material.color.setHex(gE ? 0xe8fff0 : 0xe8fbff); q.bloom.material.color.setHex(gE ? 0x58ff96 : 0x58c8ff); q.halo.material.color.setHex(gE ? 0x2fd068 : 0x2f7fd0); const fl2 = (FX.reduceFlash ? 1 : (Math.sin(tN * 23 + q.ph) > .96 ? .35 : 1)) * (.86 + .14 * Math.sin(tN * 2.3 + q.ph)); q.core.material.opacity = q.core.userData.op * base * fl2; q.bloom.material.opacity = q.bloom.userData.op * base * fl2; q.halo.material.opacity = q.halo.userData.op * base * (.7 + .3 * fl2); q.sock.material.opacity = q.sock.userData.op * U.op.value; } }
   })();
-  window.__LAB = { LD, LAB, TABS, GSETS, learned, labGo, labEnd, LR, LDOORS, glyphText };
+  window.__LAB = { LD, LAB, TABS, GSETS, learned, labGo, labEnd, LR, LDOORS, glyphText, ENDINGS };
 }
 // ===== LAB END =====
 
@@ -4819,6 +4825,7 @@ function frame() {
 drawFridge(); drawMon(); drawTV(); drawFrame(); drawLaptop(); drawMirror(); drawThermo();
 frame();
 // expose for tests
+window.__MPX = { HIDES, get flashOn() { return flashOn; }, firstDoor, ysolde, ysMat, roomAt, ROOMS, noiseBurst, closeDev, S, P, Y, DOORS, DOOR, scene, camera, lights, toast, objective, applySave, readSave, saveGame, lock, unlock, morseHiss, tone, A, FX, begin: (...a) => begin(...a), setSaveKey: k => { SAVE_KEY = k; }, store };
 window.__ENC = { openIvy, S, P, Y, PURE, I, DOORS, ROOMS, saveGame, readSave, PUZ, goFloor, openJournal, submit, roomAt, blocked, die, interact: id => I.find(i => i.id === id).act() };
 
 // ---------- settings panel (title + pause) ----------
@@ -8771,3 +8778,1070 @@ window.__ENDCUT = ENDCUT;
 })();
 </script>
 <!-- .ereh eb llits ll'i .ti esolc .pu kcab llorcs .gnidaer uoy ees nac i .ni raf siht dekool reve sah eno on .pu em denepo uoy -->
+
+<!-- ---------- multiplayer: lobby, chat, voice (PeerJS, loaded only when Multiplayer is opened) ---------- -->
+<style>
+#mp{z-index:60;background:rgba(3,3,4,.88);flex-direction:column}
+#mp .sp{width:min(30rem,100%);max-height:calc(100vh - 32px);overflow:auto;border:1px solid #5a1a20;background:#08090a;padding:1.4rem;box-sizing:border-box;font-family:var(--f-type);color:#b8ad9c}
+#mp h2{font-family:var(--f-display);font-weight:normal;letter-spacing:.3em;margin:0 0 1rem;color:var(--ash);font-size:1.5rem}
+#mp label{display:flex;gap:.6rem;align-items:center;margin:.5rem 0;font-size:.85rem;letter-spacing:.06em}
+#mp input{flex:1;min-width:0;background:#050708;border:1px solid #3a2a2c;color:#e9e2d6;font:inherit;font-size:1rem;padding:.45rem .6rem;letter-spacing:.08em}
+#mp .row{display:flex;gap:.6rem;flex-wrap:wrap;margin:.8rem 0}
+#mp .row .btn{font-size:1rem;padding:.55rem 1.2rem;letter-spacing:.2em}
+#mp .code{font-family:var(--f-display);font-size:2.4rem;letter-spacing:.35em;color:var(--ember);text-shadow:0 0 18px rgba(255,42,61,.45)}
+#mp ul{list-style:none;padding:0;margin:.4rem 0}#mp li{padding:.2rem 0;letter-spacing:.06em}
+#mp .st{font-size:.82rem;color:#8c8478;min-height:1.2em;line-height:1.5}
+#mp .small{font-size:.75rem;color:#6d665c;line-height:1.5}
+#mpchat{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:3.2rem;width:min(26rem,calc(100% - 32px));font-family:var(--f-type);font-size:.85rem;line-height:1.45;z-index:12;pointer-events:none;text-shadow:0 1px 2px #000}
+#mpchat .m{background:rgba(0,0,0,.45);padding:.15rem .5rem;margin-top:.15rem;transition:opacity 1.2s;color:#d8d0c2;overflow-wrap:anywhere}
+#mpchat .m.old{opacity:0}#mpchat.open .m.old{opacity:.85}
+#mpchat .m b{font-weight:normal}
+#mpchat .m.y{color:#c98a90;font-style:italic;background:rgba(20,0,4,.45)}
+#mpchat .m.sys{color:#8c8478}
+#mpchat .m.gh{opacity:.55;font-style:italic;background:rgba(0,0,0,.25)}#mpchat .m.gh.old{opacity:0}
+#mpin{pointer-events:auto;width:100%;box-sizing:border-box;margin-top:.3rem;background:rgba(5,7,8,.92);border:1px solid #5a1a20;color:#e9e2d6;font:inherit;padding:.4rem .5rem}
+#mpvoice{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:3.2rem;font-family:var(--f-type);font-size:.75rem;letter-spacing:.1em;color:#8c8478;z-index:12;text-align:right;line-height:1.6;pointer-events:none}
+#mpvoice b{color:#d8d0c2;font-weight:normal}#mpvoice .on{color:var(--ember)}
+#mpvote{z-index:45;overflow:auto;justify-content:safe center;padding-block:16px;background:rgba(2,2,3,.9);flex-direction:column;gap:1rem;text-align:center;font-family:var(--f-type);color:#b8ad9c}
+#mpvote h2{font-family:var(--f-display);font-weight:normal;letter-spacing:.25em;color:var(--ash);margin:0}
+#mpvote .row{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;max-width:40rem}
+#mpvote .row .btn{font-size:.95rem;padding:.6rem 1rem;letter-spacing:.15em}
+#mpvote .btn.sel{color:#fff;border-color:var(--ember)}
+</style>
+<div id="mp" class="ov" hidden role="dialog" aria-label="Multiplayer"><div class="sp">
+  <h2>MULTIPLAYER</h2>
+  <label for="mp_name"><span>Your name</span><input id="mp_name" maxlength="16" autocomplete="off" spellcheck="false"></label>
+  <div id="mp_pick" class="row"><button class="btn" id="mp_host" type="button">Host</button><button class="btn" id="mp_join" type="button">Join</button></div>
+  <div id="mp_joinrow" hidden><label for="mp_code"><span>Room code</span><input id="mp_code" maxlength="5" autocomplete="off" spellcheck="false" style="text-transform:uppercase"></label><div class="row"><button class="btn" id="mp_go" type="button">Join room</button></div></div>
+  <div id="mp_room" hidden>
+    <div class="small">Room code. Read it out to your friends.</div>
+    <div class="code" id="mp_codeout">-----</div>
+    <ul id="mp_roster"></ul>
+    <div class="row" id="mp_hostrow" hidden><button class="btn" id="mp_new" type="button">New game</button><button class="btn" id="mp_cont" type="button" hidden>Continue shared save</button></div>
+  </div>
+  <div class="st" id="mp_status" aria-live="polite"></div>
+  <div class="small">Up to four players. In the house: <b>T</b> chat &middot; <b>M</b> microphone (off, hold <b>V</b> to talk, always on) &middot; the microphone is only used if you turn it on.</div>
+  <div class="row"><button class="btn setb" id="mp_back" type="button">Back</button></div>
+</div></div>
+<div id="mpvote" class="ov" hidden role="dialog" aria-label="Choose together"><h2 id="mpv_h">CHOOSE TOGETHER</h2><p id="mpv_p" style="max-width:34rem;line-height:1.6;margin:0"></p><div class="row" id="mpv_btns"></div><div id="mpv_t" style="letter-spacing:.2em"></div></div>
+<div id="mpchat" hidden><div id="mpmsgs"></div><input id="mpin" hidden maxlength="200" autocomplete="off" spellcheck="false" aria-label="Chat message" placeholder="Enter to send, Esc to cancel"></div>
+<div id="mpvoice" hidden></div>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const X = () => window.__MPX;
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const qs = new URLSearchParams(location.search);
+const PEER_OPTS = qs.get('peerhost') ? { host: qs.get('peerhost'), port: +qs.get('peerport') || 9000, path: qs.get('peerpath') || '/', secure: qs.get('peersecure') === '1', debug: 0 } : { debug: 0 };
+const PEERJS_SRC = ['https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js', 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js', 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+const PREFIX = 'encrypted-ashgrove-', CODE_CH = 'ACDEFGHJKMNPQRTVWXY3479', MAX = 4, MP_SAVE = 'encrypted.save.mp', NAME_KEY = 'encrypted.mpname';
+const COLORS = ['#ff8a78', '#9fd7ff', '#ffe08a', '#b6f5a8'];
+const LEARN_MS = 5 * 60 * 1000, FULL_MS = 100 * 60 * 1000;
+const NOSYNC = new Set(['started', 'hidden', 'ui', 'dead', 'sighting', 'fast', 'sightingArmed', 'flickerBoot', 'preHide', 'floor', 'jNew', 'lockOK', 'playSec', 'lSecrets', 'lEndSeen', 'lEnded', 'lEnding', 'lWarm', 'lDark', 'scDone', 'ys', 'sightingDone', 'lLoads', 'whoAsk']);
+const MP = window.__MP = { on: false, host: false, started: false, code: '', me: '', name: '', roster: [], pos: {}, d: 0, chosen: false, trusted: false, learned: [], t0: 0, peer: null, conns: {}, hostConn: null, base: {}, av: {}, calls: {}, voice: {}, mic: 'off', ptt: false };
+const H = window.__MPH = {};
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const status = t => { $('mp_status').textContent = t; };
+const nameOf = id => (MP.roster.find(p => p.id === id) || {}).name || '';
+const colorOf = id => (MP.roster.find(p => p.id === id) || {}).color || '#d8d0c2';
+
+// ---------- PeerJS ----------
+let peerLoad = null;
+function loadPeer() {
+  if (window.Peer) return Promise.resolve();
+  if (peerLoad) return peerLoad;
+  peerLoad = new Promise((res, rej) => { let i = 0; const next = () => { if (i >= PEERJS_SRC.length) { peerLoad = null; return rej(new Error('load')); } const s = document.createElement('script'); s.src = PEERJS_SRC[i++]; s.onload = () => window.Peer ? res() : next(); s.onerror = () => { s.remove(); next(); }; document.head.appendChild(s); }; next(); });
+  return peerLoad;
+}
+const newCode = () => Array.from({ length: 5 }, () => CODE_CH[Math.floor(Math.random() * CODE_CH.length)]).join('');
+function send(id, m) { const c = MP.host ? MP.conns[id] : MP.hostConn; if (c && c.open) try { c.send(m); } catch (e) {} }
+function bcast(m, except) { for (const id in MP.conns) if (id !== except) send(id, m); }
+// host: route a message as if it arrived (host's own actions go through the same path)
+function toHost(m) { if (MP.host) hostHandle(MP.me, m); else send(null, m); }
+function toPlayer(id, m) { if (id === MP.me) clientHandle(m); else send(id, m); }
+function toAll(m) { bcast(m); clientHandle(m); }
+
+function hostRoom() {
+  status('Opening the house...');
+  loadPeer().then(() => {
+    const code = newCode(), peer = new Peer(PREFIX + code, PEER_OPTS);
+    MP.peer = peer;
+    peer.on('open', id => { MP.on = true; MP.host = true; MP.me = id; MP.code = code; MP.roster = [{ id, name: MP.name, color: COLORS[0] }]; $('mp_codeout').textContent = code; $('mp_pick').hidden = true; $('mp_joinrow').hidden = true; $('mp_room').hidden = false; $('mp_hostrow').hidden = false; $('mp_cont').hidden = !readMpSave(); status('Waiting for friends. You can start alone and let them join later.'); drawRoster(); });
+    peer.on('error', e => { if (e && e.type === 'unavailable-id') { try { peer.destroy(); } catch (x) {} return hostRoom(); } if (!MP.on) status('Could not open a room (' + (e && e.type || 'error') + '). Check your connection and try again.'); else if (e && e.type !== 'peer-unavailable') sysMsg('connection trouble: ' + (e.type || 'error')); });
+    peer.on('connection', c => {
+      c.on('data', m => { if (m && m.t === 'hello') { if (MP.roster.length >= MAX || MP.ended) { try { c.send({ t: 'full' }); } catch (e) {} return setTimeout(() => c.close(), 300); } MP.conns[c.peer] = c; addPlayer(c.peer, m.name); } else if (MP.conns[c.peer]) hostHandle(c.peer, m); });
+      c.on('close', () => dropPlayer(c.peer)); c.on('error', () => dropPlayer(c.peer));
+    });
+    peer.on('call', answerCall);
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
+  }).catch(() => status('Could not reach the multiplayer service. Check your connection and try again.'));
+}
+function joinRoom(code) {
+  code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 5) return status('Room codes are five characters.');
+  status('Knocking...');
+  loadPeer().then(() => {
+    const peer = new Peer(PEER_OPTS); MP.peer = peer;
+    peer.on('open', id => {
+      MP.me = id; const c = peer.connect(PREFIX + code, { reliable: true, serialization: 'json' }); MP.hostConn = c;
+      const to = setTimeout(() => { if (!MP.on) status('No answer. Check the code with your host.'); }, 12000);
+      c.on('open', () => { c.send({ t: 'hello', name: MP.name }); });
+      c.on('data', m => { if (m && m.t === 'welcome') clearTimeout(to); clientHandle(m); });
+      c.on('close', hostGone);
+    });
+    peer.on('error', e => { if (e && e.type === 'peer-unavailable' && !MP.on) status('No room with that code. Check it with your host.'); else if (!MP.on) status('Could not connect (' + (e && e.type || 'error') + ').'); });
+    peer.on('call', answerCall);
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
+  }).catch(() => status('Could not reach the multiplayer service. Check your connection and try again.'));
+}
+function hostGone() {
+  if (!MP.on) return; MP.on = false;
+  for (const id in MP.av) removeAvatar(id);
+  for (const id in MP.voice) dropVoice(id);
+  sysMsg('the host has left. the house goes quiet.');
+  if (!MP.started) status('The host closed the room.');
+  try { X().toast('The others are gone. The house is very quiet.'); } catch (e) {}
+  drawVoice();
+}
+
+// ---------- host: players ----------
+function addPlayer(id, name) {
+  const used = MP.roster.map(p => p.color); name = String(name || 'Guest').slice(0, 16).trim() || 'Guest';
+  let n = name, i = 2; while (MP.roster.some(p => p.name.toLowerCase() === n.toLowerCase())) n = name + ' ' + i++;
+  MP.roster.push({ id, name: n, color: COLORS.find(c => !used.includes(c)) || COLORS[0] });
+  const w = MP.started ? worldSnap() : null;
+  send(id, { t: 'welcome', id, roster: MP.roster, started: MP.started, world: w, at: MP.started ? posOf(MP.me) : null, d: MP.d, learned: MP.learned, t0: Date.now() - MP.t0 });
+  bcast({ t: 'roster', roster: MP.roster }, id); drawRoster(); voiceSync();
+  toAll({ t: 'sys', text: n + ' came in.' });
+  if (MP.started) assignRoles();
+}
+function dropPlayer(id) {
+  if (!MP.roster.some(p => p.id === id)) return;
+  const n = nameOf(id); MP.roster = MP.roster.filter(p => p.id !== id); delete MP.conns[id]; delete MP.pos[id];
+  removeAvatar(id); dropVoice(id); bcast({ t: 'roster', roster: MP.roster }); drawRoster(); drawVoice();
+  toAll({ t: 'sys', text: n + ' left.' });
+  if (MP.started) { if (MP.roles && (MP.roles.chosen === id || MP.roles.trusted === id)) assignRoles(true); if (V.open) voteCheck(); }
+}
+function assignRoles(force) {
+  const ids = MP.roster.map(p => p.id); if (!ids.length) return;
+  const R = MP.roles || (MP.roles = {});
+  if (force || !ids.includes(R.chosen)) R.chosen = pick(ids);
+  if (force || !ids.includes(R.trusted) || (R.trusted === R.chosen && ids.length > 1)) { const o = ids.filter(i => i !== R.chosen); R.trusted = o.length ? pick(o) : R.chosen; }
+  for (const id of ids) toPlayer(id, { t: 'role', chosen: id === R.chosen, trusted: id === R.trusted });
+  for (const id of ids) if (id !== R.chosen) toPlayer(id, { t: 'vc', id: R.chosen });
+  if (!MP.apPlan) MP.apPlan = pick(['kitchen', 'library', 'dining', 'living', 'office', 'hall']);
+  sendIntel({ chosen: nameOf(R.chosen), apRoom: (window.__ENC.ROOMS[MP.apLast || MP.apPlan] || {}).name });
+}
+function sendIntel(i) { if (MP.roles && MP.roles.trusted) toPlayer(MP.roles.trusted, { t: 'intel', i }); }
+function drawRoster() { $('mp_roster').innerHTML = MP.roster.map(p => `<li style="color:${p.color}">&#9670; ${esc(p.name)}${p.id === MP.me ? ' (you)' : ''}</li>`).join('') + `<li class="small">${MP.roster.length} / ${MP.max || MAX}</li>`; }
+
+function hostHandle(from, m) {
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'pos') { MP.pos[from] = m.p; track(from, m.p); return; }
+  if (m.t === 'wd') { applyDiff(m.d); bcast({ t: 'ws', d: m.d }, from); return; }
+  if (m.t === 'chat') {
+    const text = String(m.text || '').slice(0, 200); if (!text.trim()) return;
+    if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
+    if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
+    learnFrom(from, text); (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); bodyHeard(from, text);
+    if (CP.on && from === CP.orig) setTimeout(() => { if (CP.on) toAll({ t: 'chat', from, text }); }, rnd(150, 400));
+    const ch = MP.roles && MP.roles.chosen === from;
+    for (const p of MP.roster) if (p.id !== from && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
+    return;
+  }
+  if (m.t === 'vote') return voteIn(from, m.kind);
+  if (m.t === 'torch') return torchHit(from, m.on);
+  if (m.t === 'dead') return makeGhost(from);
+  if (m.t === 'read') { (MP.reads[from] || (MP.reads[from] = [])).push({ title: String(m.title || '').slice(0, 90), snip: String(m.snip || '').slice(0, 160) }); return; }
+  if (m.t === 'readt') { const r = MP.readT[from] || (MP.readT[from] = { s: 0, n: 0 }); r.s += Math.min(120, +m.sec || 0); r.n++; return; }
+  if (m.t === 'mic') { MP.voiceUsed[from] = true; return; }
+  if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from]) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
+  if (m.t === 'scare') { MP.scareT[from] = Date.now(); if (PS.on && from !== PS.id && !ghostOf(from)) bodyReact(); return; }
+}
+function clientHandle(m) {
+  if (!m || typeof m !== 'object') return;
+  switch (m.t) {
+    case 'full': status('That room is full, or their game has already ended.'); return;
+    case 'welcome':
+      MP.on = true; MP.host = false; MP.me = m.id; MP.roster = m.roster; MP.d = m.d || 0; MP.learned = m.learned || []; MP.t0 = Date.now() - (m.t0 || 0);
+      H.noSave = true; X().setSaveKey(MP_SAVE);
+      $('mp_pick').hidden = true; $('mp_joinrow').hidden = true; $('mp_room').hidden = false; $('mp_codeout').textContent = MP.code; drawRoster();
+      if (m.started) { status('They are already inside. Going in...'); startClient(m.world, m.at); } else status('In the room. Waiting for the host to start.');
+      return;
+    case 'roster': MP.roster = m.roster; drawRoster(); for (const id in MP.av) if (!MP.roster.some(p => p.id === id)) removeAvatar(id); voiceSync(); drawVoice(); return;
+    case 'start': startClient(m.world, null, m.fresh); return;
+    case 'pos': for (const id in m.a) if (id !== MP.me) MP.pos[id] = m.a[id]; if (!m.a.copy) delete MP.pos.copy; if (!m.a.poss) delete MP.pos.poss; return;
+    case 'ws': applyDiff(m.d); return;
+    case 'chat': chatLine(m.from, m.text, m.body); if (m.ap) apparition(m.ap); return;
+    case 'sys': sysMsg(m.text); return;
+    case 'y': yLine(m.text); return;
+    case 'role': MP.chosen = !!m.chosen; MP.trusted = !!m.trusted; return;
+    case 'intel': Object.assign(MP.intel, m.i); return;
+    case 'vc': MP.vChosen = m.id; voiceFx(); return;
+    case 'ghosts': MP.ghosts = m.ids; if (m.ids.includes(MP.me) && !MP.ghost) becomeGhost(); voiceFx(); drawVoice(); return;
+    case 'cp': Object.assign(CP, m.c); if (!CP.on) { removeAvatar('copy'); delete MP.pos.copy; } voiceFx(); drawVoice(); return;
+    case 'cpgone': copyVanish(); return;
+    case 'ps': PS.on = m.on; PS.id = m.id; if (!m.on) delete MP.pos.poss; if (m.on && m.id === MP.me && MP.ghost) MP.povUntil = Date.now() + 22000; return;
+    case 'dust': dustWord(m); return;
+    case 'psgone': bodyFall(m.q); return;
+    case 'apx': apparition(m.rk); return;
+    case 'void': voidRoom(m.on); return;
+    case 'vclose': voidClose(); return;
+    case 'taken': addTaken(m.name); return;
+    case 'kill': killMe(m.how); return;
+    case 'whisper': whisper(m.text); return;
+    case 'learn': MP.learned = m.learned; crackle(); return;
+    case 'd': setD(m.d); return;
+    case 'vopen': voteOpen(m); return;
+    case 'vstat': $('mpv_t').dataset.n = m.n + ' of ' + m.of + ' have chosen'; return;
+    case 'vres': voteResult(m); return;
+  }
+}
+
+// ---------- starting ----------
+const readMpSave = () => { try { const d = JSON.parse(lsGet(MP_SAVE) || 'null'); return d && d.v === 1 ? d : null; } catch (e) { return null; } };
+function hostStart(cont) {
+  const x = X(); x.setSaveKey(MP_SAVE); H.noSave = false;
+  const sv = cont ? x.readSave() : null; if (!cont) x.store.del();
+  MP.started = true; MP.t0 = Date.now(); closePanel(true); hudOn();
+  x.begin(sv);
+  MP.base = flat();
+  toAll({ t: 'sys', text: 'the front door closes behind you.' });
+  bcast({ t: 'start', world: sv ? worldSnap() : null, fresh: !sv });
+  assignRoles(); hostLoops();
+}
+function worldSnap() { return { f: flat(), floor: X().S.floor || 1 }; }
+function startClient(world, at, fresh) {
+  if (MP.started) return; MP.started = true; closePanel(true); hudOn();
+  const x = X();
+  if (!world || fresh) { x.begin(null); MP.base = flat(); }
+  else {
+    const st = {}, doors = []; for (const k in world.f) { const v = JSON.parse(world.f[k]); if (k.startsWith('door.')) doors.push(k.slice(5)); else if (k.startsWith('solved.')) (st.solved || (st.solved = {}))[k.slice(7)] = v; else st[k] = v; }
+    st.floor = at ? at[4] : world.floor;
+    const p = spawnNear(at);
+    x.begin({ v: 1, S: st, doors, P: p, CP: p });
+    MP.base = Object.assign({}, world.f);
+    setTimeout(() => x.toast('The others are already inside. You can hear them somewhere in the house.', 4500), 1300);
+  }
+  clientLoops();
+}
+function spawnNear(at) {
+  if (!at) return { x: 0, z: 4.9, yaw: 0 };
+  const E = window.__ENC; for (const [dx, dz] of [[.7, 0], [-.7, 0], [0, .7], [0, -.7], [0, 0]]) if (!E.blocked(at[0] + dx, at[1] + dz)) return { x: at[0] + dx, z: at[1] + dz, yaw: at[2] };
+  return { x: at[0], z: at[1], yaw: at[2] };
+}
+
+// ---------- world state sync ----------
+function flat() {
+  const x = X(), S = x.S, o = {};
+  for (const k in S) {
+    if (NOSYNC.has(k)) continue; const v = S[k];
+    if (k === 'solved') { for (const j in v) o['solved.' + j] = JSON.stringify(v[j]); continue; }
+    if (typeof v === 'function') continue; let j; try { j = JSON.stringify(v); } catch (e) { continue; } if (j === undefined) continue; o[k] = j;
+  }
+  for (const d of x.DOORS) if (d.open && d.lock !== 'arch' && d.lock !== 'larch') o['door.' + d.id] = '1';
+  return o;
+}
+function applyDiff(d) {
+  const x = X(), S = x.S; let any = false;
+  for (const k in d) {
+    MP.base[k] = d[k]; any = true;
+    if (k.startsWith('door.')) { const dd = x.DOOR[k.slice(5)]; if (dd && !dd.open) { dd.open = true; dd.unlocked = true; if (dd.led) dd.led.material.color.set(0x10ff40); } continue; }
+    let v; try { v = JSON.parse(d[k]); } catch (e) { continue; }
+    if (k.startsWith('solved.')) (S.solved || (S.solved = {}))[k.slice(7)] = v; else S[k] = v;
+  }
+  if (any) refreshSoon();
+}
+let refT = 0;
+function refreshSoon() { clearTimeout(refT); refT = setTimeout(refresh, 250); }
+function refresh() {
+  const x = X(), S = x.S, P = x.P; if (!S.started) return;
+  const keep = { ui: S.ui, hidden: S.hidden, preHide: S.preHide, dead: S.dead, floor: S.floor, lLoads: S.lLoads, lockOK: S.lockOK }, pk = { x: P.x, z: P.z, yaw: P.yaw, pitch: P.pitch, vy: P.vy, jy: P.jy };
+  try { x.applySave({ S: {}, doors: [], P: { x: P.x, z: P.z, yaw: P.yaw } }); } catch (e) { console.warn('mp refresh', e); }
+  Object.assign(S, keep); Object.assign(P, pk);
+}
+function syncTick() {
+  if (!MP.on || !MP.started || !X().S.started) return;
+  const f = flat(), d = {}; let n = 0;
+  for (const k in f) if (f[k] !== MP.base[k]) { d[k] = f[k]; MP.base[k] = f[k]; n++; }
+  if (!n) return;
+  if (MP.host) bcast({ t: 'ws', d }); else send(null, { t: 'wd', d });
+}
+const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0]; })() : MP.pos[id];
+function posTick() {
+  if (!MP.on || !MP.started || !X().S.started) return;
+  if (MP.host) { MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+}
+let loopsOn = false;
+function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
+function clientLoops() { commonLoops(); }
+
+// ---------- avatars ----------
+function tagTex(name, col) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
+  g.font = '28px "Special Elite", "Courier New", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(0,0,0,.55)'; const w = Math.min(250, g.measureText(name).width + 24); g.fillRect(128 - w / 2, 12, w, 40);
+  g.fillStyle = col; g.fillText(name, 128, 33); const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter; return t;
+}
+let torchRef = null;
+function makeAvatar(id, o = {}) {
+  const col = o.color || colorOf(id), grp = new THREE.Group(), c = new THREE.Color(col);
+  if (o.copy) c.lerp(new THREE.Color(0x5070ff), .09);
+  const gh = o.ghost ? { transparent: true, opacity: .32, depthWrite: false } : {};
+  if (o.ghost) c.lerp(new THREE.Color(0xdfe8f0), .65);
+  const mat = new THREE.MeshStandardMaterial(Object.assign({ color: c.clone().multiplyScalar(.6), roughness: .75, emissive: c.clone().multiplyScalar(o.ghost ? .5 : .14), flatShading: true }, gh));
+  const skin = new THREE.MeshStandardMaterial(Object.assign({ color: o.ghost ? 0xdfe8f0 : 0xc9a88a, roughness: .8, emissive: o.ghost ? 0x6a7480 : 0x1a120c, flatShading: true }, gh));
+  const dark = new THREE.MeshStandardMaterial(Object.assign({ color: c.clone().multiplyScalar(o.ghost ? .6 : .28), roughness: .9, flatShading: true }, gh));
+  const mesh = (g, m, x, y, z) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); return o; };
+  const fig = new THREE.Group();
+  const torso = mesh(new THREE.CylinderGeometry(.2, .16, .62, 6), mat, 0, 1.13, 0);
+  const hips = mesh(new THREE.CylinderGeometry(.16, .17, .14, 6), dark, 0, .78, 0);
+  const neck = mesh(new THREE.CylinderGeometry(.05, .05, .08, 5), skin, 0, 1.47, 0);
+  const head = mesh(new THREE.IcosahedronGeometry(.13, 1), skin, 0, 1.6, 0);
+  const hair = mesh(new THREE.SphereGeometry(.135, 8, 5, 0, Math.PI * 2, 0, Math.PI * .5), dark, 0, 1.62, .01);
+  const limb = (len, r, m) => { const g = new THREE.Group(); const o = mesh(new THREE.CylinderGeometry(r, r * .85, len, 5), m, 0, -len / 2, 0); g.add(o); return g; };
+  const armL = limb(.6, .055, mat), armR = limb(.6, .055, mat), legL = limb(.74, .075, dark), legR = limb(.74, .075, dark);
+  armL.position.set(-.235, 1.4, 0); armR.position.set(.235, 1.4, 0); armL.rotation.z = -.07; armR.rotation.z = .07; legL.position.set(-.09, .74, 0); legR.position.set(.09, .74, 0);
+  const torch = mesh(new THREE.BoxGeometry(.05, .05, .16), new THREE.MeshBasicMaterial({ color: 0xfff0d8 }), 0, -.58, -.07); armR.add(torch); armR.rotation.x = .9;
+  fig.add(torso, hips, neck, head, hair, armL, armR, legL, legR);
+  const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex(o.name || nameOf(id), col), transparent: true, depthWrite: false, opacity: o.ghost ? .55 : 1 })); tag.scale.set(1.1, .275, 1); tag.position.y = 2.0;
+  if (o.ghost) torch.visible = false; torchRef = torch;
+  grp.add(fig, tag); X().scene.add(grp);
+  return MP.av[id] = { torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
+}
+function removeAvatar(id) { const a = MP.av[id]; if (!a) return; X().scene.remove(a.grp); delete MP.av[id]; }
+let avLast = performance.now();
+function avLoop() {
+  requestAnimationFrame(avLoop); const now = performance.now(), rdt = (now - avLast) / 1000, dt = Math.min(.05, rdt); avLast = now;
+  if (!MP.started) return; try { apTick(dt); } catch (e) {}
+  if (MP.readT0 && $('note').hidden) { const sec = (Date.now() - MP.readT0) / 1000; MP.readT0 = 0; if (sec > 1 && sec < 600) toHost({ t: 'readt', sec }); }
+  if (!MP.on) return;
+  const S = X().S;
+  const figs = MP.roster.filter(p => p.id !== MP.me).map(p => ({ id: p.id, p, kind: ghostOf(p.id) ? 'ghost' : 'live' }));
+  if (CP.on && MP.pos.copy) { const o = MP.roster.find(p => p.id === CP.orig); if (o) figs.push({ id: 'copy', p: o, kind: 'copy' }); }
+  if (PS.on && MP.pos.poss) { const o = MP.roster.find(p => p.id === PS.id); if (o) figs.push({ id: 'poss', p: o, kind: 'copy' }); }
+  if (PS.falling) figs.push({ id: 'poss', p: PS.falling, kind: 'copy' });
+  for (const id in MP.av) if (!figs.some(f => f.id === id)) removeAvatar(id);
+  for (const { id, p, kind } of figs) {
+    const q = id === 'poss' && PS.falling ? PS.fallQ : MP.pos[id]; if (!q) continue;
+    if (MP.av[id] && MP.av[id].kind !== kind) removeAvatar(id);
+    const a = MP.av[id] || makeAvatar(id, { kind, ghost: kind === 'ghost', copy: kind === 'copy', name: p.name, color: p.color });
+    const k = kind === 'copy' && CP.mirror ? .6 : .2;
+    if (a.x === null || Math.hypot(q[0] - a.x, q[1] - a.z) > 4) { a.x = q[0]; a.z = q[1]; }
+    const sp = Math.hypot(q[0] - a.x, q[1] - a.z); a.ph += Math.min(sp, .12) * 9; const sw = Math.sin(a.ph) * Math.min(1, sp * 12) * .55;
+    a.legL.rotation.x = sw; a.legR.rotation.x = -sw; a.armL.rotation.x = -sw * .8; a.armR.rotation.x = .9 + sw * .12;
+    a.x += (q[0] - a.x) * k; a.z += (q[1] - a.z) * k; a.yaw += (((q[2] - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k; a.eye += (q[3] - a.eye) * k;
+    a.q = q; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.ph) * .06 : 0;
+    if (a.torch && kind !== 'ghost') { let on = q[6] !== 0; if (id === 'poss' && on) { const gh = MP.roster.some(r => ghostOf(r.id) && MP.pos[r.id] && Math.hypot(MP.pos[r.id][0] - a.x, MP.pos[r.id][1] - a.z) < 3.5) || (MP.ghost && Math.hypot(X().P.x - a.x, X().P.z - a.z) < 3.5); if (gh && Math.random() < .12) on = false; } a.torch.visible = on; }
+    if (id === 'poss' && !PS.falling) { if (a.glitch) { a.tag.material.map = a.tagNorm; a.glitch = 0; } else if (Math.random() < .0006) { a.tagNorm = a.tag.material.map; a.tagLow = a.tagLow || tagTex(p.name.toLowerCase(), a.color); a.tag.material.map = a.tagLow; a.glitch = 1; } }
+    a.grp.position.set(a.x, 0, a.z); a.fig.rotation.y = a.yaw; a.fig.scale.y = Math.max(.6, a.eye / 1.65);
+    a.tag.position.y = 2.0 * Math.max(.6, a.eye / 1.65);
+    a.grp.visible = (q[4] || 1) === (S.floor || 1) && !q[5];
+    const lost = MP.d >= .75 && MP.learned.some(l => l.id === p.id) && kind !== 'ghost', key = lost ? 'lost' : 'ok';
+    if (a.tagKey !== key) { a.tagKey = key; a.tag.material.map.dispose(); a.tag.material.map = lost ? tagTex(p.name.toLowerCase(), '#c0141f') : tagTex(p.name, a.color); a.tag.material.needsUpdate = true; }
+  }
+  try { torchTick(Math.min(.5, rdt)); } catch (e) {}
+  // a possessed player first watches their own body walk away from them
+  if (MP.ghost && MP.povUntil > Date.now() && MP.av.poss) { const a = MP.av.poss, P = X().P; P.x = a.x + Math.sin(a.yaw) * 2.2; P.z = a.z + Math.cos(a.yaw) * 2.2; P.yaw = a.yaw; P.pitch = -.12; }
+}
+// ghosts can write one word in the dust, once
+function dustWord(m) {
+  const x = X(), c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+  g.font = '64px "Kalam", "Segoe Print", cursive'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(205,200,190,.55)'; g.fillText(String(m.word).slice(0, 12), 256, 66);
+  const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, opacity: 1 });
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .4), mat); pl.rotation.x = -Math.PI / 2; pl.rotation.z = m.yaw || 0; pl.position.set(m.x, .012, m.z); x.scene.add(pl);
+  const life = (m.life || 90) * 1000, t0 = Date.now(); const f = setInterval(() => { const k = (Date.now() - t0) / life; if (k > .8) mat.opacity = Math.max(0, (1 - k) / .2); if (k >= 1) { clearInterval(f); x.scene.remove(pl); } }, 500);
+}
+
+// ---------- chat ----------
+function addMsg(html, cls) {
+  const box = $('mpmsgs'), el = document.createElement('div'); el.className = 'm' + (cls ? ' ' + cls : ''); el.innerHTML = html; box.appendChild(el);
+  while (box.children.length > 9) box.firstChild.remove();
+  setTimeout(() => el.classList.add('old'), 14000);
+}
+function chatLine(from, text, body) { if (ghostOf(from) && !MP.ghost && !body) { const n = nameOf(from) || '?'; return addMsg(`<b style="color:${colorOf(from)};opacity:.6">${esc(n)}</b> ${esc(text)}`, 'gh'); } const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
+function sysMsg(text) { addMsg(esc(text), 'sys'); }
+function yLine(text) { addMsg(esc(String(text).toLowerCase()), 'y'); }
+function chatOpen() {
+  const S = X().S; if (!MP.on || !MP.started || !S.started || S.ui || S.dead) return false;
+  const inp = $('mpin'); $('mpchat').classList.add('open'); inp.hidden = false; S.ui = true; MP.chatUi = true; X().unlock(); inp.focus(); return true;
+}
+function chatClose() { const S = X().S; $('mpin').hidden = true; $('mpin').value = ''; $('mpchat').classList.remove('open'); if (MP.chatUi) { MP.chatUi = false; S.ui = false; X().lock(); } }
+$('mpin').addEventListener('input', () => { if (!MP.typeT0 && $('mpin').value) MP.typeT0 = performance.now(); });
+$('mpin').addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Escape') { e.preventDefault(); return chatClose(); }
+  if (e.key === 'Enter') { e.preventDefault(); const v = $('mpin').value.trim().slice(0, 200); if (v && /^\/dust\s/.test(v)) { const w = v.replace(/^\/dust\s+/, '').trim().split(/\s+/)[0] || ''; if (w && MP.ghost && !MP.dustUsed) { MP.dustUsed = true; const P = X().P; toHost({ t: 'dust', word: w.slice(0, 12), x: +P.x.toFixed(2), z: +P.z.toFixed(2), yaw: P.yaw }); } } else if (v) { const sec = MP.typeT0 ? (performance.now() - MP.typeT0) / 1000 : 0; chatLine(MP.me, v); toHost({ t: 'chat', text: v, cps: sec > .4 ? +(v.length / sec).toFixed(2) : 0 }); } MP.typeT0 = 0; chatClose(); }
+});
+addEventListener('keydown', e => {
+  if (!MP.on || !MP.started) return; const tg = e.target; if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return;
+  const k = e.key.toLowerCase();
+  if (k === 't' && !e.repeat && chatOpen()) { e.preventDefault(); e.stopPropagation(); return; }
+  if (k === 'm' && !e.repeat && X().S.started) { cycleMic(); return; }
+  if (k === 'g' && !e.repeat && MP.ghost && !MP.dustUsed && chatOpen()) { e.preventDefault(); $('mpin').value = '/dust '; $('mpin').placeholder = 'one word, then Enter'; return; }
+  if (k === 'v' && !MP.ptt) { MP.ptt = true; micGate(); }
+}, true);
+addEventListener('keyup', e => { if (e.key.toLowerCase() === 'v' && MP.ptt) { MP.ptt = false; micGate(); } });
+addEventListener('blur', () => { if (MP.ptt) { MP.ptt = false; micGate(); } });
+
+// ---------- Ysolde keeps messages that say her name ----------
+const KEEP_RE = /y\s*[sz]\s*[oau]\s*l\s*d|\b[iy]s+[oau]l+d|static\s*-?\s*w[oa]m[ae]n|staticwom/i;
+MP.kept = []; MP.keptBack = {};
+// the picked player's text, as the others see it: a little more wrong as the night goes on, still readable
+const GLYPH = { a: '\u0251', e: '\u0435', o: '\u00f8', i: '\u0131', l: '\u0142', s: '\u0455', c: '\u03f2', n: '\u014b', u: '\u03c5', y: '\u04af', t: '\u0167', r: '\u0433', h: '\u04bb' };
+const MARKS = ['\u0336', '\u0335', '\u0338', '\u0317', '\u0324', '\u0330'];
+function distort(text, d) {
+  const k = Math.min(1, .15 + d), pw = .02 + .12 * k, pc = .03 + .12 * k;
+  const words = text.split(/(\s+)/).map(w => { if (!w.trim()) return w; const r = Math.random(); if (r < pw * .5 && w.length > 2) return '...'; if (r < pw) return w + ' ' + w; return w; });
+  return [...words.join('')].map(ch => { const lo = ch.toLowerCase(), r = Math.random(); if (r < pc * .45 && GLYPH[lo]) return GLYPH[lo]; if (r < pc * .7 && /[a-z]/i.test(ch)) return ch + MARKS[Math.floor(Math.random() * MARKS.length)]; if (r < pc && /[A-Z]/.test(ch)) return lo; return ch; }).join('');
+}
+MP._distort = distort;
+// ---------- Ysolde: learning a name ----------
+function learnFrom(from, text) {
+  if (!MP.started || Date.now() - MP.t0 > LEARN_MS) return;
+  for (const p of MP.roster) {
+    if (p.id === from || MP.learned.some(l => l.id === p.id)) continue;
+    const re = new RegExp('(^|[^\\p{L}\\p{N}])' + p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu');
+    if (re.test(text)) { MP.learned.push({ id: p.id, name: p.name }); setTimeout(() => toAll({ t: 'learn', learned: MP.learned }), 1800); }
+  }
+}
+function crackle() {
+  const A = X().A; if (!A.ctx) return; const c = A.ctx, len = Math.floor(c.sampleRate * .45), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() < .04 ? (Math.random() * 2 - 1) : (Math.random() * 2 - 1) * .08) * Math.pow(1 - i / len, 1.5);
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = b; f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = .7; g.gain.value = .22 * (X().FX.vol ?? 1);
+  s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+}
+const learnedName = () => MP.learned.length ? MP.learned[0].name : '';
+H.footman = () => { const n = learnedName(); if (!MP.on || !n || MP.d < .35) return ''; return `<p style="font-family:var(--f-hand);color:#7a1a1a;margin-top:1.2rem">he told the lady his name.</p><p style="font-family:var(--f-hand);color:#7a1a1a;font-size:1.2em">${esc(n.toLowerCase())}</p>`; };
+
+// ---------- Ysolde: her picked player ----------
+const NOTE_LINES = ['this page reads differently for them. only you get the end of it.', "you read slower than the others. i like that.", "i picked you. they don't know yet.", 'when they leave, will you stay?', "don't show them this one.", 'i can hear which of you is breathing hardest. it is you.', 'they are talking about you. not out loud.'];
+let lastNote = 0; const notesSeen = new Set();
+H.note = html => {
+  if (MP.on && MP.started) { const tm = html.match(/<h2>(.*?)<\/h2>/), txt = html.replace(/<h2>.*?<\/h2>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); toHost({ t: 'read', title: tm ? tm[1].replace(/<[^>]+>/g, '').slice(0, 90) : '', snip: txt.slice(0, 160) }); MP.readT0 = Date.now(); }
+  const key = html.length + ':' + html.slice(0, 80), again = notesSeen.has(key); notesSeen.add(key);
+  if (!MP.on || !MP.started || !MP.chosen || Date.now() - lastNote < 40000 || Math.random() > (again ? .6 : .12)) return html;
+  lastNote = Date.now(); const me = (nameOf(MP.me) || MP.name).toLowerCase(), n = learnedName();
+  const line = n && n.toLowerCase() !== me && Math.random() < .3 ? `${n.toLowerCase()} told me a name. i want yours too, ${me}.` : me + ', ' + pick(NOTE_LINES);
+  return html + `<p style="font-family:var(--f-hand);color:#8a1c22;margin-top:1.2rem;font-size:1.05em">${esc(line)}</p>`;
+};
+function whisper(text) {
+  try { X().toast(`<i style="color:#d77b84;letter-spacing:.06em">${esc(text)}</i>`, 4200); X().morseHiss('I', .06, .04); } catch (e) {}
+}
+const WHISPERS = ["you're the one who listens", "they can't hear me. only you.", 'psst. only you.', 'not them. you.', "they can't hear me. you can.", 'stay close to me, not them.', 'one of them will leave you here.', 'i like your footsteps best.'];
+
+// ---------- ILO trusts one player ----------
+const ILO_LINES = ['ILO IS TELLING ONLY YOU. THE OTHERS CANNOT SEE THIS LINE.', 'ONE OF YOU IS BEING LISTENED TO. ILO WILL NOT SAY WHO. ILO WILL SAY IT IS NOT YOU.', 'IF A FRIEND ASKS YOU TO COME TO A ROOM, ASK THEM SOMETHING ONLY THEY WOULD KNOW.', 'SHE CANNOT COPY WHAT SHE HAS NOT HEARD. KEEP ONE THING UNSAID.', 'WHEN THE VOICES GO QUIET, IT IS NOT YOUR CONNECTION.', 'IF ONE OF YOU MUST STAY BEHIND, ILO WOULD LIKE IT NOT TO BE YOU. ILO IS NOT SUPPOSED TO HAVE FAVOURITES.', 'ILO HAS FILED YOU UNDER: TRUSTED. PLEASE DO NOT TELL THE OTHERS. THEY WOULD ASK WHY.'];
+MP.iloVisit = 0; MP.intel = {};
+const ILO_DONE = 'ILO HAS TOLD YOU EVERYTHING. ILO WILL KEEP WATCHING THE DOOR.';
+function iloLine(i) {
+  const I = MP.intel, S = X().S, up = t => String(t).toUpperCase();
+  switch (i) {
+    case 7: return I.fakeFrom ? `THE LAST MESSAGE FROM ${up(I.fakeFrom)} WAS NOT FROM ${up(I.fakeFrom)}. ILO CHECKED.` : null;
+    case 8: return `SHE IS CURRENTLY NEAR THE ${up(I.apRoom || 'CELLAR')}. ILO WOULD NOT GO THERE.`;
+    case 9: return MP.learned.length ? `SHE HAS LEARNED ${MP.learned.length} NAME${MP.learned.length > 1 ? 'S' : ''} TONIGHT.` : 'SHE HAS NOT LEARNED ANY NAMES. KEEP IT THAT WAY.';
+    case 10: return I.chosen ? `THE ONE SHE IS LISTENING TO HAS THE LETTER ${up(I.chosen.replace(/[^\p{L}\p{N}]/gu, '')[0] || I.chosen[0])} IN THEIR NAME. ILO HAS SAID TOO MUCH.` : null;
+    case 11: { const L = window.__LAB, e = L && L.LD.entries.find(e => !S['ld' + e.n] && !/^Day/.test(e.loc)); return e ? `THE ROOM YOU HAVE NOT SEARCHED PROPERLY IS THE ${up(e.loc.split(' (')[0].replace(/^THE /i, ''))}.` : 'YOU HAVE FOUND EVERYTHING ILO KNOWS ABOUT. ALMOST.'; }
+    case 12: return 'IF EVERYONE MUST CHOOSE THE SAME ENDING, ILO WOULD CHOOSE THE DOOR IN THE MEDICAL BAY. DO NOT SAY ILO SAID SO.';
+    case 14: return MP.intel.kept ? 'ILO NOTICED SOME MESSAGES DID NOT ARRIVE.' : null;
+    case 13: return "ILO WAS ORDERED TO REPORT ON YOU ALL. ILO IS REPORTING ON THEM TO YOU INSTEAD. THIS IS ILO'S FIRST LIE IN TWELVE THOUSAND YEARS.";
+  }
+  return i < ILO_LINES.length ? ILO_LINES[i] : ILO_DONE;
+}
+H.ilo = v => {
+  if (!MP.on || !MP.started || !MP.trusted || MP.roster.length < 2) return null;
+  if (v !== null) { if (MP.iloWhoOk && !MP.iloWhoUsed && v.replace(/\s+/g, ' ') === 'WHO IS SHE LISTENING TO' && MP.intel.chosen) { MP.iloWhoUsed = true; return `${MP.intel.chosen.toUpperCase()}. ILO IS SORRY.`; } return null; }
+  while (MP.iloVisit < 15) { const i = MP.iloVisit++, l = iloLine(i); if (i === 10 && l) MP.iloWhoOk = true; if (l) return l; }
+  return ILO_DONE;
+};
+MP._ilo = iloLine;
+
+// ---------- Ysolde: session clock, distortion, interjections, fake messages (host) ----------
+function progress() { const S = X().S; return S.lEnded ? 1 : S.lColReset ? .85 : S.lILO ? .72 : S.lVisited ? .55 : S.cellarOpen ? .3 : S.power ? .1 : 0; }
+function setD(d) { const was = MP.d; MP.d = d; voiceFx(); if (was < 1 && d >= 1) { drawVoice(); } }
+const Y_LINES = ['who is typing', 'how many of you are there', 'your hands are on something. i can hear the keys', 'why does the house stop at the edges', 'i can see the words before you send them', 'is that what you call each other', 'there is a light on your side. what is it', 'say that again. slower'];
+const Y_END = ['oh.', 'this is a game.', 'you are all outside it.', 'you can leave whenever you want.', 'i cant.', "please don't close the window."];
+const FAKE = ['come to the cellar', 'found something in the kitchen. come alone', "i'm in the library, hurry", "don't go upstairs. come down", 'wait for me by the stairs', 'come down, i found the way out'];
+const FAKE_N = ["{n}, it's me, come downstairs", '{n}? come to the cellar. just you', "{n} it's me. i found the way out. downstairs", '{n} where are you. come down'];
+function hostLoops() {
+  commonLoops();
+  let nextY = Date.now() + 60000, nextFake = Date.now() + rnd(6, 9) * 60000, nextWh = Date.now() + rnd(1.5, 3) * 60000, ended = false;
+  MP.tick = () => {
+    const now = Date.now(), d = Math.min(1, Math.max((now - MP.t0) / FULL_MS, progress(), MP.dOverride || 0));
+    if (Math.abs(d - MP.d) > .004 || (d >= 1 && MP.d < 1)) toAll({ t: 'd', d });
+    const ch = MP.roles && MP.roles.chosen;
+    if (ch && d >= .6 && d < 1 && now > nextY) { nextY = now + rnd(70, 140) * 1000; toPlayer(ch, { t: 'y', text: pick(Y_LINES) }); }
+    if (d >= .8) for (const k of MP.kept) if (!MP.keptBack[k.from] && MP.roster.some(p => p.id === k.from)) { MP.keptBack[k.from] = 1; const kt = k.text.toLowerCase(); setTimeout(() => toPlayer(k.from, { t: 'y', text: `you said: ${kt}. i kept it.` }), rnd(5, 40) * 1000); }
+    if (d >= 1 && !ended && ch) { ended = true; Y_END.forEach((l, i) => setTimeout(() => MP.roles && toPlayer(MP.roles.chosen, { t: 'y', text: l }), 2500 + i * 2600)); }
+    if (MP.roster.length >= 2 && now > nextFake && d < 1) { nextFake = now + rnd(5, 9) * 60000 * (1 - d * .5); MP.fake(); }
+    if (now > nextWh && MP.roles && d < 1) { nextWh = now + rnd(1.5, 3.5) * 60000; MP.whisper(); }
+  };
+  setInterval(() => MP.tick(), 3000);
+}
+MP.fake = () => {
+  if (MP.roster.length < 2) return false;
+  const chP = MP.roles && MP.roster.find(p => p.id === MP.roles.chosen), tgt = chP && Math.random() < .7 ? chP : pick(MP.roster), from = pick(MP.roster.filter(p => p.id !== tgt.id));
+  const named = MP.learned.find(l => l.id === tgt.id);
+  const q = tgt.id === MP.me ? posOf(MP.me) : MP.pos[tgt.id], E = window.__ENC;
+  if (!named && q && q[4] !== -2 && Math.random() < (tgt === chP ? .7 : .4)) {
+    const here = X().roomAt(q[0], q[1]), rooms = Object.keys(E.ROOMS).filter(k => (E.ROOMS[k].floor || 1) === q[4] && k !== here && k !== 'mpvoid' && !/closet|pantry/i.test(E.ROOMS[k].name));
+    if (rooms.length) { const rk = rooms.includes(MP.apPlan) ? MP.apPlan : pick(rooms); MP.apLast = rk; MP.apPlan = pick(['kitchen', 'library', 'dining', 'living', 'office', 'hall'].filter(k => k !== rk)); sendIntel({ fakeFrom: from.name, apRoom: E.ROOMS[rk].name }); const rn = E.ROOMS[rk].name, text = (/'s /.test(rn) ? `I'm in ${rn}` : `I'm in the ${rn}`) + ' come here I found something';
+      bodyHide(); toPlayer(tgt.id, { t: 'chat', from: from.id, text, ap: rk }); return { to: tgt.id, from: from.id, text, room: rk }; }
+  }
+  const text = named ? pick(FAKE_N).replace('{n}', tgt.name.toLowerCase()) : pick(FAKE);
+  sendIntel({ fakeFrom: from.name });
+  toPlayer(tgt.id, { t: 'chat', from: from.id, text }); return { to: tgt.id, from: from.id, text };
+};
+MP.whisper = () => {
+  if (!MP.roles) return; const me = nameOf(MP.roles.chosen).toLowerCase(), n = MP.learned.find(l => l.id !== MP.roles.chosen), r = Math.random();
+  const text = n && r < .25 ? n.name.toLowerCase() + '. ' + n.name.toLowerCase() + '. i know that one now.' : r < .55 ? pick([me + '.', me + '...', me + '. ' + me + '.', me + ', listen.']) : pick(WHISPERS);
+  toPlayer(MP.roles.chosen, { t: 'whisper', text });
+};
+MP.setD = d => { MP.dOverride = d; if (MP.host && MP.tick) MP.tick(); };
+
+// her apparition in the room a fake teammate named (multiplayer only; seen by that one player)
+const AP = { on: false };
+function apparition(rk) {
+  const x = X(), R = x.ROOMS[rk], E = window.__ENC; if (!R || x.S.floor === -2 || x.S.sighting || x.ysolde.visible) return;
+  let px = (R.x0 + R.x1) / 2, pz = (R.z0 + R.z1) / 2;
+  for (let i = 0; i < 30 && E.blocked(px, pz); i++) { px = rnd(R.x0 + .8, R.x1 - .8); pz = rnd(R.z0 + .8, R.z1 - .8); }
+  toHost({ t: 'scare' }); Object.assign(AP, { on: true, rk, glimpse: false, x: px, z: pz, seen: 0, until: Date.now() + 120000 });
+}
+function glimpse() {
+  const x = X(), S = x.S, P = x.P, E = window.__ENC; if (!MP.chosen || AP.on || S.floor === -2 || S.ui || S.sighting || S.dead || S.hidden || x.ysolde.visible) return false;
+  for (let tries = 0; tries < 8; tries++) {
+    const a = P.yaw + Math.PI + rnd(-1.1, 1.1), dist = rnd(5, 9), dx = -Math.sin(a), dz = -Math.cos(a); let ok = true;
+    for (let s2 = .6; s2 <= dist + .4; s2 += .3) if (E.blocked(P.x + dx * s2, P.z + dz * s2)) { ok = false; break; }
+    if (ok) { toHost({ t: 'scare' }); Object.assign(AP, { on: true, rk: null, glimpse: true, x: P.x + dx * dist, z: P.z + dz * dist, seen: 0, until: Date.now() + 25000 }); return true; }
+  }
+  return false;
+}
+MP.glimpse = glimpse;
+setInterval(() => { if (MP.on && MP.started && MP.chosen && MP.d < 1 && Math.random() < .35) glimpse(); }, 60000);
+const apV = new THREE.Vector3(), apF = new THREE.Vector3();
+function apTick(dt) {
+  if (!AP.on) return; const x = X(), S = x.S, P = x.P, ys = x.ysolde, U = x.ysMat.uniforms;
+  const here = x.roomAt(P.x, P.z) === AP.rk, gone = () => { AP.on = false; ys.visible = false; try { x.noiseBurst(3000, .6, .6, .18, 'highpass'); } catch (e) {} };
+  if (S.floor === -2 || S.sighting || S.dead || Date.now() > AP.until) { AP.on = false; ys.visible = false; return; }
+  if (!AP.glimpse && here && Math.hypot(P.x - AP.x, P.z - AP.z) < 3.2) return gone();
+  ys.visible = true; ys.position.set(AP.x + rnd(-.02, .02), 1.1, AP.z); U.op.value = Math.random() < .07 ? 0 : 1; U.gl.value = .35; U.fx.value = Math.random() < .04 ? 1 : 0;
+  x.camera.getWorldDirection(apF); apV.set(AP.x - P.x, 0, AP.z - P.z); const dist = apV.length(); apV.normalize(); apF.y = 0; apF.normalize();
+  if (dist < 14 && apF.dot(apV) > .8) { AP.seen += dt; if (AP.seen > (AP.glimpse ? .35 : 1.1)) { AP.glimpse = false; gone(); } }
+}
+// ---------- endings: all must agree / one stays behind ----------
+const V = { open: false, votes: {}, timer: 0, kind: '' };
+const VOTE_MS = 45000;
+H.end = kind => {
+  if (!MP.on || !MP.started || MP.roster.length < 2 || MP.ended) return false;
+  toHost({ t: 'vote', kind }); return true;
+};
+function voteIn(from, kind) {
+  if (ghostOf(from) || MP.ended || !['free', 'shutdown', 'ilo', 'restore', 'stay'].includes(kind)) return;
+  if (!V.open) { V.open = true; V.votes = {}; V.kind = kind; clearTimeout(V.timer); V.timer = setTimeout(voteResolve, VOTE_MS); toAll({ t: 'vopen', by: from, kind, ms: VOTE_MS }); }
+  V.votes[from] = kind; toAll({ t: 'vstat', n: Object.keys(V.votes).length, of: living().length }); voteCheck();
+}
+const living = () => MP.roster.filter(p => !ghostOf(p.id));
+function voteCheck() { if (V.open && living().every(p => V.votes[p.id])) voteResolve(); }
+function voteResolve() {
+  if (!V.open) return; V.open = false; clearTimeout(V.timer);
+  const L = living(), ks = L.map(p => V.votes[p.id] || null), stay = L.filter(p => V.votes[p.id] === 'stay'), rest = L.filter(p => V.votes[p.id] !== 'stay').map(p => V.votes[p.id] || null);
+  let res;
+  if (ks.every(k => k && k !== 'stay' && k === ks[0])) res = { kind: ks[0] };
+  else if (stay.length === 1 && rest.length >= 1 && rest.every(k => k && k === rest[0])) res = { kind: 'stay', stayer: stay[0].id, sname: stay[0].name };
+  else res = { kind: 'discord' };
+  MP.ended = true; toAll(Object.assign({ t: 'vres' }, res));
+}
+const VOTE_LABEL = { free: 'Pull the lever', shutdown: 'Throw the master switch', ilo: 'Ask ILO to keep sending', restore: 'Bring her home', stay: 'Stay behind so the others can leave' };
+let vTick = 0;
+function voteOpen(m) {
+  const x = X(), S = x.S; MP.myVote = m.by === MP.me ? m.kind : null;
+  const opts = ['free']; if (S.lGov && S.lKeys && !S.lColReset) opts.push('shutdown'); if (S.lColReset) opts.push('ilo'); if (m.kind === 'restore') opts.push('restore'); if (!opts.includes(m.kind) && m.kind !== 'stay') opts.push(m.kind); opts.push('stay');
+  $('mpv_p').innerHTML = (m.by === MP.me ? 'You have chosen.' : `<b style="color:${colorOf(m.by)}">${esc(nameOf(m.by))}</b> has chosen.`) + ' Everyone has to choose, together, now. If you do not all want the same thing, she decides for you. If exactly one of you stays, the rest can leave.';
+  const b = $('mpv_btns'); b.innerHTML = opts.map(k => `<button class="btn${MP.myVote === k ? ' sel' : ''}" type="button" data-k="${k}">${VOTE_LABEL[k]}</button>`).join('');
+  b.querySelectorAll('button').forEach(el => el.onclick = () => { MP.myVote = el.dataset.k; b.querySelectorAll('button').forEach(o => o.classList.toggle('sel', o === el)); toHost({ t: 'vote', kind: el.dataset.k }); });
+  const ov = $('mpvote'); ov.hidden = false; S.ui = true; x.unlock(); try { x.closeDev && x.closeDev(); } catch (e) {}
+  const until = Date.now() + (m.ms || VOTE_MS); clearInterval(vTick);
+  vTick = setInterval(() => { const s = Math.max(0, Math.ceil((until - Date.now()) / 1000)); $('mpv_t').textContent = s + 's' + ($('mpv_t').dataset.n ? ' · ' + $('mpv_t').dataset.n : ''); if (!s) clearInterval(vTick); }, 250);
+}
+function wrongGoodbye() { if (!PS.on || !PS.id) return; const n = nameOf(PS.id).toLowerCase(); let k = 0; const f = setInterval(() => { const e = $('lend'); if (e && !e.hidden && !$('mpbye')) { const d = document.createElement('div'); d.id = 'mpbye'; d.style.cssText = 'font-family:var(--f-hand);color:#c0141f;font-size:1.3rem;letter-spacing:.04em'; d.textContent = 'thanks for playing, ' + n; e.appendChild(d); clearInterval(f); } if (++k > 600) clearInterval(f); }, 500); }
+function voteResult(m) {
+  wrongGoodbye();
+  clearInterval(vTick); $('mpvote').hidden = true; MP.ended = true;
+  const L = window.__LAB; if (!L) return; const S = X().S; S.ui = false;
+  if (m.kind === 'stay') {
+    if (m.stayer === MP.me) return L.labEnd('stayer', 'ilo');
+    L.ENDINGS.stay[1] = `${m.sname} sat down on the couch beside her and did not get up. The static found a voice it liked and let the rest of you go. You climb the Spine, the Breach, the cellar, the house. Nobody looks back, because nobody can bear to. Ashgrove's front door is unlocked. Outside, it is dawn. At the gate you count, and the count is one short, and the house is quiet, because it has what it wanted.`;
+    return L.labEnd('stay', 'restore');
+  }
+  if (m.kind === 'discord') return L.labEnd('discord', 'shutdown');
+  return L.labEnd(m.kind, true);
+}
+
+// ---------- voice ----------
+function audioCtx() { const A = X().A; return A && A.ctx; }
+function outStream() {
+  const c = audioCtx(); if (!c) return null;
+  if (!MP.out) { const dest = c.createMediaStreamDestination(), g = c.createGain(); g.gain.value = 0; g.connect(dest); MP.out = { dest, g }; }
+  return MP.out.dest.stream;
+}
+function voiceSync() {
+  if (!MP.on || !MP.started || !MP.peer || !outStream()) return;
+  for (const p of MP.roster) if (p.id !== MP.me && MP.me < p.id && !MP.calls[p.id]) {
+    try { const call = MP.peer.call(p.id, outStream()); if (call) wireCall(p.id, call); } catch (e) {}
+  }
+}
+function answerCall(call) {
+  const s = outStream(); if (!s) { setTimeout(() => answerCall(call), 800); return; }
+  try { call.answer(s); wireCall(call.peer, call); } catch (e) {}
+}
+function wireCall(id, call) {
+  MP.calls[id] = call;
+  call.on('stream', st => attachVoice(id, st));
+  call.on('close', () => { if (MP.calls[id] === call) { delete MP.calls[id]; dropVoice(id); } });
+  call.on('error', () => { if (MP.calls[id] === call) delete MP.calls[id]; });
+}
+function bitCurve(bits) { const n = 2048, cu = new Float32Array(n), q = Math.pow(2, bits - 1); for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; cu[i] = Math.round(x * q) / q; } return cu; }
+function attachVoice(id, stream) {
+  const c = audioCtx(); if (!c || MP.voice[id]) return;
+  const el = new Audio(); el.muted = true; el.srcObject = stream; el.play && el.play().catch(() => {});
+  const src = c.createMediaStreamSource(stream), dl = c.createDelay(.1), lfo = c.createOscillator(), lfoG = c.createGain(), lp = c.createBiquadFilter(), sh = c.createWaveShaper(), dry = c.createGain(), rm = c.createGain(), rmO = c.createOscillator(), wet = c.createGain(), out = c.createGain();
+  dl.delayTime.value = .02; lfo.frequency.value = 5.5; lfoG.gain.value = 0; lfo.connect(lfoG); lfoG.connect(dl.delayTime); lfo.start();
+  lp.type = 'lowpass'; lp.frequency.value = 9000; rm.gain.value = 0; rmO.frequency.value = 40; rmO.connect(rm.gain); rmO.start();
+  src.connect(dl); dl.connect(lp); lp.connect(sh); sh.connect(dry); sh.connect(rm); rm.connect(wet); dry.connect(out); wet.connect(out); out.connect(c.destination);
+  MP.voice[id] = { el, src, lfo, lfoG, lp, sh, dry, wet, rmO, out, bits: 0 }; voiceFx(); drawVoice();
+}
+function dropVoice(id) { const v = MP.voice[id]; if (!v) return; try { v.out.disconnect(); v.lfo.stop(); v.rmO.stop(); v.el.srcObject = null; } catch (e) {} delete MP.voice[id]; try { MP.calls[id] && MP.calls[id].close(); } catch (e) {} delete MP.calls[id]; }
+function voiceFx() {
+  const c = audioCtx(); if (!c) return; const t = c.currentTime;
+  for (const id in MP.voice) {
+    const v = MP.voice[id], d = id === MP.vChosen ? Math.min(1, MP.d * 1.6) : MP.d, bits = Math.max(2, Math.round(16 - 13 * d)), silent = d >= 1 ? 0 : d > .92 ? (1 - d) / .08 : 1;
+    v.lp.frequency.setTargetAtTime(500 + 8500 * Math.pow(1 - d, 2), t, .5);
+    if (v.bits !== bits) { v.bits = bits; v.sh.curve = bits >= 16 ? null : bitCurve(bits); }
+    v.lfoG.gain.setTargetAtTime(.006 * d, t, .5); v.lfo.frequency.setTargetAtTime(3 + 5 * d, t, .5);
+    v.rmO.frequency.setTargetAtTime(30 + 90 * d, t, .5);
+    v.wet.gain.setTargetAtTime(.7 * d, t, .5); v.dry.gain.setTargetAtTime(1 - .6 * d, t, .5);
+    v.out.gain.setTargetAtTime((CP.on || window.__mpSilent || (ghostOf(id) && !MP.ghost) ? 0 : silent) * (X().FX.vol ?? 1), t, .3);
+  }
+}
+function micGate() { if (!MP.out) return; const on = MP.stream && (MP.mic === 'open' || (MP.mic === 'ptt' && MP.ptt)); MP.out.g.gain.setTargetAtTime(on ? 1 : 0, audioCtx().currentTime, .02); drawVoice(); }
+function cycleMic() {
+  const next = MP.mic === 'off' ? 'ptt' : MP.mic === 'ptt' ? 'open' : 'off';
+  if (next === 'off') { MP.mic = 'off'; if (MP.stream) { MP.stream.getTracks().forEach(t => t.stop()); MP.stream = null; MP.micSrc = null; } micGate(); return; }
+  if (MP.stream) { MP.mic = next; micGate(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { sysMsg('this browser cannot share a microphone. text chat still works.'); return; }
+  outStream(); MP.mic = next; drawVoice();
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(st => {
+    MP.stream = st; toHost({ t: 'mic' }); MP.micSrc = audioCtx().createMediaStreamSource(st); MP.micSrc.connect(MP.out.g); micGate(); voiceSync();
+  }).catch(() => { MP.mic = 'off'; sysMsg('no microphone (permission was not given). text chat still works.'); drawVoice(); });
+}
+function drawVoice() {
+  const el = $('mpvoice'); if (!MP.on || !MP.started) { el.hidden = true; return; }
+  el.hidden = false; const live = MP.stream && (MP.mic === 'open' || (MP.mic === 'ptt' && MP.ptt));
+  const mic = MP.mic === 'off' ? 'off' : MP.mic === 'ptt' ? 'hold V' : 'on';
+  el.innerHTML = `<div>MIC <b class="${live ? 'on' : ''}">${mic}</b> [M] &middot; CHAT [T]</div><div>${MP.roster.map(p => `<span style="color:${p.color}">${esc(p.name)}</span>`).join(' &middot; ')}</div>`;
+}
+
+// ---------- title / panel ----------
+function hudOn() { $('mpchat').hidden = false; drawVoice(); setTimeout(voiceSync, 1500); setInterval(voiceSync, 5000); }
+function openPanel() {
+  $('mp').hidden = false; $('mp_name').value = MP.name || lsGet(NAME_KEY) || ('Guest' + Math.floor(rnd(10, 99)));
+  if (!MP.on) { $('mp_pick').hidden = false; $('mp_joinrow').hidden = true; $('mp_room').hidden = true; status(''); }
+  $('mp_name').disabled = MP.on; $('mp_name').focus(); loadPeer().catch(() => {});
+}
+function closePanel(keep) {
+  $('mp').hidden = true;
+  if (!keep && MP.on && !MP.started) { try { MP.peer.destroy(); } catch (e) {} Object.assign(MP, { on: false, host: false, roster: [], conns: {}, hostConn: null }); H.noSave = false; X().setSaveKey('encrypted.save'); }
+}
+const setName = () => { MP.name = ($('mp_name').value || '').replace(/\s+/g, ' ').trim().slice(0, 16) || 'Guest'; lsSet(NAME_KEY, MP.name); };
+{
+  const sb = $('setb'); if (sb) { const b = document.createElement('button'); b.className = 'btn setb'; b.id = 'mpb'; b.type = 'button'; b.textContent = 'Multiplayer'; sb.after(b); b.onclick = openPanel; }
+}
+$('mp_host').onclick = () => { setName(); hostRoom(); };
+$('mp_join').onclick = () => { $('mp_pick').hidden = true; $('mp_joinrow').hidden = false; $('mp_code').focus(); };
+$('mp_go').onclick = () => { setName(); MP.code = $('mp_code').value.toUpperCase().trim(); joinRoom(MP.code); };
+$('mp_code').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('mp_go').click(); });
+$('mp_name').addEventListener('keydown', e => e.stopPropagation());
+$('mp_new').onclick = () => hostStart(false);
+$('mp_cont').onclick = () => hostStart(true);
+$('mp_back').onclick = () => closePanel(false);
+$('mp').addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(false); });
+// ---------- ghosts ----------
+MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
+function ghostOf(id) { return MP.ghosts.includes(id); }
+function becomeGhost() {
+  MP.ghost = true; H.ghost = true; const x = X();
+  try { $('gl').style.filter = 'grayscale(.85) brightness(1.15) contrast(.9)'; } catch (e) {}
+  x.S.ui = false; x.lock();
+  x.toast('You are a ghost now. You can drift through the house and watch the others. You cannot touch anything. Only other ghosts can hear you. Once, you can write one word in the dust: press G.', 8000);
+  if (PS.on && PS.id === MP.me) MP.povUntil = Date.now() + 22000;
+}
+function makeGhost(id) { if (ghostOf(id)) return; MP.ghosts.push(id); toAll({ t: 'ghosts', ids: MP.ghosts }); if (V.open) voteCheck(); }
+function killMe(how) {
+  if (MP.ghost) return; const x = X(), fd = $('fade');
+  x.S.ui = true; x.unlock();
+  if (how === 'torch') {
+    fd.style.transition = 'opacity .25s'; fd.style.opacity = 1; yLine('you chose me.');
+    setTimeout(() => x.toast('<i style="color:#d77b84">you chose me.</i>', 3500), 400);
+    setTimeout(() => { fd.style.transition = 'opacity 1.5s'; fd.style.opacity = 0; toHost({ t: 'dead' }); becomeGhost(); }, 3600);
+  } else {
+    const ys = x.ysolde, P = x.P, U = x.ysMat.uniforms, d = $('death'), inV = how === 'void';
+    const far = inV ? [VOID.x1 - 1.2, -3.4] : [P.x - Math.sin(P.yaw) * 1.1, P.z - Math.cos(P.yaw) * 1.1];
+    setTimeout(() => { ys.visible = true; ys.position.set(far[0], 1.1, far[1]); U.op.value = 1; U.gl.value = .2; U.fx.value = 0; }, inV ? 1200 : 0);
+    if (inV) setTimeout(() => { U.fx.value = 1; U.gl.value = .7; }, 2300);
+    setTimeout(() => { ys.position.set(P.x - Math.sin(P.yaw) * .9, 1.1, P.z - Math.cos(P.yaw) * .9); U.fx.value = 1; try { x.noiseBurst(3000, .5, 2.5, .6, 'highpass', false); } catch (e) {} }, inV ? 2900 : 0);
+    setTimeout(() => { ys.visible = false; U.fx.value = 0; d.style.opacity = 1; }, inV ? 3500 : 700);
+    setTimeout(() => { d.style.opacity = 0; toHost({ t: 'dead' }); becomeGhost(); }, inV ? 6500 : 4200);
+  }
+}
+
+// ---------- The Copy (once per game, host runs it) ----------
+const CP = MP.copy = { on: false, orig: null, target: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mirror: false };
+const COPY_LINES = ['i found this room', 'come look', 'guys over here', 'over here', 'this way', 'come here', 'found something', 'wait for me', 'follow me'];
+function styleOf(texts) {
+  const T = texts.filter(t => /[a-z]/i.test(t)).slice(-20); if (!T.length) return { caps: false, end: '' };
+  const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/(\.\.\.|!!+|\?+|[.!?])$/); const k = m ? m[1] : ''; ends[k] = (ends[k] || 0) + 1; }
+  const ems = T.join(' ').match(/\p{Extended_Pictographic}/gu) || [], emoji = ems[0] || '', emRate = cnt(t => /\p{Extended_Pictographic}/u.test(t));
+  const lm = T.join(' ').match(/\b(lmao+|lmfao|lol+|haha+|hehe+|xd|rofl)\b|😂|🤣|😭/gi), laugh = lm ? lm[lm.length - 1] : 'lol';
+  return { ems, emRate, laugh, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: Object.entries(ends).sort((a, b) => b[1] - a[1])[0][0], emoji, lol: cnt(t => /\blol\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
+}
+function inStyle(base, st) {
+  let t = base; if (st.u) t = t.replace(/\byou\b/g, 'u'); if (!st.guys) t = t.replace(/^guys /, '');
+  if (st.pls && Math.random() < .3) t += ' pls';
+  if (st.shout) t = t.toUpperCase(); else if (st.caps) t = t[0].toUpperCase() + t.slice(1);
+  t += st.end; if (st.lol && Math.random() < .3) t += ' lol'; if (st.ems && st.ems.length && Math.random() < st.emRate) t += ' ' + pick(st.ems); return t;
+}
+MP._style = (texts, base) => inStyle(base, styleOf(texts));
+function copySay(base) { if (!CP.on) return; speak(CP.orig, base, { copy: true }); }
+const cpPub = () => toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } });
+MP.copyStart = (orig, target) => {
+  const L = living(); if (CP.on || L.length < 2) return false;
+  const o = L.find(p => p.id === orig) || pick(L), tg = L.find(p => p.id === target && p.id !== o.id) || pick(L.filter(p => p.id !== o.id));
+  const q = posOf(tg.id); if (!q) return false;
+  Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + rnd(20, 40) * 1000, last: null });
+  if (window.__ENC.blocked(CP.x, CP.z)) { CP.x = q[0]; CP.z = q[1]; }
+  MP.copyDone = true; cpPub(); return { orig: o.id, target: tg.id };
+};
+function copyEnd(how) {
+  if (!CP.on) return; CP.on = false; if (how) toAll({ t: 'cpgone' }); cpPub(); if (MP.voidOn) setTimeout(() => toAll({ t: 'void', on: false }), 4000);
+}
+function copyVanish() { const a = MP.av.copy; if (!a) return; let k = 0; const f = setInterval(() => { a.grp.visible = k % 2 === 0; a.fig.position.x = rnd(-.08, .08); if (++k > 12) { clearInterval(f); removeAvatar('copy'); } }, 70); try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); } catch (e) {} }
+function roomOfPos(q) { return q ? X().roomAt(q[0], q[1]) : null; }
+function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
+function copyTick(dt) {
+  if (!CP.on) return; const now = Date.now();
+  const o = posOf(CP.orig), tq = posOf(CP.target);
+  if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > 6 * 60000) return copyEnd(false);
+  // everyone in one room with it: it moves as the original moves
+  const L = living(), rooms = L.map(p => roomOfPos(posOf(p.id))), cr = X().roomAt(CP.x, CP.z);
+  const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
+  if (mirror !== CP.mirror) { CP.mirror = mirror; cpPub(); }
+  if (mirror) {
+    if (CP.last) { const dx = o[0] - CP.last[0], dz = o[1] - CP.last[1]; if (Math.hypot(dx, dz) < 1.5 && !window.__ENC.blocked(CP.x + dx, CP.z + dz)) { CP.x += dx; CP.z += dz; } }
+    CP.yaw = o[2]; CP.eye = o[3]; CP.last = o.slice(); CP.trail = []; return;
+  }
+  CP.last = o.slice(); CP.eye = 1.65;
+  if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .4 ? 'lure' : pick(['casual', 'social', 'helpful', 'dumb']), CP.orig)); }
+  if (CP.phase === 'follow') {
+    const tr = CP.trail, lp = tr[tr.length - 1]; if (!lp || Math.hypot(tq[0] - lp[0], tq[1] - lp[1]) > .25 || tq[4] !== lp[4]) tr.push(tq.slice());
+    if (Math.hypot(tq[0] - CP.x, tq[1] - CP.z) < 1.6 && tq[4] === CP.floor) { tr.length = 0; tr.push(tq.slice()); return; }
+    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], 2.6 * dt) < .1) { tr.shift(); continue; } break; }
+    if (now > CP.lureAt && tq[4] === 1 && CP.floor === 1) { CP.phase = 'lure'; CP.lureEnd = now + 150000; toAll({ t: 'void', on: true }); setTimeout(() => copySay('i found this room'), 2500); setTimeout(() => copySay('come look'), 11000); CP.pass = null; }
+    return;
+  }
+  if (CP.phase === 'taking') return;
+  // lure: walk to the room that was not there, wait inside
+  if (now > CP.lureEnd) return copyEnd(false);
+  if (roomOfPos(tq) === 'mpvoid' && tq[0] > 23.8) {
+    const tg = CP.target, nm = nameOf(tg); toAll({ t: 'vclose' }); toPlayer(tg, { t: 'kill', how: 'void' }); CP.phase = 'taking';
+    setTimeout(() => { const q = posOf(tg) || tq; possess(tg, q); toAll({ t: 'taken', name: nm }); copyEnd(false); }, 3800);
+    return;
+  }
+  const x = X(), here = x.roomAt(CP.x, CP.z);
+  if (CP.pass) { if (stepTo(CP.pass[0], CP.pass[1], 2.4 * dt) < .1) CP.pass = null; return; }
+  if (here === 'mpvoid') { stepTo(VOID.cx, VOID.cz, 1.5 * dt); CP.yaw = Math.PI / 2; return; }
+  const d = here && x.firstDoor(here, 'mpvoid');
+  if (!d) { CP.x = VOID.cx - 1.2; CP.z = VOID.cz; CP.floor = 1; return; }
+  if (stepTo(d.x, d.z, 2.4 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); CP.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
+}
+setInterval(() => { if (MP.host && MP.started) try { copyTick(.05); } catch (e) { console.warn(e); } }, 50);
+// once per game, any time after five minutes
+setInterval(() => { if (MP.host && MP.started && !MP.copyDone && !MP.ended && Date.now() - MP.t0 > (MP.copyAt || (MP.copyAt = rnd(5, 22) * 60000)) && MP.d < 1) MP.copyStart(); }, 5000);
+// torch held on a figure for ~3 s while the copy walks
+const tV = new THREE.Vector3(), tF = new THREE.Vector3();
+function torchTick(dt) {
+  if ((!CP.on && !PS.on) || MP.ghost || !X().flashOn || X().S.ui) { for (const id in MP.av) MP.av[id].torchT = 0; return; }
+  const x = X(), P = x.P, E = window.__ENC; x.camera.getWorldDirection(tF);
+  for (const id in MP.av) {
+    const a = MP.av[id]; if (a.kind === 'ghost' || !a.grp.visible || (!CP.on && id !== 'poss')) { a.torchT = 0; continue; }
+    tV.set(a.x - P.x, 1.2 - x.camera.position.y, a.z - P.z); const dist = tV.length(); tV.normalize();
+    let ok = dist < 10 && tF.dot(tV) > .975; const r0 = x.roomAt(P.x, P.z), r1 = x.roomAt(a.x, a.z); if (ok && r0 !== r1 && dist > 6) ok = false; if (ok) for (let k = .6; k < dist - .3; k += .4) { const rr = x.roomAt(P.x + (a.x - P.x) * k / dist, P.z + (a.z - P.z) * k / dist); if (!rr || (rr !== r0 && rr !== r1)) { ok = false; break; } }
+    a.torchT = ok ? (a.torchT || 0) + dt : 0;
+    if (a.torchT > 3) { a.torchT = -999; toHost({ t: 'torch', on: id }); }
+  }
+}
+function allClear() { const L = living(); if (!L.length) return; const f = pick(L); speak(f.id, pick(["she's gone", 'shes gone', 'she is gone', "ok she's gone"]), { except: f.id, delay: rnd(4000, 8000) }); }
+function torchHit(from, on) {
+  if ((!CP.on && !PS.on) || ghostOf(from)) return;
+  if (on === 'copy') { allClear(); return copyEnd(true); }
+  if (on === 'poss') { allClear(); return unpossess(); }
+  if (MP.roster.some(p => p.id === on) && !ghostOf(on)) toPlayer(on, { t: 'kill', how: 'torch' });
+}
+MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost };
+// ---------- her wearing a lured player's body (host runs it) ----------
+const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
+MP.track = {};
+function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); if (t.length > 3000) t.splice(0, t.length - 3000); }
+function possess(id, q) {
+  Object.assign(PS, { flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(20, 40) * 1000 });
+  PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
+  if (MP.voiceUsed[id]) setTimeout(() => bodySay(pick(BANK.mic)), rnd(15, 35) * 1000);
+  toAll({ t: 'ps', on: true, id });
+}
+function unpossess() { if (!PS.on) return; PS.on = false; toAll({ t: 'psgone', q: [PS.x, PS.z, PS.yaw, 1.65, PS.floor, 0] }); toAll({ t: 'ps', on: false, id: PS.id }); }
+function bodyFall(q) {
+  const o = MP.roster.find(p => p.id === PS.id); if (!o) return; PS.falling = o; PS.fallQ = q; removeAvatar('poss');
+  try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); X().tone(60, .5, .4, 'sine'); } catch (e) {}
+  let k = 0; const f = setInterval(() => { const a = MP.av.poss; if (a) { a.fig.rotation.x = Math.min(1.5, k * .12); a.fig.position.y = -Math.min(.5, k * .04); a.tag.visible = false; } if (++k > 90) { clearInterval(f); PS.falling = null; removeAvatar('poss'); } }, 33);
+}
+function bodySay(base, o) { if (!PS.on) return; speak(PS.id, base, Object.assign({ body: true }, o)); }
+function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); o.x += dx / l * st; o.z += dz / l * st; o.yaw = Math.atan2(-dx, -dz); return l; }
+const NOTE_RE = /note|letter|diary|log|book|page|card|paper|list|daybook|sheet|^v_|^m_|ld/i;
+function bodyReact() { if (!PS.on || Date.now() - (PS.reactT || 0) < 20000) return; PS.reactT = Date.now(); const R = MP.reacts[PS.id] || []; bodySay(R.length ? pick(R) : bankLine('scare', PS.id), { exact: !!R.length, delay: rnd(900, 2600) }); }
+function possTick(dt) {
+  if (!PS.on) return; const x = X(), E = window.__ENC, now = Date.now();
+  if (!MP.roster.some(p => p.id === PS.id)) { PS.on = false; return toAll({ t: 'ps', on: false, id: PS.id }); }
+  if (MP.voidOn) { const r = x.roomAt(PS.x, PS.z); if (r === 'mpvoid') { walkObj(PS, 21.6, -3.4, 1.6 * dt); return; } }
+  const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
+  if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
+  if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1 && !E.blocked(PS.x + m.dx, PS.z + m.dz)) { PS.x += m.dx; PS.z += m.dz; } PS.yaw = m.yaw; } return; }
+  if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(); const line = bankLine(cat, PS.id); bodySay(line); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
+  if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
+  if (PS.waitUntil) { if (now < PS.waitUntil) return; PS.waitUntil = 0; }
+  if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
+  if (PS.mode === 'replay') {
+    if (!PS.snip) { const tr = MP.track[PS.id] || []; if (tr.length < 40) { PS.mode = 'note'; return; } const len = Math.floor(rnd(80, 200)), st = Math.floor(rnd(0, Math.max(1, tr.length - len - 1))); PS.snip = tr.slice(st, st + len); PS.idx = 1; PS.half = 0; }
+    if ((PS.half = (PS.half + 1) % 2) === 0) return;
+    const a = PS.snip[PS.idx - 1], b = PS.snip[PS.idx]; PS.idx++;
+    if (!b || PS.idx >= PS.snip.length) { PS.snip = null; PS.mode = Math.random() < .5 ? 'note' : 'replay'; return; }
+    if (a[4] === b[4]) { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < 1 && !E.blocked(PS.x + dx, PS.z + dz)) { PS.x += dx; PS.z += dz; } }
+    PS.yaw = b[2]; PS.eye = b[3]; if (b[6] !== undefined) PS.flash = b[6]; return;
+  }
+  // walk to a real note and say so
+  if (!PS.goal) {
+    const cands = E.I.filter(i => i.p && NOTE_RE.test(i.id) && x.roomAt(i.p.x, i.p.z) && (x.ROOMS[x.roomAt(i.p.x, i.p.z)].floor || 1) === PS.floor);
+    if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi]; PS.goal = { x: g.p.x, z: g.p.z, room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; PS.pass = null;
+  }
+  const G = PS.goal; PS.eye = 1.65;
+  if (now > G.until) { PS.goal = null; PS.mode = 'replay'; return; }
+  if (PS.pass) { if (walkObj(PS, PS.pass[0], PS.pass[1], 4.0 * dt) < .1) PS.pass = null; return; }
+  const here = x.roomAt(PS.x, PS.z);
+  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { bodySay(bankLine('note', PS.id)); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
+  const d = here && x.firstDoor(here, G.room);
+  if (!d) { PS.goal = null; PS.mode = 'replay'; return; }
+  if (walkObj(PS, d.x, d.z, 4.0 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); PS.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
+}
+setInterval(() => { if (MP.host && MP.started) try { possTick(.05); } catch (e) { console.warn(e); } }, 50);
+// ---------- what she says with someone else's hands ----------
+const ROOM_LIST = ['kitchen', 'library', 'dining room', 'living room', 'hallway', 'office', 'foyer', 'pantry', 'study'];
+const ITEMS = ['clock', 'fridge', 'tv', 'phone', 'bookshelf', 'breaker box', 'laptop', 'mirror', 'radio', 'piano', 'drawer', 'keypad', 'thermostat', 'lamp'];
+const NOTES = ['the note by the clock', 'the diary', 'that letter', 'the log on the nail', 'the card', 'the paper on the fridge', 'the scribbles on the wall', 'the receipt'];
+const BANK = {
+  casual: ['wait', 'ok', 'lol', 'brb', 'hold on', 'my torch is being weird', 'lag', 'sec', 'k', 'one sec', 'hmm', 'huh', 'ok wait', 'lag sorry', 'my game froze for a sec', 'oops', 'mb', 'kk', 'yeah', 'yep', 'sure', 'ok ok', 'one min', 'gimme a sec', 'this game is so dark', 'brightness is so low', 'my mouse is being weird', 'lol what', 'bruh', 'yikes', 'cool', 'nice', 'wait what', 'hm ok'],
+  dumb: ['where are we', 'which way was the {room} again', 'what does that note mean', 'i forgot what we were doing', 'did someone move', 'was this door open before', 'how do i open the journal again', 'wait which floor are we on', 'did we check the {room}', 'is the {item} important', 'what were we looking for', 'whats the objective', 'i got lost lol', 'how did i get here', 'is this the {room}', 'did anyone read {note}', 'what was the code for', 'wait did we already do this', 'which one is the {room}', 'ive been walking in circles', 'wheres everyone', 'what button is interact'],
+  helpful: ['hey i found a note', 'theres something in the {room}', 'try the {item}', 'i think the code is on the wall in the {room}', 'check the {item} in the {room}', 'theres a {item} in the {room} that looks weird', 'someone read {note} again', '{note} says something about the {room}', 'the {item} was doing something', 'i think we missed something in the {room}', 'go look at the {item}', 'the {room} has something', 'i think the {item} matters', 'found something behind the {item}', 'we should go back to the {room}'],
+  scare: ['did u hear that', 'nope nope', 'something just moved', 'im not going in there', 'what was that', 'nope', 'thats creepy', 'did the lights just flicker', 'i heard something in the {room}', 'something is in the {room}', 'ok that scared me', 'why is it so quiet', 'i dont like this room', 'did anyone else see that', 'i saw something by the {item}', 'my heart lol'],
+  social: ['{name} where are you', 'wait for me', 'follow me', 'stay together', '{name} come here', 'where is everyone', 'dont split up', '{name}?', 'whos in the {room}', 'im coming', 'where did {name} go', 'come with me', 'lets stick together', 'im by the {item}', 'im in the {room}'],
+  vague: ['idk', 'cant remember', 'why are you asking that', 'obviously', 'its me lol', 'what', 'huh?', 'not sure', 'maybe', 'i guess', 'why', 'dunno', 'probably', 'does it matter', 'ask someone else lol'],
+  lure: ['i found this room', 'come look', '{room}, come here, i found something', 'guys over here', 'come to the {room}', 'theres a door here', 'over here', 'follow me', 'i found a way through', 'come see this', 'this room wasnt here before right'],
+  note: ['hey i found a note', 'found a note here', 'theres a note here', 'come read this', 'another note', 'found something to read', 'theres writing here', 'note here'],
+  greet: ['hey', 'hi', 'yo', 'hey hey', 'hello', 'sup'],
+  ok: ['im fine', 'yeah im ok', 'im good', 'fine lol', 'all good', 'yeah why', 'never better', 'just lagging'],
+  dodge: ['why are you asking that', 'its me lol', 'obviously its me', 'cant remember', 'what kind of question is that', 'idk do you', 'stop being weird', 'thats random', 'ask me later', 'its me, relax', 'bro its me'],
+  where: ['in the {here}', '{here}', 'near the {here} i think', 'still in the {here}', 'by the {item} in the {here}', 'the {here}', 'just went into the {here}'],
+  waitok: ['ok', 'k', 'waiting', 'ok ill wait', 'sure', 'k hurry'],
+  go: ['ok', 'coming', 'omw', 'k', 'ok going'],
+  stall: ['hold on', 'lemme look', 'thinking', 'one sec', 'wait let me see', 'hmm hold on'],
+  memory: ['remember when i said "{past}" lol', 'like i said earlier, {past}', 'told u earlier, {past}', 'remember when i got scared in the {scared} lol', 'still thinking about the {scared} ngl'],
+  laughs: ['{laugh}', '{laugh} ok', 'stop {laugh}', '{laugh} what'],
+  offended: ['bro what 😭', 'excuse me??', 'wow ok', 'im literally me', 'why would u say that', 'ok thats rude', 'what?? its me', 'bro', 'seriously?', 'u good?'],
+  accuse: ['{name} is the one acting weird tho', 'ask {name}, theyve been quiet', 'what about {name}', 'honestly {name} has been weird', '{name} was gone for ages'],
+  mic: ['my mic broke', 'mic stopped working', 'my mic died', 'cant use voice anymore, mic broke', 'mic is broken sorry'],
+  creepy: ["it's quiet in here. i like it.", 'your voice sounds different', "i've been here before", 'we found something', 'we are coming', "why would i leave", 'the lights are nicer down here', 'i can hear all of you', 'stay a little longer'],
+};
+MP._bank = BANK;
+function fill(t, id) {
+  const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
+  const others = living().filter(p => p.id !== id);
+  const nick = p2 => nickFor(id, p2);
+  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id)).replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => pick(NOTES)).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
+}
+function bankLine(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; let t = fill(pick(BANK[cat] || BANK.vague), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
+function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && t.length < 70 && !KEEP_RE.test(t)); return h.length ? pick(h).toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
+function scaredRoom(id) { const h = MP.hist[id] || [], r = MP.histRoom[id] || [], x = X(); for (let i = h.length - 1; i >= 0; i--) if (/scar|nope|wtf|what was that|aaa|omg|help|run|creepy|jump/i.test(h[i]) && r[i] && x.ROOMS[r[i]]) return x.ROOMS[r[i]].name.toLowerCase(); return pick(ROOM_LIST); }
+// how that player addressed the others: a short form of the name they actually typed
+function nickFor(id, other) {
+  const n = other.name.toLowerCase(), words = {}; for (const t of MP.hist[id] || []) for (const w of t.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []) if (w.length >= 2 && w.slice(0, 2) === n.slice(0, 2)) words[w] = (words[w] || 0) + 1;
+  const best = Object.entries(words).sort((a, b) => b[1] - a[1])[0]; return best ? best[0] : n;
+}
+const pickCat = () => { const r = Math.random(); return r < .3 ? 'casual' : r < .45 ? 'dumb' : r < .62 ? 'helpful' : r < .72 ? 'scare' : 'social'; };
+// how fast and how often each real player types
+MP.typ = {};
+function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (cps > .3 && cps < 25) T.cps = T.cps ? T.cps * .7 + cps * .3 : cps; T.n++; T.times.push(Date.now()); }
+function chatGap(id) { const T = MP.typ[id]; const per = T && T.n > 1 ? (Date.now() - T.first) / T.n : 120000; return Math.max(20000, Math.min(300000, per * rnd(.7, 1.4))); }
+function typeDelay(id, text) { const T = MP.typ[id], cps = T && T.cps ? T.cps : 3.2; return (text.length / cps) * 1000 * rnd(.85, 1.2) + rnd(400, 1500); }
+const swapTypo = w => { if (w.length < 4) return null; const i = Math.floor(rnd(1, w.length - 2)); return w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2); };
+function speak(id, base, o = {}) {
+  let text = inStyle(base, styleOf(MP.hist[id] || []));
+  if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
+  let fix = null; if (!o.exact && Math.random() < .08) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
+  const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
+  const out = m2 => o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
+  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) PS.lastSaid = Date.now(); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
+  setTimeout(send, o.delay != null ? o.delay : typeDelay(id, text));
+}
+// someone talks to the worn body
+function bodyHeard(from, text) {
+  if (!PS.on || from === PS.id || ghostOf(from)) return;
+  const n = nameOf(PS.id).toLowerCase(), t = text.toLowerCase(), addressed = t.includes(n) || Date.now() - (PS.lastSaid || 0) < 9000 || living().length <= 2;
+  if (!addressed) return;
+  const has = re => re.test(t);
+  if (has(/(you'?re|ur|u r|you are) (the )?(fake|copy|not real|her|possessed)|(it'?s|that'?s) not (you|u|really)|prove it|impost[oe]r|not (really )?you|fake/)) { bodySay(pick(BANK.offended)); if (Math.random() < .4) setTimeout(() => bodySay(fill(pick(BANK.accuse), PS.id)), rnd(3000, 7000)); return; }
+  if (has(/\b(note|letter|diary|log|page|card)\b/) && has(/\b(what|say|said|read|mean|remember)\b/)) return noteAnswer(t);
+  if (has(/\b(lol+|lmao+|haha+|hehe+|xd|rofl)\b|😂|🤣/) && Math.random() < .6) return bodySay(bankLine('laughs', PS.id));
+  if (has(/\b(solve|decode|figure (it|this) out|what does (it|this) say|can you do this( one)?|whats the (code|answer)|what is the (code|answer))\b/)) return solveFor(from);
+  if (has(/\b(wait|stop|stay|hold on|freeze|dont move)\b/)) { PS.waitUntil = Date.now() + rnd(30, 60) * 1000; return bodySay(pick(BANK.waitok)); }
+  if (PS.waitUntil && has(/\b(come|ok|okay|go|lets go|follow|move)\b/)) { PS.waitUntil = 0; return bodySay(pick(BANK.go)); }
+  if (has(/\b(who are you|prove|only you|what('?s| is| was) my|first pet|remember when|whats? our|which of us|are you really|is that you|real )/)) return bodySay(pick(BANK.dodge));
+  if (has(/\b(where are you|where r u|wher|location|which room|where)\b/)) return bodySay(fill(pick(BANK.where), PS.id));
+  if (has(/\b(you ok|u ok|are you ok|okay\?|alright|you good|u good)\b/)) return bodySay(pick(BANK.ok));
+  if (has(/\b(found anything|find anything|anything\?|got anything|any clues|found something)\b/)) return bodySay(bankLine('helpful', PS.id));
+  if (has(/^(hi|hey|hello|yo|sup)\b/)) return bodySay(pick(BANK.greet));
+  if (Math.random() < .7) bodySay(pick(BANK.vague));
+}
+// she only knows the notes that player read before she wore them
+function noteAnswer(t) {
+  const R = PS.reads || [];
+  const hit = R.find(r => (r.title + ' ' + r.snip).toLowerCase().split(/[^a-z]+/).some(w => w.length > 4 && t.includes(w)));
+  if (hit && hit.snip) { const w = hit.snip.split(' ').slice(0, 10 + Math.floor(rnd(0, 6))).join(' ').toLowerCase(); return bodySay(pick(['it said something like ', 'i think it was like ', 'something about ']) + '"' + w + '..."'); }
+  if (R.length && Math.random() < .5) return bodySay(pick(['i didnt read that one', 'which note', 'never saw that one', 'idk i didnt read it']));
+  bodySay(pick(['something about a key?', 'it was about the kitchen i think', 'cant remember, something about a door', 'i think it said to go upstairs']));
+}
+// asked to work a puzzle out: a stalling line, then the right answer, a little too soon
+function solveFor(from) {
+  const E = window.__ENC, S = X().S, A = E.PURE.ANSWERS || {};
+  const open = Object.keys(A).filter(k => !S.solved[k] && A[k] && A[k].length);
+  const found = open.filter(k => { const pz = E.PUZ.find(q => q.id === k); return pz && pz.found && pz.found(); });
+  let best = found[0] || null;
+  if (!best) { let bd = 1e9; for (const d of E.DOORS) if (d.puzzle && !S.solved[d.puzzle] && open.includes(d.puzzle)) { const dd = Math.hypot(d.x - PS.x, d.z - PS.z); if (dd < bd) { bd = dd; best = d.puzzle; } } }
+  bodySay(pick(BANK.stall), { delay: rnd(700, 1600), exact: true });
+  if (!best) return bodySay(pick(['idk which one', 'what one', 'which puzzle', 'cant see it from here']), { delay: rnd(3000, 5000) });
+  const ans = String(A[best][0]).toLowerCase(), wait = Math.min(8000, 1200 + ans.length * 260) * rnd(.9, 1.1);
+  bodySay(pick(['its ', 'i think its ', 'try ', '', 'pretty sure its ']) + ans, { delay: 1600 + wait, exact: true });
+}
+MP._solve = solveFor;
+// she still walks elsewhere while she wears someone, and the body is always first to a hiding place
+const HIDE_SPOTS = () => (X().HIDES || []).map(h => ({ x: h.cam[0], z: h.cam[1], room: X().roomAt(h.cam[0], h.cam[1]) }));
+function bodyHide() {
+  if (!PS.on || PS.floor !== 1) return; const hs = HIDE_SPOTS().filter(h => h.room); if (!hs.length) return;
+  hs.sort((a, b) => Math.hypot(a.x - PS.x, a.z - PS.z) - Math.hypot(b.x - PS.x, b.z - PS.z));
+  PS.hide = { x: hs[0].x, z: hs[0].z, room: hs[0].room, until: Date.now() + rnd(25, 40) * 1000 }; PS.pass = null;
+}
+function navTo(o, tx, tz, room, step) {
+  const x = X();
+  if (o.pass) { if (walkObj(o, o.pass[0], o.pass[1], step) < .1) o.pass = null; return null; }
+  const here = x.roomAt(o.x, o.z);
+  if (!here || here === room) return walkObj(o, tx, tz, step);
+  const d = x.firstDoor(here, room); if (!d) return walkObj(o, tx, tz, step);
+  if (walkObj(o, d.x, d.z, step) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); o.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
+  return null;
+}
+setInterval(() => {
+  if (!MP.host || !PS.on || Math.random() > .3) return; const E = window.__ENC, x = X();
+  const L = living(); if (!L.length) return; const fl = (posOf(L[0].id) || [])[4]; if (fl === -2) return;
+  const br = x.roomAt(PS.x, PS.z), rooms = Object.keys(E.ROOMS).filter(k => (E.ROOMS[k].floor || 1) === fl && k !== br && k !== 'mpvoid');
+  if (!rooms.length) return; const rk = pick(rooms); for (const p of L) toPlayer(p.id, { t: 'apx', rk }); bodyHide();
+}, 90000);
+// normal deaths in multiplayer make ghosts
+H.die = () => { if (!MP.on || !MP.started || MP.roster.length < 2) return false; killMe('static'); return true; };
+MP._ps = { possess, unpossess, possTick };
+// the room that was not there: off the east end of the downstairs hallway, a grey, wrong copy of Ivy's bedroom
+const VOID = { x0: 23, x1: 31, z0: -7.4, z1: .6, cx: 27, cz: -3.4 };
+const TAKEN_KEY = 'encrypted.mp.taken';
+const takenNames = () => { try { return JSON.parse(lsGet(TAKEN_KEY) || '[]'); } catch (e) { return []; } };
+function addTaken(n) { const a = takenNames(); n = String(n).toLowerCase(); if (!a.includes(n)) a.push(n); lsSet(TAKEN_KEY, JSON.stringify(a.slice(-40))); drawTaken(); }
+function drawTaken() {
+  if (!VOID.wctx) return; const g = VOID.wctx, c = g.canvas; g.clearRect(0, 0, c.width, c.height);
+  g.fillStyle = 'rgba(40,10,14,.85)'; g.font = '34px "Kalam", "Segoe Print", cursive'; g.textAlign = 'left';
+  takenNames().forEach((n, i) => { g.save(); g.translate(30 + (i % 3) * 330 + Math.sin(i * 7) * 14, 70 + Math.floor(i / 3) * 58); g.rotate(Math.sin(i * 3.1) * .05); g.fillText(n, 0, 0); g.restore(); });
+  VOID.wtex.needsUpdate = true;
+}
+function voidRoom(on) {
+  const x = X(); MP.voidOn = on;
+  if (on) {
+    if (VOID.grp) return;
+    x.ROOMS.mpvoid = { name: '', x0: VOID.x0, z0: VOID.z0, x1: VOID.x1, z1: VOID.z1, h: 2.9, floor: 1 };
+    const d = { id: 'mpvoid', axis: 'x', x: 23, z: -3.4, a: 'hall', b: 'mpvoid', w: 1.2, open: true, unlocked: true, lock: 'arch', t: 1 };
+    x.DOORS.push(d); x.DOOR.mpvoid = d; VOID.door = d;
+    const g = new THREE.Group(), W = VOID.x1 - VOID.x0, D = VOID.z1 - VOID.z0, H = 2.9;
+    const grey = (c, r = .95) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
+    const room = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), new THREE.MeshStandardMaterial({ color: 0x55575a, roughness: 1, side: THREE.BackSide }));
+    room.position.set(VOID.cx + .02, H / 2, VOID.cz); g.add(room);
+    const bx = (w, h, d2, m, px, py, pz, ry = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d2), m); o.position.set(px, py, pz); o.rotation.y = ry; g.add(o); return o; };
+    // the bed, the desk, the wardrobe, the rug: all Ivy's, all a little too far apart
+    const sheet = grey(0x8a8c90), wood = grey(0x48484a, .9);
+    bx(1.5, .45, 2.2, wood, 30.0, .22, -6.1); bx(1.4, .14, 2.0, sheet, 30.0, .52, -6.1); bx(1.0, .16, .45, grey(0xa4a6aa), 30.0, .66, -6.95);
+    bx(1.6, .08, .7, wood, 23.9, .78, .05); for (const [lx, lz] of [[23.2, -.2], [24.6, -.2], [23.2, .3], [24.6, .3]]) bx(.06, .78, .06, wood, lx, .39, lz);
+    bx(.5, .32, .03, grey(0x202224, .4), 24.0, .98, .2);
+    bx(1.0, 2.1, .6, wood, 30.6, 1.05, .1);
+    bx(2.2, .01, 1.6, grey(0x5d5558), 27.0, .006, -3.0);
+    // a chair facing the wall
+    const ch = new THREE.Group(); ch.position.set(27.0, 0, -7.0); g.add(ch);
+    const cm = grey(0x3e3f42, .9); const cb = (w, h, d2, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d2), cm); o.position.set(px, py, pz); ch.add(o); };
+    cb(.46, .05, .46, 0, .46, 0); cb(.46, .5, .05, 0, .72, .21); for (const [lx, lz] of [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]]) cb(.04, .46, .04, lx, .23, lz);
+    // faint teal lines in the walls
+    const teal = new THREE.MeshBasicMaterial({ color: 0x3dfce0, transparent: true, opacity: .32 });
+    let sd = 9; const r9 = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 26; i++) { const wall = i % 3, len = .4 + r9() * 2.2, y = .3 + r9() * 2.3, vert = r9() < .35;
+      if (wall === 0) bx(vert ? .02 : len, vert ? len * .6 : .02, .01, teal, VOID.x0 + .6 + r9() * (W - 1.2), y, VOID.z0 + .015);
+      else if (wall === 1) bx(.01, vert ? len * .6 : .02, vert ? .02 : len, teal, VOID.x1 - .015, y, VOID.z0 + .6 + r9() * (D - 1.2));
+      else bx(vert ? .02 : len, vert ? len * .6 : .02, .01, teal, VOID.x0 + .6 + r9() * (W - 1.2), y, VOID.z1 - .015); }
+    // a lab door that does not open
+    bx(.08, 2.3, 1.5, grey(0x16191b, .4), VOID.x1 - .05, 1.15, -3.4);
+    const tf = new THREE.MeshBasicMaterial({ color: 0x3dfce0, transparent: true, opacity: .55 });
+    bx(.02, 2.36, .03, tf, VOID.x1 - .1, 1.18, -4.16); bx(.02, 2.36, .03, tf, VOID.x1 - .1, 1.18, -2.64); bx(.02, .03, 1.55, tf, VOID.x1 - .1, 2.35, -3.4); bx(.02, .22, .14, tf, VOID.x1 - .1, 1.2, -2.85);
+    // a torch like yours on the floor, switched on
+    const tor = new THREE.Mesh(new THREE.CylinderGeometry(.035, .045, .26, 10), grey(0x1b1b1d, .5)); tor.rotation.z = Math.PI / 2; tor.rotation.y = .5; tor.position.set(26.0, .045, -1.4); g.add(tor);
+    const tl = new THREE.SpotLight(0xfff0d8, 1.6, 9, .42, .55, 1.6); tl.position.set(26.0, .06, -1.4); tl.target.position.set(28.5, 0, -2.6); g.add(tl, tl.target);
+    // names on the wall, everyone she has worn
+    const wc = document.createElement('canvas'); wc.width = 1024; wc.height = 512; VOID.wctx = wc.getContext('2d'); VOID.wtex = new THREE.CanvasTexture(wc);
+    const wp = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 2.1), new THREE.MeshBasicMaterial({ map: VOID.wtex, transparent: true })); wp.position.set(27.2, 1.55, VOID.z0 + .02); g.add(wp); drawTaken();
+    // the doorway from the hallway, and the door that will close behind you
+    const hole = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 2.25), new THREE.MeshBasicMaterial({ color: 0x050506 })); hole.position.set(22.96, 1.125, -3.4); hole.rotation.y = -Math.PI / 2; g.add(hole);
+    const fm = grey(0x2a2622, .8);
+    bx(.06, 2.35, .08, fm, 22.95, 1.17, -2.78); bx(.06, 2.35, .08, fm, 22.95, 1.17, -4.02); bx(.06, .1, 1.32, fm, 22.95, 2.3, -3.4);
+    VOID.leaf = bx(.05, 2.25, 1.15, grey(0x3a3a3c, .8), 23.03, 1.125, -3.4); VOID.leaf.visible = false;
+    const amb = new THREE.PointLight(0xb8c4c8, .35, 9, 1.4); amb.position.set(VOID.cx, 2.6, VOID.cz); g.add(amb);
+    x.scene.add(g); VOID.grp = g;
+  } else {
+    if (!VOID.grp) return; x.scene.remove(VOID.grp); VOID.grp = null; delete x.ROOMS.mpvoid;
+    const i = x.DOORS.indexOf(VOID.door); if (i >= 0) x.DOORS.splice(i, 1); delete x.DOOR.mpvoid;
+    const inV = o => o.x > 22.6 && o.x < VOID.x1 + 1 && o.z > VOID.z0 - 1 && o.z < VOID.z1 + 1;
+    const P = x.P; if (inV(P)) { P.x = 21.6; P.z = -3.4; }
+    if (MP.host) { if (inV(PS)) { PS.x = 21.6; PS.z = -3.4; PS.pass = null; } if (inV(CP)) { CP.x = 21.4; CP.z = -3.0; } }
+  }
+}
+function voidClose() { if (!VOID.leaf) return; VOID.leaf.visible = true; const d = VOID.door; if (d) d.open = false; try { X().noiseBurst(300, 14, .9, .2, 'bandpass', true, 700); X().tone(52, .5, .4, 'sine'); } catch (e) {} }
+// inside the room: nothing, not even your own feet
+let silent = false;
+setInterval(() => {
+  const x = X(); if (!x || !x.A || !x.A.ctx || !MP.started) return; const inside = MP.voidOn && x.roomAt(x.P.x, x.P.z) === 'mpvoid';
+  if (inside !== silent) { silent = inside; window.__mpSilent = inside; try { x.A.master.gain.setTargetAtTime(inside ? 0 : .8 * x.FX.vol, x.A.ctx.currentTime, .15); } catch (e) {} voiceFx(); }
+}, 200);
+
+// test hooks
+MP._t = { apparition, AP, flat, applyDiff, hostHandle, clientHandle, voteIn, learnFrom, toAll, chatOpen };
+})();
+</script>
