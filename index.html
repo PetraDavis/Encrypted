@@ -3,7 +3,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Special+Elite&family=Kalam:wght@400;700&family=Silkscreen&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Special+Elite&family=Kalam:wght@400;700&family=Silkscreen&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<script>
+// graphics quality: 'auto' picks low on small / low-memory devices (and drops to low if the first frames are slow)
+window.__GFX = (() => { let pref = 'auto'; try { pref = localStorage.getItem('encrypted.gfx') || 'auto'; } catch (e) {} const n = navigator, hc = n.hardwareConcurrency || 8, dm = n.deviceMemory || 8, mob = /Android|iPhone|iPad|iPod|Mobile/i.test(n.userAgent || '');
+  const low = hc <= 4 || dm <= 4 || mob; return { pref, q: pref === 'auto' ? (low ? 'low' : 'high') : pref }; })();
+</script>
 <style>
 /* Layout: full-bleed WebGL canvas with fixed HUD + overlay panels; single dark look. */
 :root{
@@ -213,7 +218,7 @@ button{font:inherit;cursor:pointer}
   <canvas id="tnoise"></canvas><canvas id="teyes" aria-hidden="true"></canvas>
   <div class="logo" aria-label="enCRYPTed">en<span class="crypt" data-t="CRYPT">CRYPT</span>ed</div>
   <div class="tag">Ashgrove Manor · bought at government auction · power off since the accident</div>
-  <button class="btn" id="cont" hidden>Continue</button><button class="btn" id="start">Enter</button><button class="btn setb" id="setb" type="button">Settings</button><button class="btn setb" id="famb" type="button">Family</button><div class="tag" id="savenote" hidden></div>
+  <button class="btn" id="cont" hidden>Continue</button><button class="btn" id="start" disabled aria-busy="true">Loading the house&hellip;</button><button class="btn setb" id="setb" type="button">Settings</button><button class="btn setb" id="famb" type="button">Family</button><div class="tag" id="savenote" hidden></div>
   <div class="keys"><b>WASD</b> move &nbsp; <b>Mouse</b> look &nbsp; <b>E</b> interact &nbsp; <b>F</b> flashlight &nbsp; <b>Space</b> jump &nbsp; <b>C</b> crouch &nbsp; <b>J</b> journal<br>Headphones recommended.</div>
 </div>
 
@@ -227,6 +232,7 @@ button{font:inherit;cursor:pointer}
   <label><span>Field of view</span><input type="range" id="s_fov" min="55" max="100" step="1"><output id="o_fov"></output></label>
   <label class="ck"><span>Invert Y</span><input type="checkbox" id="s_inv"><i></i></label>
   <label class="ck"><span>Reduce flashing</span><input type="checkbox" id="s_rf"><i></i></label>
+  <label><span>Graphics</span><select id="s_gfx" style="font:inherit;background:#111;color:inherit;border:1px solid #444;padding:.2rem .4rem"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low (faster)</option></select><output id="o_gfx"></output></label>
   <div class="row"><button class="btn" id="s_reset" type="button">Defaults</button><button class="btn" id="s_close" type="button">Done</button></div>
 </div></div>
 <div id="fam" class="ov" hidden role="dialog" aria-label="The family"><h2>THE FAMILY</h2><div class="sub">Portraits from Ashgrove Manor. Open one to zoom in or save it at full size for fan art.</div><div id="fam_grid"></div><button class="btn setb" id="fam_x" type="button">Back</button></div>
@@ -955,8 +961,9 @@ function morseHiss(text, unit = .07, vol = .18) {
 // ================= RENDERER / SCENE =================
 const canvas = $('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const GFX = window.__GFX || (window.__GFX = { q: 'high', pref: 'auto' });
+renderer.setPixelRatio(GFX.q === 'low' ? 1 : Math.min(devicePixelRatio, 1.5));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = GFX.q === 'low' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020203);
 scene.fog = new THREE.FogExp2(0x07080a, 0.085);
@@ -965,8 +972,17 @@ scene.add(camera);
 
 // ---------- procedural textures ----------
 function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
-function tex(c, rx = 1, ry = 1) { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; }
-function grain(g, w, h, n, a) { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '0,0,0' : '255,240,220'},${Math.random() * a})`; g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2, 1); } }
+function tex(c, rx = 1, ry = 1) { if (GFX.q === 'low' && c.width >= 512 && c.height >= 128) { const [h, hg] = cv(c.width >> 1, c.height >> 1); hg.drawImage(c, 0, 0, h.width, h.height); c = h; } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; }
+// film grain: same look as n tiny random rects, written straight into the pixels (a fillStyle per speck was the slowest thing at load)
+function grain(g, w, h, n, a) {
+  w = Math.min(Math.ceil(w), g.canvas.width); h = Math.min(Math.ceil(h), g.canvas.height); const id = g.getImageData(0, 0, w, h), d = id.data;
+  for (let i = 0; i < n; i++) {
+    const dark = Math.random() < .5, al = Math.random() * a, x0 = Math.floor(Math.random() * w), y = Math.floor(Math.random() * h), x1 = Math.min(w, x0 + 1 + Math.floor(Math.random() * 2.5));
+    const r = dark ? 0 : 255, gg = dark ? 0 : 240, b = dark ? 0 : 220, k = 1 - al;
+    for (let x = x0; x < x1; x++) { const o = (y * w + x) * 4; d[o] = r * al + d[o] * k; d[o + 1] = gg * al + d[o + 1] * k; d[o + 2] = b * al + d[o + 2] * k; d[o + 3] = 255 * al + d[o + 3] * k; }
+  }
+  g.putImageData(id, 0, 0);
+}
 function woodFloor() {
   const [c, g] = cv(1024, 1024); const rows = 10, ph = 1024 / rows;
   for (let r = 0; r < rows; r++) {
@@ -1362,12 +1378,12 @@ for (const [x, z, ry] of [[-RX + .1, -1.9, Math.PI / 2], [RX - .1, -1.9, -Math.P
 }
 // moonlight through fanlight
 const moon = new THREE.SpotLight(0x5a7aa8, 1.1, 14, .55, .6, 1.2); moon.position.set(0, 4.6, RZ + 1.5); moon.target.position.set(0, 0, 2.2); scene.add(moon, moon.target);
-moon.castShadow = true; moon.shadow.mapSize.set(512, 512);
+moon.castShadow = true; moon.shadow.mapSize.set(GFX.q === 'low' ? 256 : 512, GFX.q === 'low' ? 256 : 512);
 scene.add(new THREE.HemisphereLight(0x1a2030, 0x0a0705, .22));
 // flashlight
 const flash = new THREE.SpotLight(0xfff0d8, 2.6, 20, .42, .55, 1.6);
 flash.position.set(.18, -.12, .1); camera.add(flash); camera.add(flash.target); flash.target.position.set(0, -.05, -3);
-flash.castShadow = true; flash.shadow.mapSize.set(1024, 1024); flash.shadow.camera.near = .2; flash.shadow.bias = -.0005;
+flash.castShadow = true; flash.shadow.mapSize.set(GFX.q === 'low' ? 512 : 1024, GFX.q === 'low' ? 512 : 1024); flash.shadow.camera.near = .2; flash.shadow.bias = -.0005;
 let flashOn = true;
 // dust
 const dustN = 900, dustG = new THREE.BufferGeometry(), dp = new Float32Array(dustN * 3), dv = [];
@@ -4719,9 +4735,19 @@ window.__SCARE = { SCARE, SCARES, fire: scareFire, PROPS: SCARE_PROPS };
 // ================= LOOP =================
 const clockT = new THREE.Clock(); let t = 0, nextCreak = 6, lastTick = 0, ringNext = 0, curRoom = '';
 const fwd = new THREE.Vector3();
+function setGfx(q) {
+  GFX.q = q; const low = q === 'low';
+  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 1.5)); resize();
+  renderer.shadowMap.type = low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  for (const [L, n] of [[moon, 512], [flash, 1024]]) { const m = low ? n >> 1 : n; L.shadow.mapSize.set(m, m); if (L.shadow.map) { L.shadow.map.dispose(); L.shadow.map = null; } }
+  scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
+  if (GFX.out) GFX.out();
+}
+const titleEl = $('title'), gfxProbe = { n: 0, sum: 0 }; // auto: if the first in-game frames are slow, drop to low quality once
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clockT.getDelta(), .05); t += dt;
+  const rawDt = clockT.getDelta(), dt = Math.min(rawDt, .05); t += dt;
+  if (S.started && GFX.pref === 'auto' && GFX.q === 'high' && gfxProbe.n < 120 && !document.hidden) { if (++gfxProbe.n > 30) gfxProbe.sum += Math.min(rawDt, .25); if (gfxProbe.n === 120 && gfxProbe.sum / 90 > 1 / 28) setGfx('low'); }
   P.moving = false; P.running = false;
   if (S.started && !S.ui && !S.dead && !S.hidden) {
     const run = keys['shift'] && !P.crouch, sp = (P.crouch ? 1.2 : run ? 4.0 : 2.4) * dt;
@@ -4819,8 +4845,11 @@ function frame() {
   if (journalOpen()) { st = 0; ysMat.uniforms.fx.value = 0; flash.intensity = flashOn ? (inLab ? 4.2 : 2.6) : 0; }
   if (window.__CUT && window.__CUT.on) window.__CUT.apply(dt);
   post.uniforms.time.value = t; post.uniforms.st.value = FX.reduceFlash ? Math.min(st, .25) * .5 : st; if (FX.reduceFlash) ysMat.uniforms.fx.value = Math.min(ysMat.uniforms.fx.value, .35); post.uniforms.dead.value = S.dead; post.uniforms.hide.value = S.hidden ? 1 : 0;
+  const mpY = window.__MPH && window.__MPH.ysPre; if (mpY) try { mpY(dt); } catch (e) {} // multiplayer: there is only one of her; render the shared one
+  if (!S.started && titleEl && !titleEl.hidden) return; // the opaque title screen covers the house: don't draw (or compile shaders) behind it
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+  if (mpY) try { window.__MPH.ysPost(); } catch (e) {}
 }
 drawFridge(); drawMon(); drawTV(); drawFrame(); drawLaptop(); drawMirror(); drawThermo();
 frame();
@@ -4834,6 +4863,9 @@ window.__ENC = { openIvy, S, P, Y, PURE, I, DOORS, ROOMS, saveGame, readSave, PU
   for (const k in F) $(F[k][0]).addEventListener('input', e => { FX[k] = +e.target.value; $('o_' + F[k][0].slice(2)).textContent = F[k][1](FX[k]); fxApply(); fxSave(); });
   $('s_inv').onchange = e => { FX.inv = e.target.checked; fxSave(); };
   $('s_rf').onchange = e => { FX.reduceFlash = e.target.checked; fxApply(); fxSave(); };
+  const gfxOut = () => { $('s_gfx').value = GFX.pref || 'auto'; $('o_gfx').textContent = (GFX.pref === 'auto' ? 'auto: ' : '') + GFX.q; };
+  $('s_gfx').onchange = e => { GFX.pref = e.target.value; try { localStorage.setItem('encrypted.gfx', GFX.pref); } catch (x) {} if (GFX.pref !== 'auto' && GFX.pref !== GFX.q) setGfx(GFX.pref); gfxOut(); toast('Graphics: ' + GFX.pref + '. Texture detail changes after a reload.', 3000); };
+  gfxOut(); GFX.out = gfxOut;
   let wasUi = false, from = null;
   const open = src => { from = src; wasUi = S.ui; if (S.started) S.ui = true; sync(); $('settings').hidden = false; $('s_close').focus(); };
   const close = () => { $('settings').hidden = true; if (S.started) S.ui = wasUi; if (from === 'pause') { $('pause').hidden = false; } else if (from === 'title') $('setb').focus(); };
@@ -4945,7 +4977,8 @@ const FAM = (() => {
     box(w + .04, h + .04, .02, std({ color: 0x8a6a2a, metalness: .6, roughness: .4 }), x, y, zW - .045, scene, false);
     const c = document.createElement('canvas'); c.width = 384; c.height = Math.round(384 * H / W); const g = c.getContext('2d'); g.fillStyle = '#0b0d0f'; g.fillRect(0, 0, c.width, c.height);
     const t = new THREE.CanvasTexture(c); const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), std({ map: t, roughness: .55 })); m.position.set(x, y, zW - .06); m.rotation.y = Math.PI; scene.add(m);
-    const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, c.width, c.height); t.needsUpdate = true; }; im.src = url(k);
+    const load = () => { const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, c.width, c.height); t.needsUpdate = true; }; im.src = url(k); };
+    (window.requestIdleCallback || (f => setTimeout(f, 3000)))(load, { timeout: 8000 }); // decoded after the title is up, not during load
     I.push({ id: 'fam_' + k, p: new THREE.Vector3(x, y, zW - .1), r: 2.2, label: () => `Framed portrait: ${p.name}`, act: () => view(LIST.indexOf(p), 'game') });
   }
   return window.__FAM = { gallery, view, closeView, closeGallery, save, LIST, state: () => ({ cur, z, tx, ty }) };
@@ -5211,6 +5244,7 @@ function begin(save) {
   else { saveGame(); setTimeout(() => toast('Ashgrove Manor. Yours now, signed and stamped.<br>The county said the power was cut after the accident.', 5500), 1200); }
 }
 { const sv = readSave(); let armed = false;
+  $('start').disabled = false; $('start').removeAttribute('aria-busy'); $('start').textContent = 'Enter';
   if (sv) { $('cont').hidden = false; $('start').textContent = 'New Game'; $('cont').focus(); }
   $('cont').onclick = () => { const d = readSave(); begin(d); };
   $('start').onclick = () => {
@@ -8898,7 +8932,7 @@ function joinRoom(code) {
   }).catch(() => status('Could not reach the multiplayer service. Check your connection and try again.'));
 }
 function hostGone() {
-  if (!MP.on) return; MP.on = false;
+  if (!MP.on) return; MP.on = false; SW.on = false;
   for (const id in MP.av) removeAvatar(id);
   for (const id in MP.voice) dropVoice(id);
   sysMsg('the host has left. the house goes quiet.');
@@ -8914,6 +8948,7 @@ function addPlayer(id, name) {
   MP.roster.push({ id, name: n, color: COLORS.find(c => !used.includes(c)) || COLORS[0] });
   const w = MP.started ? worldSnap() : null;
   send(id, { t: 'welcome', id, roster: MP.roster, started: MP.started, world: w, at: MP.started ? posOf(MP.me) : null, d: MP.d, learned: MP.learned, t0: Date.now() - MP.t0 });
+  if (SW.on) send(id, { t: 'sws', s: swPub() });
   bcast({ t: 'roster', roster: MP.roster }, id); drawRoster(); voiceSync();
   toAll({ t: 'sys', text: n + ' came in.' });
   if (MP.started) assignRoles();
@@ -8959,6 +8994,7 @@ function hostHandle(from, m) {
   if (m.t === 'readt') { const r = MP.readT[from] || (MP.readT[from] = { s: 0, n: 0 }); r.s += Math.min(120, +m.sec || 0); r.n++; return; }
   if (m.t === 'mic') { MP.voiceUsed[from] = true; return; }
   if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from]) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
+  if (m.t === 'sw') return swHost(from, m);
   if (m.t === 'scare') { MP.scareT[from] = Date.now(); if (PS.on && from !== PS.id && !ghostOf(from)) bodyReact(); return; }
 }
 function clientHandle(m) {
@@ -8988,6 +9024,7 @@ function clientHandle(m) {
     case 'dust': dustWord(m); return;
     case 'psgone': bodyFall(m.q); return;
     case 'apx': apparition(m.rk); return;
+    case 'sws': Object.assign(SW, m.s); SW.at = Date.now(); return;
     case 'void': voidRoom(m.on); return;
     case 'vclose': voidClose(); return;
     case 'taken': addTaken(m.name); return;
@@ -9073,7 +9110,7 @@ function syncTick() {
 const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0]; })() : MP.pos[id];
 function posTick() {
   if (!MP.on || !MP.started || !X().S.started) return;
-  if (MP.host) { MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
 }
 let loopsOn = false;
 function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
@@ -9311,7 +9348,7 @@ function apparition(rk) {
   toHost({ t: 'scare' }); Object.assign(AP, { on: true, rk, glimpse: false, x: px, z: pz, seen: 0, until: Date.now() + 120000 });
 }
 function glimpse() {
-  const x = X(), S = x.S, P = x.P, E = window.__ENC; if (!MP.chosen || AP.on || S.floor === -2 || S.ui || S.sighting || S.dead || S.hidden || x.ysolde.visible) return false;
+  const x = X(), S = x.S, P = x.P, E = window.__ENC; if (!MP.chosen || AP.on || SW.on || S.floor === -2 || S.ui || S.sighting || S.dead || S.hidden || x.ysolde.visible) return false;
   for (let tries = 0; tries < 8; tries++) {
     const a = P.yaw + Math.PI + rnd(-1.1, 1.1), dist = rnd(5, 9), dx = -Math.sin(a), dz = -Math.cos(a); let ok = true;
     for (let s2 = .6; s2 <= dist + .4; s2 += .3) if (E.blocked(P.x + dx * s2, P.z + dz * s2)) { ok = false; break; }
@@ -9331,6 +9368,53 @@ function apTick(dt) {
   x.camera.getWorldDirection(apF); apV.set(AP.x - P.x, 0, AP.z - P.z); const dist = apV.length(); apV.normalize(); apF.y = 0; apF.normalize();
   if (dist < 14 && apF.dot(apV) > .8) { AP.seen += dt; if (AP.seen > (AP.glimpse ? .35 : 1.1)) { AP.glimpse = false; gone(); } }
 }
+// ---------- the one Static Woman ----------
+// There is only one of her. Every appearance any player's game asks for (lures, glimpses, the void, deaths, the lab)
+// becomes a request to the host; the host keeps her single state (newest request wins, the old one vanishes) and
+// everyone renders that shared state, so anyone looking at the spot where she is sees her.
+const SW = MP.sw = { on: false, seq: 0, owner: '', rq: 0, p: null, k: '', at: 0 };
+const SWL = { was: false, rq: 0, sentAt: 0, reqAt: 0, opMax: 0, saved: null };
+let swSeq = 0, swRqN = 0;
+const swPub = () => ({ on: SW.on, seq: SW.seq, owner: SW.owner, rq: SW.rq, p: SW.p, k: SW.k });
+function swHost(from, m) {
+  const now = Date.now();
+  if (m.a === 'req') {
+    if (!Array.isArray(m.p) || m.p.length < 7) return;
+    if (m.k === 'glimpse' && SW.on && SW.owner !== from) return; // she is visibly somewhere else: no glimpse
+    Object.assign(SW, { on: true, seq: ++swSeq, owner: from, rq: m.rq, p: m.p, k: String(m.k || ''), at: now });
+    const E = window.__ENC, rk = X().roomAt(m.p[0], m.p[2]); if (E.ROOMS[rk] && rk !== 'mpvoid') sendIntel({ apRoom: E.ROOMS[rk].name });
+    return toAll({ t: 'sws', s: swPub() });
+  }
+  if (!SW.on || m.seq !== SW.seq || from !== SW.owner) return;
+  if (m.a === 'up' && Array.isArray(m.p)) { SW.p = m.p; SW.at = now; return toAll({ t: 'sws', s: swPub() }); }
+  if (m.a === 'end') { SW.on = false; SW.at = now; return toAll({ t: 'sws', s: swPub() }); }
+}
+function swHostTick() { if (SW.on && (Date.now() - SW.at > 4000 || !MP.roster.some(p => p.id === SW.owner))) { SW.on = false; toAll({ t: 'sws', s: swPub() }); } }
+function swKind() { if (AP.on) return AP.glimpse ? 'glimpse' : 'lure'; const x = X(); return x.S.dead ? 'kill' : x.S.floor === -2 ? 'lab' : 'game'; }
+H.ysPre = () => {
+  if (!MP.on || !MP.started) return;
+  const x = X(), ys = x.ysolde, U = x.ysMat.uniforms, S = x.S, now = performance.now();
+  SWL.saved = [ys.visible, ys.position.x, ys.position.y, ys.position.z, U.op.value, U.gl.value, U.fx.value];
+  let want = ys.visible; const mine = SW.on && SW.owner === MP.me && SW.rq === SWL.rq;
+  // a newer appearance moved her: our lure / glimpse is over (the old one vanishes)
+  if (SWL.owned && !mine && SW.on) { SWL.owned = false; if (AP.on) { AP.on = false; want = false; SWL.saved[0] = false; } }
+  if (mine) SWL.owned = true; else if (!SW.on) SWL.owned = false;
+  if (want) SWL.opMax = Math.max(SWL.opMax, U.op.value);
+  const pose = () => { const r = [+ys.position.x.toFixed(2), +ys.position.y.toFixed(2), +ys.position.z.toFixed(2), S.floor || 1, +SWL.opMax.toFixed(2), +U.gl.value.toFixed(2), +U.fx.value.toFixed(2)]; SWL.opMax = 0; return r; };
+  // a new appearance (or one that lost its place and wants it back once she is gone) asks the host
+  if (want && (!SWL.was || (!mine && !SW.on && !AP.on && now - SWL.reqAt > 1500))) { SWL.rq = ++swRqN; SWL.reqAt = SWL.sentAt = now; toHost({ t: 'sw', a: 'req', rq: SWL.rq, k: swKind(), p: pose() }); }
+  else if (want && mine && now - SWL.sentAt > 100) { SWL.sentAt = now; toHost({ t: 'sw', a: 'up', seq: SW.seq, p: pose() }); }
+  else if (!want && SWL.was && mine) toHost({ t: 'sw', a: 'end', seq: SW.seq });
+  SWL.was = want;
+  const q = SW.on && SW.p, show = !!q && q[3] === (S.floor || 1);
+  ys.visible = show;
+  if (show && !mine) { ys.position.set(q[0], q[1], q[2]); U.op.value = q[4] > .5 ? (Math.random() < .06 ? 0 : 1) : q[4]; U.gl.value = q[5]; U.fx.value = q[6] > .5 ? 1 : 0; }
+  MP._sw.last = show ? [+ys.position.x.toFixed(2), +ys.position.z.toFixed(2), q[3]] : null;
+  if (show) ys.rotation.y = Math.atan2(x.camera.position.x - ys.position.x, x.camera.position.z - ys.position.z);
+};
+H.ysPost = () => { const v = SWL.saved; if (!v) return; SWL.saved = null; const x = X(), ys = x.ysolde, U = x.ysMat.uniforms; ys.visible = v[0]; ys.position.set(v[1], v[2], v[3]); U.op.value = v[4]; U.gl.value = v[5]; U.fx.value = v[6]; };
+MP._sw = { SW, SWL };
+
 // ---------- endings: all must agree / one stays behind ----------
 const V = { open: false, votes: {}, timer: 0, kind: '' };
 const VOTE_MS = 45000;
