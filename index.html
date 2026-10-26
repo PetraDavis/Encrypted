@@ -7,7 +7,7 @@
 <script>
 // graphics quality: 'auto' picks low on small / low-memory devices (and drops to low if the first frames are slow)
 window.__GFX = (() => { let pref = 'auto'; try { pref = localStorage.getItem('encrypted.gfx') || 'auto'; } catch (e) {} const n = navigator, hc = n.hardwareConcurrency || 8, dm = n.deviceMemory || 8, mob = /Android|iPhone|iPad|iPod|Mobile/i.test(n.userAgent || '');
-  const low = hc <= 4 || dm <= 4 || mob; return { pref, q: pref === 'auto' ? (low ? 'low' : 'high') : pref }; })();
+  const low = hc <= 4 || dm <= 4 || mob, vlow = hc <= 2 || dm <= 2; if (!['auto', 'high', 'low', 'vlow'].includes(pref)) pref = 'auto'; return { pref, q: pref === 'auto' ? (vlow ? 'vlow' : low ? 'low' : 'high') : pref }; })();
 </script>
 <style>
 /* Layout: full-bleed WebGL canvas with fixed HUD + overlay panels; single dark look. */
@@ -232,7 +232,7 @@ button{font:inherit;cursor:pointer}
   <label><span>Field of view</span><input type="range" id="s_fov" min="55" max="100" step="1"><output id="o_fov"></output></label>
   <label class="ck"><span>Invert Y</span><input type="checkbox" id="s_inv"><i></i></label>
   <label class="ck"><span>Reduce flashing</span><input type="checkbox" id="s_rf"><i></i></label>
-  <label><span>Graphics</span><select id="s_gfx" style="font:inherit;background:#111;color:inherit;border:1px solid #444;padding:.2rem .4rem"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low (faster)</option></select><output id="o_gfx"></output></label>
+  <label><span>Graphics</span><select id="s_gfx" style="font:inherit;background:#111;color:inherit;border:1px solid #444;padding:.2rem .4rem"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low (faster)</option><option value="vlow">Very low (fastest)</option></select><output id="o_gfx"></output></label>
   <div class="row"><button class="btn" id="s_reset" type="button">Defaults</button><button class="btn" id="s_close" type="button">Done</button></div>
 </div></div>
 <div id="fam" class="ov" hidden role="dialog" aria-label="The family"><h2>THE FAMILY</h2><div class="sub">Portraits from Ashgrove Manor. Open one to zoom in or save it at full size for fan art.</div><div id="fam_grid"></div><button class="btn setb" id="fam_x" type="button">Back</button></div>
@@ -960,10 +960,14 @@ function morseHiss(text, unit = .07, vol = .18) {
 
 // ================= RENDERER / SCENE =================
 const canvas = $('gl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const renderer = window.__R = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 const GFX = window.__GFX || (window.__GFX = { q: 'high', pref: 'auto' });
-renderer.setPixelRatio(GFX.q === 'low' ? 1 : Math.min(devicePixelRatio, 1.5));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = GFX.q === 'low' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+// per-quality budget: pixel ratio cap, shadow-casting lights (2 = moon + torch, 1 = torch, 0 = none), cheaper Phong materials,
+// how many doors away rooms stay drawn, how many lamps on a floor light at once, and how often screens redraw
+const GFXL = { high: { pr: 1.5, sh: 2, cheap: false, cull: 3, lamps: 10, scr: .12 }, low: { pr: 1, sh: 1, cheap: true, cull: 2, lamps: 6, scr: .25 }, vlow: { pr: .75, sh: 0, cheap: true, cull: 1, lamps: 4, scr: .4 } };
+const gfxL = () => GFXL[GFX.q] || GFXL.high;
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, gfxL().pr));
+renderer.shadowMap.enabled = gfxL().sh > 0; renderer.shadowMap.type = GFX.q === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020203);
 scene.fog = new THREE.FogExp2(0x07080a, 0.085);
@@ -972,7 +976,7 @@ scene.add(camera);
 
 // ---------- procedural textures ----------
 function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
-function tex(c, rx = 1, ry = 1) { if (GFX.q === 'low' && c.width >= 512 && c.height >= 128) { const [h, hg] = cv(c.width >> 1, c.height >> 1); hg.drawImage(c, 0, 0, h.width, h.height); c = h; } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; }
+function tex(c, rx = 1, ry = 1) { if (GFX.q !== 'high' && c.width >= 512 && c.height >= 128) { const [h, hg] = cv(c.width >> 1, c.height >> 1); hg.drawImage(c, 0, 0, h.width, h.height); c = h; } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; }
 // film grain: same look as n tiny random rects, written straight into the pixels (a fillStyle per speck was the slowest thing at load)
 function grain(g, w, h, n, a) {
   w = Math.min(Math.ceil(w), g.canvas.width); h = Math.min(Math.ceil(h), g.canvas.height); const id = g.getImageData(0, 0, w, h), d = id.data;
@@ -1378,12 +1382,12 @@ for (const [x, z, ry] of [[-RX + .1, -1.9, Math.PI / 2], [RX - .1, -1.9, -Math.P
 }
 // moonlight through fanlight
 const moon = new THREE.SpotLight(0x5a7aa8, 1.1, 14, .55, .6, 1.2); moon.position.set(0, 4.6, RZ + 1.5); moon.target.position.set(0, 0, 2.2); scene.add(moon, moon.target);
-moon.castShadow = true; moon.shadow.mapSize.set(GFX.q === 'low' ? 256 : 512, GFX.q === 'low' ? 256 : 512);
+moon.castShadow = gfxL().sh > 1; moon.shadow.mapSize.set(GFX.q !== 'high' ? 256 : 512, GFX.q !== 'high' ? 256 : 512);
 scene.add(new THREE.HemisphereLight(0x1a2030, 0x0a0705, .22));
 // flashlight
 const flash = new THREE.SpotLight(0xfff0d8, 2.6, 20, .42, .55, 1.6);
 flash.position.set(.18, -.12, .1); camera.add(flash); camera.add(flash.target); flash.target.position.set(0, -.05, -3);
-flash.castShadow = true; flash.shadow.mapSize.set(GFX.q === 'low' ? 512 : 1024, GFX.q === 'low' ? 512 : 1024); flash.shadow.camera.near = .2; flash.shadow.bias = -.0005;
+flash.castShadow = gfxL().sh > 0; flash.shadow.mapSize.set(GFX.q !== 'high' ? 512 : 1024, GFX.q !== 'high' ? 512 : 1024); flash.shadow.camera.near = .2; flash.shadow.bias = -.0005;
 let flashOn = true;
 // dust
 const dustN = 900, dustG = new THREE.BufferGeometry(), dp = new Float32Array(dustN * 3), dv = [];
@@ -1889,8 +1893,8 @@ function resize() {
 addEventListener('resize', resize); resize();
 
 // ================= GAME STATE =================
-// One switch for the monster: false keeps Ysolde out (no sighting, roaming, catching, flicker or static). ?ysolde=1 turns her on.
-const YSOLDE_ENABLED = false || /[?&]ysolde=1/.test(location.search);
+// One switch for the monster: on by default (sighting, roaming, catching). ?ysolde=0 keeps her out.
+const YSOLDE_ENABLED = !/[?&]ysolde=0/.test(location.search);
 const S = { floor: 1, stairsOpen: false, thermoSeen: false, mirrorSeen: false, fogged: false, videoSeen: false, cylPlayed: false, cylHeard: false, letterSeen: false, started: false, power: false, locked: false, main: true, router: true, noteFound: false, closetOpen: false, keyLiving: false, notebook: false, tapHeard: false, phoneRinging: false, phoneDone: false, codebook: false, fridgeSeen: false, letter: false, inkRevealed: false, stairKey: false, ended: false, ys: false, sightingDone: false, sighting: 0, hidden: null, ui: false, dead: 0, solved: {}, fast: false };
 const P = { x: 0, z: 4.9, yaw: 0, pitch: 0, eye: 1.65, crouch: false, bob: 0, moving: false, running: false, jy: 0, vy: 0 };
 const keys = {};
@@ -2628,26 +2632,47 @@ function startSighting() {
 }
 function endSighting() { if (Y.state !== 'hunt') ysolde.visible = false; S.sighting = 0; }
 // ---------- Ysolde, roaming ----------
-const Y = { state: 'off', t: 0, x: 0, z: 0, room: 'foyer', last: null, lastRoom: null, wander: null, pass: null, hunt: 0, linger: 0, warnRoom: null, snap: 0 };
+const Y = { state: 'off', t: 0, x: 0, z: 0, floor: 1, room: 'foyer', last: null, lastRoom: null, wander: null, pass: null, hunt: 0, linger: 0, warnRoom: null, snap: 0 };
 function neighbors(room) { const r = []; for (const d of DOORS) if (d.open) { if (d.a === room) r.push([d.b, d]); else if (d.b === room) r.push([d.a, d]); } return r; }
 function bfs(from) { const dist = { [from]: 0 }, via = {}; const q = [from]; while (q.length) { const c = q.shift(); for (const [n, d] of neighbors(c)) if (!(n in dist)) { dist[n] = dist[c] + 1; via[n] = [c, d]; q.push(n); } } return { dist, via }; }
 function firstDoor(from, to) { const { via } = bfs(from); if (!(to in via)) return null; let n = to, d = null; while (n !== from) { const [p, dd] = via[n]; d = dd; n = p; } return d; }
-function spawnPick() {
-  const pr = roomAt(P.x, P.z), { dist } = bfs(pr);
-  const c = ELEC.filter(e => e.room !== 'ilocore' && e.room in dist && dist[e.room] >= 1 && dist[e.room] <= 3);
+// who she can hunt: in single player just you; in multiplayer the host lists every living player (from the shared positions)
+const YS_FLOORS = [1, 2, 3, -1]; // never in the lab (-2): her scripted lab scenes own the figure there
+function ysTargets() {
+  const H = window.__MPH; if (H && H.ysTargets) { const T = H.ysTargets(); if (T) return T; }
+  return [{ id: null, x: P.x, z: P.z, floor: S.floor || 1, hidden: !!S.hidden, moving: P.moving, running: P.running, crouch: P.crouch, flash: flashOn }];
+}
+function spawnPick(tg) {
+  const pr = roomAt(tg.x, tg.z), { dist } = bfs(pr);
+  const c = ELEC.filter(e => e.room !== 'ilocore' && ROOMS[e.room] && (ROOMS[e.room].floor || 1) === tg.floor && e.room in dist && dist[e.room] >= 1 && dist[e.room] <= 3);
   if (!c.length) return null; c.sort((a, b) => dist[a.room] - dist[b.room]); const best = c.filter(e => dist[e.room] === dist[c[0].room]); return best[Math.floor(Math.random() * best.length)];
 }
 function ysSpeed() { return 1.55 * (S.router ? 1 : .6) * (S.main ? 1 : .55); }
+function ysCalm(t) { if (Y.state === 'hunt' || Y.state === 'warn') { ysolde.visible = false; Y.warnRoom = null; } Y.state = 'dormant'; Y.t = Math.max(Y.t || 0, t); Y.last = null; }
 function ysUpdate(dt) {
-  if (!YSOLDE_ENABLED || !S.ys || S.ended || S.dead) return;
-  if (Y.state === 'dormant') { Y.t -= dt; if (Y.t <= 0) { const e = spawnPick(); if (!e) { Y.t = 8; return; } Y.spawn = e; Y.state = 'warn'; Y.t = 3.2; Y.warnRoom = e.room; noiseBurst(2500, .8, 2.5, .25, 'highpass', true); toast(`Static hisses from ${e.name} in the ${ROOMS[e.room].name}.`, 3000); } return; }
-  if (Y.state === 'warn') { Y.t -= dt; if (Y.t <= 0) { Y.state = 'hunt'; Y.x = Y.spawn.x; Y.z = Y.spawn.z; Y.room = Y.spawn.room; Y.hunt = S.router ? 32 : 22; Y.last = null; Y.wander = null; Y.pass = null; Y.warnRoom = null; ysolde.visible = true; ysolde.position.set(Y.x, 1.1, Y.z); morseHiss('HUSH', .07, .2); } return; }
+  const H = window.__MPH, mode = H && H.ysMode ? H.ysMode() : null; // 'host' | 'client' | null (single player)
+  if (mode === 'client') { if (H.ysMirror) H.ysMirror(); return; } // clients only mirror the host's one roaming figure
+  if (!YSOLDE_ENABLED || S.ended || S.lEnded) return;
+  if (!(S.ys || (mode === 'host' && S.phoneDone))) return;
+  if (!mode && S.dead) return;
+  if (Y.state === 'off' || Y.state === 'gone') { Y.state = 'dormant'; Y.t = Math.max(Y.t, 25); }
+  const T = ysTargets().filter(p => YS_FLOORS.includes(p.floor) && !(window.__CUT && window.__CUT.on));
+  if (mode === 'host' && H.ysPaused && H.ysPaused()) { if (Y.state === 'hunt') ysCalm(rnd(20, 35)); return; } // she is showing herself elsewhere (a lure, a death): one place only
+  if (Y.state === 'dormant') { if (!T.length) return; Y.t -= dt; if (Y.t <= 0) { const tg = T[Math.floor(Math.random() * T.length)], e = spawnPick(tg); if (!e) { Y.t = 8; return; } Y.spawn = e; Y.floor = tg.floor; Y.state = 'warn'; Y.t = 3.2; Y.warnRoom = e.room; if (mode === 'host') H.ysEvent('warn', e); if (!mode || (S.floor || 1) === Y.floor) { noiseBurst(2500, .8, 2.5, .25, 'highpass', true); toast(`Static hisses from ${e.name} in the ${ROOMS[e.room].name}.`, 3000); } } return; }
+  if (Y.state === 'warn') { Y.t -= dt; if (Y.t <= 0) { Y.state = 'hunt'; Y.x = Y.spawn.x; Y.z = Y.spawn.z; Y.room = Y.spawn.room; Y.hunt = S.router ? 32 : 22; Y.last = null; Y.wander = null; Y.pass = null; Y.warnRoom = null; ysolde.visible = true; ysolde.position.set(Y.x, 1.1, Y.z); if (!mode || (S.floor || 1) === Y.floor) morseHiss('HUSH', .07, .2); } return; }
   if (Y.state !== 'hunt') return;
+  const here = T.filter(p => p.floor === Y.floor);
+  if (!here.length) { ysCalm(rnd(15, 30)); return; } // everyone left her floor
   Y.hunt -= dt; Y.room = roomAt(Y.x, Y.z);
-  const pr = roomAt(P.x, P.z), d = Math.hypot(P.x - Y.x, P.z - Y.z);
-  const noiseR = S.hidden ? 0 : !P.moving ? 2.5 : P.crouch ? 3.5 : P.running ? 16 : 7.5;
-  const sees = !S.hidden && pr === Y.room && d < (flashOn ? 9 : 6);
-  if (d < noiseR || sees) { Y.last = { x: P.x, z: P.z }; Y.lastRoom = pr; }
+  // hears / sees the nearest player
+  let best = null, bd = 1e9;
+  for (const p of here) {
+    const pr = roomAt(p.x, p.z), d = Math.hypot(p.x - Y.x, p.z - Y.z);
+    const noiseR = p.hidden ? 0 : !p.moving ? 2.5 : p.crouch ? 3.5 : p.running ? 16 : 7.5;
+    const sees = !p.hidden && pr === Y.room && d < (p.flash ? 9 : 6);
+    if ((d < noiseR || sees) && pr !== 'ilocore' && d < bd) { bd = d; best = { x: p.x, z: p.z, room: pr }; }
+  }
+  if (best) { Y.last = { x: best.x, z: best.z }; Y.lastRoom = best.room; }
   let tx, tz;
   const goRoom = Y.last ? Y.lastRoom : (Y.wander || (Y.wander = Object.keys(bfs(Y.room).dist)[Math.floor(Math.random() * Object.keys(bfs(Y.room).dist).length)]));
   if (Y.pass) { tx = Y.pass.x; tz = Y.pass.z; if (Math.hypot(tx - Y.x, tz - Y.z) < .2) Y.pass = null; }
@@ -2662,9 +2687,15 @@ function ysUpdate(dt) {
   const dx = tx - Y.x, dz = tz - Y.z, l = Math.hypot(dx, dz);
   if (l > .01) { const st = Math.min(l, ysSpeed() * dt); Y.x += dx / l * st; Y.z += dz / l * st; }
   if (Math.floor(t * 9) !== Y.snap) { Y.snap = Math.floor(t * 9); ysolde.position.set(Y.x + rnd(-.03, .03), 1.1, Y.z); } // stop-motion
-  if (pr === 'ilocore' || Y.room === 'ilocore') { Y.last = null; Y.wander = null; if (!Y.iloWarned) { Y.iloWarned = true; toast('<b>ILO IS HERE. SHE WILL NOT COME IN.</b>', 4000); } } else Y.iloWarned = false; // ILO Core is a safe zone
-  if (!S.hidden && d < .85 && pr !== 'ilocore') die();
-  if (Y.hunt <= 0) { Y.state = 'dormant'; Y.t = rnd(45, 75) + (S.router ? 0 : 20) + (S.main ? 0 : 20); ysolde.visible = false; noiseBurst(3000, .6, .8, .3, 'highpass'); toast('The static drains out of the air. For now.', 3000); }
+  if (Y.room === 'ilocore') { Y.last = null; Y.wander = null; }
+  if (!mode) { const pr = roomAt(P.x, P.z); if (pr === 'ilocore') { Y.last = null; Y.wander = null; if (!Y.iloWarned) { Y.iloWarned = true; toast('<b>ILO IS HERE. SHE WILL NOT COME IN.</b>', 4000); } } else Y.iloWarned = false; } // ILO Core is a safe zone
+  // the catch: single player uses her one local position; multiplayer uses the one shared (host) position everyone sees
+  const at = mode === 'host' ? H.ysCatchPos() : [Y.x, Y.z, Y.floor];
+  if (at) for (const p of here) if (!p.hidden && p.floor === at[2] && Math.hypot(p.x - at[0], p.z - at[1]) < .85 && roomAt(p.x, p.z) !== 'ilocore') {
+    if (!mode) { die(); return; }
+    H.ysKill(p.id); ysCalm(rnd(40, 60)); return;
+  }
+  if (Y.hunt <= 0) { Y.state = 'dormant'; Y.t = rnd(45, 75) + (S.router ? 0 : 20) + (S.main ? 0 : 20); ysolde.visible = false; if (mode === 'host') H.ysEvent('calm'); if (!mode || (S.floor || 1) === Y.floor) { noiseBurst(3000, .6, .8, .3, 'highpass'); toast('The static drains out of the air. For now.', 3000); } }
 }
 // ---------- screens ----------
 const SCR = { t: 0 };
@@ -4736,18 +4767,75 @@ window.__SCARE = { SCARE, SCARES, fire: scareFire, PROPS: SCARE_PROPS };
 const clockT = new THREE.Clock(); let t = 0, nextCreak = 6, lastTick = 0, ringNext = 0, curRoom = '';
 const fwd = new THREE.Vector3();
 function setGfx(q) {
-  GFX.q = q; const low = q === 'low';
-  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 1.5)); resize();
-  renderer.shadowMap.type = low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-  for (const [L, n] of [[moon, 512], [flash, 1024]]) { const m = low ? n >> 1 : n; L.shadow.mapSize.set(m, m); if (L.shadow.map) { L.shadow.map.dispose(); L.shadow.map = null; } }
+  GFX.q = GFXL[q] ? q : 'high'; const L = gfxL(), hi = GFX.q === 'high';
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, L.pr)); resize();
+  renderer.shadowMap.enabled = L.sh > 0; renderer.shadowMap.type = hi ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  moon.castShadow = L.sh > 1; flash.castShadow = L.sh > 0;
+  for (const [Lt, n] of [[moon, 512], [flash, 1024]]) { const m = hi ? n : n >> 1; Lt.shadow.mapSize.set(m, m); if (Lt.shadow.map) { Lt.shadow.map.dispose(); Lt.shadow.map = null; } }
+  swapMats(L.cheap);
   scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
-  if (GFX.out) GFX.out();
+  PERF.lampsKey = ''; if (GFX.out) GFX.out();
 }
-const titleEl = $('title'), gfxProbe = { n: 0, sum: 0 }; // auto: if the first in-game frames are slow, drop to low quality once
+// ---------- runtime performance: cheap materials, room culling, lamp budget ----------
+// Low / Very low swap opaque PBR materials for Phong ones that share the same colour objects (so flicker code still works).
+const PERF = { cheap: false, phong: new Map(), cullT: 0, list: null, listT: 0, lampsKey: '', focusT: 0 };
+function swapMats(cheap) {
+  PERF.cheap = cheap;
+  scene.traverse(o => {
+    if (!o.isMesh || o === ysolde) return;
+    if (cheap) {
+      const m = o.material; if (!m || !m.isMeshStandardMaterial || m.transparent || m.opacity < 1 || Array.isArray(m)) return;
+      let p = PERF.phong.get(m);
+      if (!p) { p = new THREE.MeshPhongMaterial({ map: m.map, emissiveMap: m.emissiveMap, side: m.side, flatShading: m.flatShading, vertexColors: m.vertexColors, alphaTest: m.alphaTest, shininess: 6, specular: 0x0a0a0a, emissiveIntensity: m.emissiveIntensity, fog: m.fog }); p.color = m.color; p.emissive = m.emissive; p.name = 'cheap'; PERF.phong.set(m, p); }
+      o.userData.std = m; o.material = p;
+    } else if (o.userData.std) { o.material = o.userData.std; delete o.userData.std; }
+  });
+}
+// strict room lookup for culling (null when between rooms / outside, which keeps the object drawn)
+function roomStrict(x, z) { for (const k in ROOMS) { const R = ROOMS[k]; if (x >= R.x0 - .05 && x <= R.x1 + .05 && z >= R.z0 - .05 && z <= R.z1 + .05) return k; } return null; }
+const cullV = new THREE.Vector3();
+function cullBuild() {
+  const L = []; const skip = new Set([ysolde, camera]);
+  scene.traverse(o => {
+    if (!o.isMesh || o.isSprite) return; for (let p = o; p; p = p.parent) if (skip.has(p) || (p.userData && p.userData.noCull)) return;
+    const g = o.geometry; if (!g) return; if (!g.boundingSphere) g.computeBoundingSphere(); const bs = g.boundingSphere; if (!bs) return;
+    o.updateWorldMatrix(true, false); const sc = o.matrixWorld.getMaxScaleOnAxis(), r = bs.radius * sc * (o.isInstancedMesh ? 3 : 1);
+    if (r > 6 || o.isInstancedMesh && o.count > 1) return; // big shells and spread-out instance sets stay
+    L.push(o);
+  });
+  PERF.list = L; if (PERF.cheap) swapMats(true);
+}
+function cullPass() {
+  const L = PERF.list; if (!L) return; const off = !S.started || (window.__CUT && window.__CUT.on) || S.ended && S.lEnded;
+  const cr = off ? null : roomStrict(camera.position.x, camera.position.z);
+  if (!cr) { for (const o of L) o.layers.mask = 1; PERF.culled = 0; return; }
+  const fl = ROOMS[cr].floor || 1, near = new Set(), { dist } = bfs(cr), D = gfxL().cull;
+  for (const k in dist) if (dist[k] <= D) near.add(k);
+  let n = 0;
+  for (const o of L) {
+    const bs = o.geometry.boundingSphere; cullV.copy(bs.center).applyMatrix4(o.matrixWorld);
+    const r = roomStrict(cullV.x, cullV.z); let show = true;
+    if (r) { const R = ROOMS[r]; if ((R.floor || 1) !== fl) show = false; else if (!near.has(r) && Math.hypot(cullV.x - camera.position.x, cullV.z - camera.position.z) > 9) show = false; }
+    o.layers.mask = show ? 1 : 0; if (!show) n++;
+  }
+  PERF.culled = n;
+  // lamp budget: only the nearest few lamps on this floor are switched on; the count stays fixed so shaders never recompile
+  const mine = lights.filter(l => (l.floor || 1) === (S.floor || 1)), cap = gfxL().lamps;
+  if (mine.length > cap) {
+    mine.sort((a, b) => a.L.position.distanceToSquared(camera.position) - b.L.position.distanceToSquared(camera.position));
+    const on = new Set(mine.slice(0, cap)); for (const l of mine) l.L.visible = on.has(l);
+  }
+}
+window.__PERF = PERF;
+// auto: in game, if fps stays under 30 for two 3-second windows in a row, step down (high -> low -> very low)
+const titleEl = $('title'), gfxMon = { acc: 0, n: 0, slow: 0, cool: 0, skip: 30 };
+document.addEventListener('visibilitychange', () => { clockT.getDelta(); gfxMon.acc = 0; gfxMon.n = 0; gfxMon.skip = 30; });
 function frame() {
   requestAnimationFrame(frame);
+  if (document.hidden) return; // nothing to draw in a hidden tab
   const rawDt = clockT.getDelta(), dt = Math.min(rawDt, .05); t += dt;
-  if (S.started && GFX.pref === 'auto' && GFX.q === 'high' && gfxProbe.n < 120 && !document.hidden) { if (++gfxProbe.n > 30) gfxProbe.sum += Math.min(rawDt, .25); if (gfxProbe.n === 120 && gfxProbe.sum / 90 > 1 / 28) setGfx('low'); }
+  if (S.started && GFX.pref === 'auto' && GFX.q !== 'vlow' && !S.ui) { if (gfxMon.skip > 0) gfxMon.skip--; else { gfxMon.acc += Math.min(rawDt, .25); gfxMon.n++; if (gfxMon.acc >= 3) { const fps = gfxMon.n / gfxMon.acc; gfxMon.acc = 0; gfxMon.n = 0; if (t > gfxMon.cool) { gfxMon.slow = fps < 30 ? gfxMon.slow + 1 : 0; if (gfxMon.slow >= 2) { gfxMon.slow = 0; gfxMon.cool = t + 6; gfxMon.skip = 30; setGfx(GFX.q === 'high' ? 'low' : 'vlow'); } } } } }
+  if (S.started) { PERF.listT -= dt; if (PERF.listT <= 0 || !PERF.list) { PERF.listT = 5; cullBuild(); } PERF.cullT -= dt; if (PERF.cullT <= 0) { PERF.cullT = .25; cullPass(); } }
   P.moving = false; P.running = false;
   if (S.started && !S.ui && !S.dead && !S.hidden) {
     const run = keys['shift'] && !P.crouch, sp = (P.crouch ? 1.2 : run ? 4.0 : 2.4) * dt;
@@ -4783,10 +4871,10 @@ function frame() {
     st = s > .9 && s < 4.4 ? .55 : 0;
     if (s > 4.6) { endSighting(); toast('...it was a woman. Made of static. And she was looking at you.', 4500); }
   }
-  if (!S.ui || S.ended) ysUpdate(dt);
+  if (!S.ui || S.ended || (window.__MPH && window.__MPH.ysMode && window.__MPH.ysMode())) ysUpdate(dt);
   scareUpdate(dt); st = Math.max(st, SCARE.st);
   let yd = 99;
-  if (Y.state === 'hunt' && ysolde.visible) {
+  if (Y.state === 'hunt' && (ysolde.visible || Y.mirror)) {
     yd = Math.hypot(P.x - Y.x, P.z - Y.z); const close = clamp(1 - yd / 10, 0, 1);
     st = Math.max(st, close * .65); ysMat.uniforms.op.value = Math.random() < .06 ? 0 : 1; ysMat.uniforms.gl.value = .25 + close * .6; ysMat.uniforms.fx.value = yd < 3 && Math.random() < .12 ? 1 : 0;
   }
@@ -4822,14 +4910,14 @@ function frame() {
   SCREENS.routerLeds.forEach((l, i) => l.material.color.setHex(S.router && lit() && (Math.random() < .7 || i === 0) ? 0x00ff60 : 0x002008));
   SCREENS.speaker.material.color.setHex(lit() && S.router ? (Y.state === 'hunt' && Y.room === 'kitchen' ? 0xff2030 : 0x2060a0) : 0x050505);
   // screens (throttled)
-  SCR.t += dt; if (SCR.t > .12) { SCR.t = 0; drawTV(); drawFrame(); if (room === 'office' || room === 'hall') drawMon(); if (room === 'kitchen' || room === 'dining') drawFridge(); if (S.floor === 2) { drawThermo(); drawLaptop(); if (room === 'bath' || Math.random() < .1) drawMirror(); } }
+  SCR.t += dt; if (SCR.t > gfxL().scr) { SCR.t = 0; drawTV(); drawFrame(); if (room === 'office' || room === 'hall') drawMon(); if (room === 'kitchen' || room === 'dining') drawFridge(); if (S.floor === 2) { drawThermo(); drawLaptop(); if (room === 'bath' || Math.random() < .1) drawMirror(); } }
   // clock
   if (S.power) { pendulum.rotation.z = Math.sin(t * Math.PI) * .18; if (Math.floor(t) !== lastTick) { lastTick = Math.floor(t); const d = Math.hypot(P.x + RX, P.z + .6); if (d < 7 && A.ctx) tick(lastTick % 2); } }
   // phone ring
   if (S.phoneRinging && t > ringNext && A.ctx) { ringNext = t + 4; const d = Math.hypot(P.x + 7.55, P.z - 5.45), v = clamp(.35 - d / 60, .03, .35); for (let k = 0; k < 20; k++) { tone(440, .045, v, 'sine', k * .1, true); tone(480, .045, v, 'sine', k * .1, true); } }
   // dust
   const pa = dustG.attributes.position.array;
-  for (let i = 0; i < dustN; i++) { pa[i * 3] += dv[i * 3] * dt * 3; pa[i * 3 + 1] += dv[i * 3 + 1] * dt * 3; pa[i * 3 + 2] += dv[i * 3 + 2] * dt * 3; if (pa[i * 3 + 1] < 0) pa[i * 3 + 1] = 3; if (Math.abs(pa[i * 3] - P.x) > 7) pa[i * 3] = P.x + rnd(-6, 6); if (Math.abs(pa[i * 3 + 2] - P.z) > 6) pa[i * 3 + 2] = P.z + rnd(-5, 5); }
+  if (GFX.q !== 'vlow' || (PERF.dustF = !PERF.dustF)) for (let i = 0; i < dustN; i++) { pa[i * 3] += dv[i * 3] * dt * 3; pa[i * 3 + 1] += dv[i * 3 + 1] * dt * 3; pa[i * 3 + 2] += dv[i * 3 + 2] * dt * 3; if (pa[i * 3 + 1] < 0) pa[i * 3 + 1] = 3; if (Math.abs(pa[i * 3] - P.x) > 7) pa[i * 3] = P.x + rnd(-6, 6); if (Math.abs(pa[i * 3 + 2] - P.z) > 6) pa[i * 3 + 2] = P.z + rnd(-5, 5); }
   dustG.attributes.position.needsUpdate = true;
   // audio dynamics
   if (A.ctx) {
@@ -4838,7 +4926,7 @@ function frame() {
   }
   // interaction focus
   if (S.started && !S.ui) {
-    focus = S.hidden ? I.find(i => i.p === S.hidden.p) : pickFocus();
+    PERF.focusT -= dt; if (PERF.focusT <= 0 || S.hidden) { PERF.focusT = GFX.q === 'high' ? 0 : .066; focus = S.hidden ? I.find(i => i.p === S.hidden.p) : pickFocus(); }
     $('cross').className = focus ? 'on' : ''; $('prompt').innerHTML = focus ? `<kbd>E</kbd>${focus.label()}` : '';
   }
   if (S.dead) S.dead = Math.min(1, S.dead + dt * .6);
@@ -4852,9 +4940,10 @@ function frame() {
   if (mpY) try { window.__MPH.ysPost(); } catch (e) {}
 }
 drawFridge(); drawMon(); drawTV(); drawFrame(); drawLaptop(); drawMirror(); drawThermo();
+if (GFXL[GFX.q] && GFX.q !== 'high') swapMats(true);
 frame();
 // expose for tests
-window.__MPX = { HIDES, get flashOn() { return flashOn; }, firstDoor, ysolde, ysMat, roomAt, ROOMS, noiseBurst, closeDev, S, P, Y, DOORS, DOOR, scene, camera, lights, toast, objective, applySave, readSave, saveGame, lock, unlock, morseHiss, tone, A, FX, begin: (...a) => begin(...a), setSaveKey: k => { SAVE_KEY = k; }, store };
+window.__MPX = { neighbors, HIDES, get flashOn() { return flashOn; }, firstDoor, ysolde, ysMat, roomAt, ROOMS, noiseBurst, closeDev, S, P, Y, DOORS, DOOR, scene, camera, lights, toast, objective, applySave, readSave, saveGame, lock, unlock, morseHiss, tone, A, FX, begin: (...a) => begin(...a), setSaveKey: k => { SAVE_KEY = k; }, store };
 window.__ENC = { openIvy, S, P, Y, PURE, I, DOORS, ROOMS, saveGame, readSave, PUZ, goFloor, openJournal, submit, roomAt, blocked, die, interact: id => I.find(i => i.id === id).act() };
 
 // ---------- settings panel (title + pause) ----------
@@ -9025,6 +9114,7 @@ function clientHandle(m) {
     case 'psgone': bodyFall(m.q); return;
     case 'apx': apparition(m.rk); return;
     case 'sws': Object.assign(SW, m.s); SW.at = Date.now(); return;
+    case 'ysev': ysWarn(m); return;
     case 'void': voidRoom(m.on); return;
     case 'vclose': voidClose(); return;
     case 'taken': addTaken(m.name); return;
@@ -9107,10 +9197,10 @@ function syncTick() {
   if (!n) return;
   if (MP.host) bcast({ t: 'ws', d }); else send(null, { t: 'wd', d });
 }
-const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0]; })() : MP.pos[id];
+const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0]; })() : MP.pos[id];
 function posTick() {
   if (!MP.on || !MP.started || !X().S.started) return;
-  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
 }
 let loopsOn = false;
 function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
@@ -9305,7 +9395,7 @@ const FAKE = ['come to the cellar', 'found something in the kitchen. come alone'
 const FAKE_N = ["{n}, it's me, come downstairs", '{n}? come to the cellar. just you', "{n} it's me. i found the way out. downstairs", '{n} where are you. come down'];
 function hostLoops() {
   commonLoops();
-  let nextY = Date.now() + 60000, nextFake = Date.now() + rnd(6, 9) * 60000, nextWh = Date.now() + rnd(1.5, 3) * 60000, ended = false;
+  let nextY = Date.now() + 60000, nextFake = Date.now() + rnd(1.5, 3) * 60000, nextFakeCh = Date.now() + rnd(3, 4.5) * 60000, nextWh = Date.now() + rnd(1.5, 3) * 60000, ended = false;
   MP.tick = () => {
     const now = Date.now(), d = Math.min(1, Math.max((now - MP.t0) / FULL_MS, progress(), MP.dOverride || 0));
     if (Math.abs(d - MP.d) > .004 || (d >= 1 && MP.d < 1)) toAll({ t: 'd', d });
@@ -9313,22 +9403,30 @@ function hostLoops() {
     if (ch && d >= .6 && d < 1 && now > nextY) { nextY = now + rnd(70, 140) * 1000; toPlayer(ch, { t: 'y', text: pick(Y_LINES) }); }
     if (d >= .8) for (const k of MP.kept) if (!MP.keptBack[k.from] && MP.roster.some(p => p.id === k.from)) { MP.keptBack[k.from] = 1; const kt = k.text.toLowerCase(); setTimeout(() => toPlayer(k.from, { t: 'y', text: `you said: ${kt}. i kept it.` }), rnd(5, 40) * 1000); }
     if (d >= 1 && !ended && ch) { ended = true; Y_END.forEach((l, i) => setTimeout(() => MP.roles && toPlayer(MP.roles.chosen, { t: 'y', text: l }), 2500 + i * 2600)); }
-    if (MP.roster.length >= 2 && now > nextFake && d < 1) { nextFake = now + rnd(5, 9) * 60000 * (1 - d * .5); MP.fake(); }
+    // fake 'come here' lures: every 2-4 minutes, extra ones for her picked player; never while she is visibly somewhere (she is only ever in one place)
+    const busy = X().Y.state === 'hunt' || SW.on || CP.on && CP.phase !== 'follow';
+    if (MP.roster.length >= 2 && now > nextFake && d < 1) { if (busy) nextFake = now + 20000; else { nextFake = now + rnd(2, 4) * 60000 * (1 - d * .3); MP.fake(); } }
+    if (ch && MP.roster.length >= 2 && now > nextFakeCh && d < 1) { if (busy || now - (MP.lureT || 0) < 60000) nextFakeCh = now + 25000; else { nextFakeCh = now + rnd(3, 5) * 60000; MP.fake(ch); } }
     if (now > nextWh && MP.roles && d < 1) { nextWh = now + rnd(1.5, 3.5) * 60000; MP.whisper(); }
   };
   setInterval(() => MP.tick(), 3000);
 }
-MP.fake = () => {
+MP.lureAt = {};
+MP.fake = only => {
   if (MP.roster.length < 2) return false;
-  const chP = MP.roles && MP.roster.find(p => p.id === MP.roles.chosen), tgt = chP && Math.random() < .7 ? chP : pick(MP.roster), from = pick(MP.roster.filter(p => p.id !== tgt.id));
+  const now = Date.now(), cool = p => now - (MP.lureAt[p.id] || 0) > 90000, liv = MP.roster.filter(p => !ghostOf(p.id) && cool(p)); // per-player cooldown
+  const chP = MP.roles && liv.find(p => p.id === MP.roles.chosen), forced = only && liv.find(p => p.id === only);
+  if (only && !forced) return false; if (!liv.length) return false;
+  const tgt = forced || (chP && Math.random() < .7 ? chP : pick(liv)), from = pick(MP.roster.filter(p => p.id !== tgt.id));
+  MP.lureAt[tgt.id] = now; MP.lureT = now; const sty = b => inStyle(b, styleOf(MP.hist[from.id] || []));
   const named = MP.learned.find(l => l.id === tgt.id);
   const q = tgt.id === MP.me ? posOf(MP.me) : MP.pos[tgt.id], E = window.__ENC;
-  if (!named && q && q[4] !== -2 && Math.random() < (tgt === chP ? .7 : .4)) {
+  if (!named && q && q[4] !== -2 && Math.random() < (tgt === chP ? .9 : .8)) {
     const here = X().roomAt(q[0], q[1]), rooms = Object.keys(E.ROOMS).filter(k => (E.ROOMS[k].floor || 1) === q[4] && k !== here && k !== 'mpvoid' && !/closet|pantry/i.test(E.ROOMS[k].name));
-    if (rooms.length) { const rk = rooms.includes(MP.apPlan) ? MP.apPlan : pick(rooms); MP.apLast = rk; MP.apPlan = pick(['kitchen', 'library', 'dining', 'living', 'office', 'hall'].filter(k => k !== rk)); sendIntel({ fakeFrom: from.name, apRoom: E.ROOMS[rk].name }); const rn = E.ROOMS[rk].name, text = (/'s /.test(rn) ? `I'm in ${rn}` : `I'm in the ${rn}`) + ' come here I found something';
+    if (rooms.length) { const rk = rooms.includes(MP.apPlan) ? MP.apPlan : pick(rooms); MP.apLast = rk; MP.apPlan = pick(['kitchen', 'library', 'dining', 'living', 'office', 'hall'].filter(k => k !== rk)); sendIntel({ fakeFrom: from.name, apRoom: E.ROOMS[rk].name }); const rn = E.ROOMS[rk].name, text = sty((/'s /.test(rn) ? `I'm in ${rn}` : `I'm in the ${rn}`) + ' come here I found something');
       bodyHide(); toPlayer(tgt.id, { t: 'chat', from: from.id, text, ap: rk }); return { to: tgt.id, from: from.id, text, room: rk }; }
   }
-  const text = named ? pick(FAKE_N).replace('{n}', tgt.name.toLowerCase()) : pick(FAKE);
+  const text = sty(named ? pick(FAKE_N).replace('{n}', tgt.name.toLowerCase()) : pick(FAKE));
   sendIntel({ fakeFrom: from.name });
   toPlayer(tgt.id, { t: 'chat', from: from.id, text }); return { to: tgt.id, from: from.id, text };
 };
@@ -9390,7 +9488,21 @@ function swHost(from, m) {
   if (m.a === 'end') { SW.on = false; SW.at = now; return toAll({ t: 'sws', s: swPub() }); }
 }
 function swHostTick() { if (SW.on && (Date.now() - SW.at > 4000 || !MP.roster.some(p => p.id === SW.owner))) { SW.on = false; toAll({ t: 'sws', s: swPub() }); } }
-function swKind() { if (AP.on) return AP.glimpse ? 'glimpse' : 'lure'; const x = X(); return x.S.dead ? 'kill' : x.S.floor === -2 ? 'lab' : 'game'; }
+function swKind() { if (AP.on) return AP.glimpse ? 'glimpse' : 'lure'; const x = X(); return MP.host && x.Y.state === 'hunt' && !MP.killing ? 'hunt' : x.S.dead ? 'kill' : x.S.floor === -2 ? 'lab' : 'game'; }
+// ---------- her roaming, host-authoritative ----------
+// Only the host runs the roaming AI, against every living player's shared position. Her one figure is the shared SW
+// state (kind 'hunt'); the catch is checked against that shared position, and a caught player becomes a ghost.
+H.ysMode = () => !MP.on || !MP.started || MP.roster.length < 2 ? null : MP.host ? 'host' : 'client';
+H.ysTargets = () => {
+  if (!MP.on || !MP.started || !MP.host) return null;
+  return living().map(p => { const q = posOf(p.id); return q && { id: p.id, x: q[0], z: q[1], floor: q[4], hidden: !!q[5], flash: !!q[6], crouch: q[3] < 1.3, moving: (q[7] || 0) > 0, running: q[7] === 2 }; }).filter(Boolean);
+};
+H.ysPaused = () => X().Y.state === 'hunt' && SWL.was && SW.on && !(SW.owner === MP.me && SW.k === 'hunt');
+H.ysCatchPos = () => { if (SW.on && SW.owner === MP.me && SW.k === 'hunt' && SW.p) { return [SW.p[0], SW.p[2], SW.p[3]]; } return null; };
+H.ysKill = id => { MP.killing = Date.now(); setTimeout(() => { MP.killing = 0; }, 6000); toAll({ t: 'sys', text: nameOf(id).toLowerCase() + ' stopped moving.' }); if (id === MP.me) killMe('static'); else toPlayer(id, { t: 'kill', how: 'static' }); };
+H.ysEvent = (k, e) => { if (k === 'warn') bcast({ t: 'ysev', k, room: e.room, name: e.name, floor: X().Y.floor }); };
+H.ysMirror = () => { const Y = X().Y, q = SW.on && SW.k === 'hunt' && SW.p; if (q) { Y.state = 'hunt'; Y.mirror = true; Y.x = q[0]; Y.z = q[2]; Y.floor = q[3]; Y.room = X().roomAt(q[0], q[2]); } else if (Y.mirror) { Y.mirror = false; Y.state = 'dormant'; } if (Y.warnUntil && Date.now() > Y.warnUntil) { Y.warnRoom = null; Y.warnUntil = 0; } };
+function ysWarn(m) { const x = X(); if ((x.S.floor || 1) !== m.floor) return; x.Y.warnRoom = m.room; x.Y.warnUntil = Date.now() + 3200; try { x.noiseBurst(2500, .8, 2.5, .25, 'highpass', true); } catch (e) {} x.toast(`Static hisses from ${m.name} in the ${x.ROOMS[m.room].name}.`, 3000); }
 H.ysPre = () => {
   if (!MP.on || !MP.started) return;
   const x = X(), ys = x.ysolde, U = x.ysMat.uniforms, S = x.S, now = performance.now();
@@ -9400,7 +9512,7 @@ H.ysPre = () => {
   if (SWL.owned && !mine && SW.on) { SWL.owned = false; if (AP.on) { AP.on = false; want = false; SWL.saved[0] = false; } }
   if (mine) SWL.owned = true; else if (!SW.on) SWL.owned = false;
   if (want) SWL.opMax = Math.max(SWL.opMax, U.op.value);
-  const pose = () => { const r = [+ys.position.x.toFixed(2), +ys.position.y.toFixed(2), +ys.position.z.toFixed(2), S.floor || 1, +SWL.opMax.toFixed(2), +U.gl.value.toFixed(2), +U.fx.value.toFixed(2)]; SWL.opMax = 0; return r; };
+  const pose = () => { const r = [+ys.position.x.toFixed(2), +ys.position.y.toFixed(2), +ys.position.z.toFixed(2), MP.host && x.Y.state === 'hunt' && !MP.killing ? x.Y.floor : S.floor || 1, +SWL.opMax.toFixed(2), +U.gl.value.toFixed(2), +U.fx.value.toFixed(2)]; SWL.opMax = 0; return r; };
   // a new appearance (or one that lost its place and wants it back once she is gone) asks the host
   if (want && (!SWL.was || (!mine && !SW.on && !AP.on && now - SWL.reqAt > 1500))) { SWL.rq = ++swRqN; SWL.reqAt = SWL.sentAt = now; toHost({ t: 'sw', a: 'req', rq: SWL.rq, k: swKind(), p: pose() }); }
   else if (want && mine && now - SWL.sentAt > 100) { SWL.sentAt = now; toHost({ t: 'sw', a: 'up', seq: SW.seq, p: pose() }); }
@@ -9581,23 +9693,79 @@ function killMe(how) {
   }
 }
 
-// ---------- The Copy (once per game, host runs it) ----------
+// ---------- The Copy (up to twice per game, host runs it) ----------
 const CP = MP.copy = { on: false, orig: null, target: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mirror: false };
 const COPY_LINES = ['i found this room', 'come look', 'guys over here', 'over here', 'this way', 'come here', 'found something', 'wait for me', 'follow me'];
+// ---------- text emoticons / kaomoji: found as whole tokens so punctuation handling never breaks them ----------
+// western  :) :-( ;P =D 8) XD xDDD :/ :'( >:3 :3 :c :))))  reversed  (: D: ):  hearts <3 </3
+// eastern  ^_^ ^^ -_- T_T ;_; o.O O_o >_< x_x u_u ._. owo uwu  and parenthesised faces (o_o) (╯°□°)╯ ¯\_(ツ)_/¯ ( ͡° ͜ʖ ͡°)
+const EMO_SRC = [
+  "¯\\\\_\\(ツ\\)_\\/¯",
+  "[^\\s\\w]{0,3}\\((?=[^)]*(?:[^\\x00-\\x7f]|[_^]))[^()\\n]{1,16}\\)[^\\s\\w.,!?]{0,4}",
+  "[>}\\]]?[:;=][-'o^]?(?:[)(\\]\\[DPpO03*$@}{cC|\\\\/]|>)\\1*[)(DPp\\]\\[]*",
+  "[>}]?[:;=][-'o^]?[)(DPpO03*$@}{cC|\\\\/\\]\\[]+",
+  "[xX8B][-o^]?(?:D+|P+|\\)+|\\(+)",
+  "[)(\\]\\[DPpc]+[-'o^]?[:;=]",
+  "<\\/?3+",
+  "\\^[_\\-.ω]?\\^+", "-_+-", "[Tt][_.]+[Tt]", ";_+;", "[oO0][._][oO0]", ">[_.]?<", "[xX]_+[xX]", "[uU]_+[uU]", "\\._+\\.", "[oOuU][wW][oOuU]",
+];
+const EMO_RE = new RegExp('(?<=^|\\s)(?:' + EMO_SRC.map(x => x.replace('\\1*', '')).join('|') + ')(?=$|\\s|[.,!?])', 'g');
+function emosIn(t) { const out = []; for (const m of String(t).matchAll(EMO_RE)) { if (/^[DPpc]+:$/.test(m[0]) && /\w/.test(t.slice(m.index + m[0].length, m.index + m[0].length + 2).trim()[0] || '')) continue; out.push({ e: m[0], i: m.index }); } return out; }
+const stripEmos = t => { let o = t; for (const m of emosIn(t).reverse()) o = o.slice(0, m.i) + o.slice(m.i + m.e.length); return o.replace(/\s+/g, ' ').trim(); };
+MP._emos = emosIn;
+const COMMON = new Set('a an and are as at be but by can come did do does dont for from get go going got had has have he her here hey him his how i if im in into is it its just let lets me my no not now of off ok okay on one or our out over see she so some that the their them then there they this to too up us was we well were what when where which who why will with yes you your u ur r ya yeah yep nah oh hm hmm'.split(' '));
+const ABBR = new Set('fr ngl bro bruh tbh omg dude fam ong deadass idk ikr istg smh rn tho yall lowkey highkey innit lol lmao lmfao wtf af imo fyi'.split(' '));
+const SLANG = ['fr', 'ngl', 'bro', 'bruh', 'tbh', 'omg', 'dude', 'fam', 'ong', 'deadass', 'idk', 'ikr', 'yo', 'literally', 'lowkey', 'istg', 'smh', 'rn', 'tho', 'yall', 'mate', 'innit', 'like', 'man', 'oof', 'welp', 'ok so', 'wait'];
 function styleOf(texts) {
-  const T = texts.filter(t => /[a-z]/i.test(t)).slice(-20); if (!T.length) return { caps: false, end: '' };
+  const T0 = texts.filter(t => /[a-z]/i.test(t) || emosIn(t).length).slice(-20); if (!T0.length) return { caps: false, end: '' };
+  // emoticons: learned separately (alone / inline, start / end), then removed so the punctuation and case rules never see them
+  const emo = {}; for (const t of T0) { const es = emosIn(t), rest = stripEmos(t); for (const { e, i } of es) { const k = e, o = emo[k] || (emo[k] = { e: k, n: 0, alone: 0, end: 0, start: 0 }); o.n++; if (!rest) o.alone++; else if (i + e.length >= t.trimEnd().length - 1) o.end++; else if (i === 0) o.start++; } }
+  const EM = Object.values(emo).filter(o => o.n >= 2).map(o => ({ e: o.e, r: o.n / T0.length, aloneR: o.alone / T0.length, inR: (o.n - o.alone) / T0.length, pos: o.end >= o.start ? 'end' : 'start' }));
+  const T = T0.map(stripEmos).filter(t => /[a-z]/i.test(t)); if (!T.length) T.push('ok');
   const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/(\.\.\.|!!+|\?+|[.!?])$/); const k = m ? m[1] : ''; ends[k] = (ends[k] || 0) + 1; }
   const ems = T.join(' ').match(/\p{Extended_Pictographic}/gu) || [], emoji = ems[0] || '', emRate = cnt(t => /\p{Extended_Pictographic}/u.test(t));
   const lm = T.join(' ').match(/\b(lmao+|lmfao|lol+|haha+|hehe+|xd|rofl)\b|😂|🤣|😭/gi), laugh = lm ? lm[lm.length - 1] : 'lol';
-  return { ems, emRate, laugh, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: Object.entries(ends).sort((a, b) => b[1] - a[1])[0][0], emoji, lol: cnt(t => /\blol\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
+  // their own filler words, and where they put them
+  // their own short words (wtf, omg, bruh, ngl, idk...): any short token they keep using, learned from what they typed only.
+  // Each is tracked as used alone ("wtf") or inside a line ("wtf was that"), and where it sits (start / end).
+  const tags = [], solo = [], seen = {};
+  for (const t of T) { const ws = new Set((t.toLowerCase().match(/[a-z]+/g) || [])); for (const w of ws) seen[w] = (seen[w] || 0) + 1; }
+  for (const w in seen) {
+    if (seen[w] < 2 || (!SLANG.includes(w) && (w.length > 5 || COMMON.has(w)))) continue;
+    const re = new RegExp('(^|[^a-z])' + w + '([^a-z]|$)', 'i'), hits = T.filter(t => re.test(t));
+    const alone = hits.filter(t => t.trim().toLowerCase().replace(/[^a-z\s]/g, '').trim() === w), inl = hits.filter(t => !alone.includes(t));
+    if (!SLANG.includes(w) && hits.length / T.length < .3 && alone.length < 2) continue;
+    if (alone.length) { const forms = {}; for (const t of alone) forms[t.trim()] = (forms[t.trim()] || 0) + 1; solo.push({ w, r: alone.length / T.length, form: Object.entries(forms).sort((a, b) => b[1] - a[1])[0][0] }); }
+    if (inl.length >= 2 || inl.length / T.length >= .2) { const st = inl.filter(t => new RegExp('^\\W*' + w + '\\b', 'i').test(t.trim())).length; tags.push({ w, r: inl.length / T.length, start: st > inl.length / 2 }); }
+  }
+  const lower = cnt(t => t === t.toLowerCase()) > .7, noPunct = !T.some(t => /[.,!?;:']/.test(t)), apos = T.some(t => /\w'\w/.test(t));
+  for (const o of EM) if (o.aloneR > 0) solo.push({ w: o.e.toLowerCase(), r: o.aloneR, form: o.e });
+  return { emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: Object.entries(ends).sort((a, b) => b[1] - a[1])[0][0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
 }
 function inStyle(base, st) {
-  let t = base; if (st.u) t = t.replace(/\byou\b/g, 'u'); if (!st.guys) t = t.replace(/^guys /, '');
+  const so = (st.solo || []).find(x => x.w === base.trim().toLowerCase()); if (so) return so.form; // a standalone reaction, exactly how they type it
+  const keep = emosIn(base).map(m => m.e); let t = stripEmos(base.trim()) || base.trim(); // quoted lines keep their faces intact
+  let face = keep.length ? keep[keep.length - 1] : null, facePos = 'end';
+  if (!face) for (const o of st.emo || []) if (o.inR > 0 && Math.random() < Math.min(.9, o.inR)) { face = o.e; facePos = o.pos; break; }
+  if (st.used) { const t2 = t.replace(/\b([a-z]+)\b/gi, (m, w) => ABBR.has(w.toLowerCase()) && !st.used.has(w.toLowerCase()) ? '' : m).replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim(); if (t2) t = t2; } // only their words
+  if (st.u) t = t.replace(/\byou\b/g, 'u').replace(/\byour\b/g, 'ur'); else t = t.replace(/\bu\b/g, 'you').replace(/\bur\b/g, 'your'); if (!st.guys) t = t.replace(/^guys,? /, '');
   if (st.pls && Math.random() < .3) t += ' pls';
-  if (st.shout) t = t.toUpperCase(); else if (st.caps) t = t[0].toUpperCase() + t.slice(1);
-  t += st.end; if (st.lol && Math.random() < .3) t += ' lol'; if (st.ems && st.ems.length && Math.random() < st.emRate) t += ' ' + pick(st.ems); return t;
+  for (const g of st.tags || []) if (!/^(lol|lmao)$/.test(g.w) && Math.random() < Math.min(.9, g.r) && !new RegExp('\\b' + g.w + '\\b', 'i').test(t)) t = g.start ? g.w + ' ' + t : t.replace(/[.!?]+$/, '') + ' ' + g.w;
+  if (st.noPunct) t = t.replace(/[.,!?;:']/g, '').replace(/\s+/g, ' ').trim();
+  else if (!st.apos && st.lower) t = t.replace(/(\w)'(\w)/g, '$1$2');
+  else t = t.replace(/[.!?]+$/, '');
+  if (!st.lol && st.caps !== undefined && !/lol|lmao|haha/i.test(st.laugh === 'lol' ? '' : st.laugh)) t = t.replace(/\s*\b(lol|lmao)\b\s*/gi, ' ').trim() || t;
+  if (st.lol && !/\b(lol|lmao)\b/i.test(t) && Math.random() < .5) t += ' ' + (/^lmao/i.test(st.laugh) ? 'lmao' : 'lol');
+  if (st.shout) t = t.toUpperCase();
+  else if (st.lower) t = t.toLowerCase();
+  else if (st.caps) { t = t.replace(/\bi\b/g, 'I').replace(/\bim\b/gi, "I'm").replace(/\bdont\b/g, "don't"); t = t[0].toUpperCase() + t.slice(1).replace(/([.!?] )([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
+  if (!st.noPunct) t += /^(did|does|do|who|what|where|why|how|is|are|can|could|anyone|has|have|was|were|wait did|ok who|so who)\b/i.test(t) && st.q ? '?' : st.end;
+  if (st.ems && st.ems.length && !/\p{Extended_Pictographic}\s*$/u.test(t) && Math.random() < Math.max(st.emRate, st.emRate > .5 ? .9 : 0)) t += ' ' + pick(st.ems);
+  if (face) t = facePos === 'start' ? face + ' ' + t : t.replace(/[.]$/, '') + ' ' + face; // faces go on after case and punctuation, exactly as typed
+  return t;
 }
 MP._style = (texts, base) => inStyle(base, styleOf(texts));
+MP._styleOf = styleOf; MP._gen = (texts, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
 function copySay(base) { if (!CP.on) return; speak(CP.orig, base, { copy: true }); }
 const cpPub = () => toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } });
 MP.copyStart = (orig, target) => {
@@ -9606,13 +9774,46 @@ MP.copyStart = (orig, target) => {
   const q = posOf(tg.id); if (!q) return false;
   Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + rnd(20, 40) * 1000, last: null });
   if (window.__ENC.blocked(CP.x, CP.z)) { CP.x = q[0]; CP.z = q[1]; }
-  MP.copyDone = true; cpPub(); return { orig: o.id, target: tg.id };
+  CP.hab = habitsOf(o.id); CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
+  MP.copyN = (MP.copyN || 0) + 1; CP.success = false; MP.copyDone = MP.copyN >= 2; cpPub(); return { orig: o.id, target: tg.id };
 };
 function copyEnd(how) {
-  if (!CP.on) return; CP.on = false; if (how) toAll({ t: 'cpgone' }); cpPub(); if (MP.voidOn) setTimeout(() => toAll({ t: 'void', on: false }), 4000);
+  if (!CP.on) return; CP.on = false;
+  // it failed (burned, or nobody was taken): one more attempt later, no sooner than 4 minutes from now
+  if (CP.success) MP.copyDone = true; else if ((MP.copyN || 0) < 2) { MP.copyDone = false; MP.copyNext = Date.now() + 4 * 60000; MP.copyForce = Date.now() + 8 * 60000; } if (how) toAll({ t: 'cpgone' }); cpPub(); if (MP.voidOn) setTimeout(() => toAll({ t: 'void', on: false }), 4000);
 }
 function copyVanish() { const a = MP.av.copy; if (!a) return; let k = 0; const f = setInterval(() => { a.grp.visible = k % 2 === 0; a.fig.position.x = rnd(-.08, .08); if (++k > 12) { clearInterval(f); removeAvatar('copy'); } }, 70); try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); } catch (e) {} }
 function roomOfPos(q) { return q ? X().roomAt(q[0], q[1]) : null; }
+// a player's movement habits, from their recorded positions (10 per second): turning, pauses, sprinting, torch, crouching, rooms
+function habitsOf(id) {
+  const tr = (MP.track[id] || []).slice(-2400), H = { sprint: .15, pauseRate: .02, pauseLen: 2, idleTurn: .6, turn: .5, flash: 1, flToggle: .01, crouch: 0, fav: [], n: tr.length };
+  if (tr.length < 30) return H;
+  let mv = 0, run = 0, still = 0, idleTurn = 0, turn = 0, fl = 0, flT = 0, cr = 0, n = 0, cur = 0; const pauses = [], rooms = {}, x = X();
+  for (let i = 1; i < tr.length; i++) {
+    const a = tr[i - 1], b = tr[i]; if (a[4] !== b[4]) continue; n++;
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]); const dy = Math.abs(Math.atan2(Math.sin(b[2] - a[2]), Math.cos(b[2] - a[2])));
+    turn += dy; if (d > .04) { mv++; if (d > .3 || b[7] === 2) run++; if (cur > 3) pauses.push(cur); cur = 0; } else { still++; cur++; idleTurn += dy; }
+    if (b[6]) fl++; if (a[6] !== b[6]) flT++; if (b[3] < 1.3) cr++;
+    const r = x.roomAt(b[0], b[1]); if (r && r !== 'mpvoid') rooms[r] = (rooms[r] || 0) + 1;
+  }
+  if (cur > 3) pauses.push(cur); if (!n) return H;
+  return { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length / 10 : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
+    fav: Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n };
+}
+// one step of moving "like them": sprint bursts, stop-and-look pauses, torch and crouch habits, idle looking around
+function habitStep(o, H, M, dt, moving) {
+  const now = Date.now();
+  if (now > M.runUntil) { M.runOn = Math.random() < H.sprint; M.runUntil = now + rnd(1500, 3500); }
+  if (Math.random() < H.flToggle * dt) o.flash = Math.random() < H.flash ? 1 : 0;
+  if (now > M.crouchUntil) { M.crouchUntil = now + rnd(3000, 8000); M.crouch = Math.random() < H.crouch; }
+  o.eye = M.crouch ? 1.0 : 1.65;
+  if (moving && !M.pauseUntil && Math.random() < H.pauseRate * dt) { M.pauseUntil = now + Math.min(15000, H.pauseLen * rnd(.6, 1.4) * 1000); M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn; }
+  if (M.pauseUntil && now > M.pauseUntil) M.pauseUntil = 0;
+  const idle = !moving || M.pauseUntil;
+  if (idle) { if (Math.random() < dt * .8) M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn * rnd(.5, 1.5); o.yaw += M.look * dt; }
+  return { speed: (M.runOn ? 4.0 : M.crouch ? 1.2 : 2.4), paused: !!M.pauseUntil };
+}
+MP._hab = { habitsOf, habitStep };
 function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
@@ -9630,8 +9831,20 @@ function copyTick(dt) {
   if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .4 ? 'lure' : pick(['casual', 'social', 'helpful', 'dumb']), CP.orig)); }
   if (CP.phase === 'follow') {
     const tr = CP.trail, lp = tr[tr.length - 1]; if (!lp || Math.hypot(tq[0] - lp[0], tq[1] - lp[1]) > .25 || tq[4] !== lp[4]) tr.push(tq.slice());
-    if (Math.hypot(tq[0] - CP.x, tq[1] - CP.z) < 1.6 && tq[4] === CP.floor) { tr.length = 0; tr.push(tq.slice()); return; }
-    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], 2.6 * dt) < .1) { tr.shift(); continue; } break; }
+    const Hb = CP.hab || (CP.hab = habitsOf(CP.orig)), M = CP.mv || (CP.mv = { pauseUntil: 0, runUntil: 0, crouchUntil: 0, look: 0, idleT: 0 });
+    const near = Math.hypot(tq[0] - CP.x, tq[1] - CP.z) < 1.6 && tq[4] === CP.floor;
+    // idling by its target like they idle: look around, and drift into one of their favourite rooms if it is right here
+    if (near || M.fav) {
+      M.idleT = near ? M.idleT + dt : 0; habitStep(CP, Hb, M, dt, false);
+      const x = X(), cr = x.roomAt(CP.x, CP.z);
+      if (!M.fav && M.idleT > 12 && Math.random() < dt * .1) { const nb = x.neighbors ? x.neighbors(cr).map(n => n[0]) : []; const f = Hb.fav.find(r => r === cr || nb.includes(r)); if (f && f !== 'mpvoid') { const R = x.ROOMS[f]; M.fav = { room: f, x: rnd(R.x0 + 1, R.x1 - 1), z: rnd(R.z0 + 1, R.z1 - 1), until: Date.now() + rnd(6000, 12000) }; } }
+      if (M.fav) { if (Date.now() > M.fav.until || Math.hypot(tq[0] - CP.x, tq[1] - CP.z) > 9 || tq[4] !== CP.floor) { M.fav = null; } else { navTo(CP, M.fav.x, M.fav.z, M.fav.room, 2.4 * dt); return; } }
+      if (near) { tr.length = 0; tr.push(tq.slice()); return; }
+    }
+    M.idleT = 0; const hs = habitStep(CP, Hb, M, dt, true);
+    if (hs.paused && tr.length < 30) return; // they stop and look; it does too (unless it is falling far behind)
+    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], hs.speed * dt) < .1) { tr.shift(); continue; } break; }
+    if (Hb.turn > 1 && Math.random() < dt) CP.yaw += rnd(-.4, .4) * Math.min(2, Hb.turn);
     if (now > CP.lureAt && tq[4] === 1 && CP.floor === 1) { CP.phase = 'lure'; CP.lureEnd = now + 150000; toAll({ t: 'void', on: true }); setTimeout(() => copySay('i found this room'), 2500); setTimeout(() => copySay('come look'), 11000); CP.pass = null; }
     return;
   }
@@ -9640,7 +9853,7 @@ function copyTick(dt) {
   if (now > CP.lureEnd) return copyEnd(false);
   if (roomOfPos(tq) === 'mpvoid' && tq[0] > 23.8) {
     const tg = CP.target, nm = nameOf(tg); toAll({ t: 'vclose' }); toPlayer(tg, { t: 'kill', how: 'void' }); CP.phase = 'taking';
-    setTimeout(() => { const q = posOf(tg) || tq; possess(tg, q); toAll({ t: 'taken', name: nm }); copyEnd(false); }, 3800);
+    CP.success = true; setTimeout(() => { const q = posOf(tg) || tq; possess(tg, q); toAll({ t: 'taken', name: nm }); copyEnd(false); }, 3800);
     return;
   }
   const x = X(), here = x.roomAt(CP.x, CP.z);
@@ -9650,9 +9863,23 @@ function copyTick(dt) {
   if (!d) { CP.x = VOID.cx - 1.2; CP.z = VOID.cz; CP.floor = 1; return; }
   if (stepTo(d.x, d.z, 2.4 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); CP.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
 }
-setInterval(() => { if (MP.host && MP.started) try { copyTick(.05); } catch (e) { console.warn(e); } }, 50);
-// once per game, any time after five minutes
-setInterval(() => { if (MP.host && MP.started && !MP.copyDone && !MP.ended && Date.now() - MP.t0 > (MP.copyAt || (MP.copyAt = rnd(5, 22) * 60000)) && MP.d < 1) MP.copyStart(); }, 5000);
+let cpLast = 0; setInterval(() => { const n = performance.now(), dt = cpLast ? Math.min(.5, (n - cpLast) / 1000) : .05; cpLast = n; if (MP.host && MP.started) try { copyTick(dt); } catch (e) { console.warn(e); } }, 50); // real dt: a throttled background host tab must not slow the copy down
+// how deep the group is: ground floor / upstairs low, cellar higher, the tunnel higher, the lab highest (with story progress)
+function depthOf() {
+  const L = living(); let sum = 0, n = 0;
+  for (const p of L) { const q = posOf(p.id); if (!q) continue; const f = q[4]; sum += f === -2 ? 1 : f === -1 ? (q[0] > 66 ? .65 : .45) : f === 3 ? .15 : .1; n++; }
+  const S = X().S, pr = S.lVisited ? .9 : S.cellarOpen ? .4 : 0;
+  return Math.max(n ? sum / n : 0, pr);
+}
+const copyPerMin = dp => Math.min(.97, .03 + .92 * Math.pow(dp, 1.6)); // ~5%/min upstairs, ~30% cellar, ~50% tunnel, ~95% lab
+MP._depth = { depthOf, copyPerMin };
+// up to twice per game, never in the first five minutes; each 5 s roll uses a per-minute chance that grows with depth
+setInterval(() => {
+  if (!MP.host || !MP.started || MP.copyDone || MP.ended || CP.on || MP.d >= 1 || (MP.copyN || 0) >= 2) return;
+  const now = Date.now(); if (now - MP.t0 < (MP.copyMin != null ? MP.copyMin : 5 * 60000) || now < (MP.copyNext || 0)) return;
+  const pm = copyPerMin(depthOf()), p5 = 1 - Math.pow(1 - pm, 5 / 60);
+  if (Math.random() < p5 || (MP.copyForce && now > MP.copyForce)) { MP.copyForce = 0; MP.copyStart(); }
+}, 5000);
 // torch held on a figure for ~3 s while the copy walks
 const tV = new THREE.Vector3(), tF = new THREE.Vector3();
 function torchTick(dt) {
@@ -9762,7 +9989,9 @@ function fill(t, id) {
   const nick = p2 => nickFor(id, p2);
   return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id)).replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => pick(NOTES)).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
 }
-function bankLine(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; let t = fill(pick(BANK[cat] || BANK.vague), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
+function bankLine(cat, id) { const so = styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
+  return bankLine0(cat, id); }
+function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; let t = fill(pick(BANK[cat] || BANK.vague), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
 function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && t.length < 70 && !KEEP_RE.test(t)); return h.length ? pick(h).toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
 function scaredRoom(id) { const h = MP.hist[id] || [], r = MP.histRoom[id] || [], x = X(); for (let i = h.length - 1; i >= 0; i--) if (/scar|nope|wtf|what was that|aaa|omg|help|run|creepy|jump/i.test(h[i]) && r[i] && x.ROOMS[r[i]]) return x.ROOMS[r[i]].name.toLowerCase(); return pick(ROOM_LIST); }
 // how that player addressed the others: a short form of the name they actually typed
