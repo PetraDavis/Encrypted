@@ -9084,7 +9084,7 @@ function hostHandle(from, m) {
     const text = String(m.text || '').slice(0, 200); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; HC.push(ctxTags(from)); } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
+    learnFrom(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -9093,7 +9093,7 @@ function hostHandle(from, m) {
   if (m.t === 'vote') return voteIn(from, m.kind);
   if (m.t === 'torch') return torchHit(from, m.on);
   if (m.t === 'dead') return makeGhost(from);
-  if (m.t === 'read') { (MP.reads[from] || (MP.reads[from] = [])).push({ title: String(m.title || '').slice(0, 90), snip: String(m.snip || '').slice(0, 160) }); return; }
+  if (m.t === 'read') { MP.readAt[from] = Date.now(); (MP.reads[from] || (MP.reads[from] = [])).push({ title: String(m.title || '').slice(0, 90), snip: String(m.snip || '').slice(0, 160) }); return; }
   if (m.t === 'readt') { const r = MP.readT[from] || (MP.readT[from] = { s: 0, n: 0 }); r.s += Math.min(120, +m.sec || 0); r.n++; return; }
   if (m.t === 'mic') { MP.voiceUsed[from] = true; return; }
   if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from] || (PS.on && from === PS.id)) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
@@ -9876,6 +9876,11 @@ function copyEnd(how) {
   if (CP.success) MP.copyDone = true; else if ((MP.copyN || 0) < 2) { MP.copyDone = false; MP.copyNext = Date.now() + 4 * 60000; MP.copyForce = Date.now() + 8 * 60000; } if (how) toAll({ t: 'cpgone' }); cpPub(); if (MP.voidOn) setTimeout(() => toAll({ t: 'void', on: false }), 4000);
 }
 function copyVanish() { const a = MP.av.copy; if (!a) return; let k = 0; const f = setInterval(() => { a.grp.visible = k % 2 === 0; a.fig.position.x = rnd(-.08, .08); if (++k > 12) { clearInterval(f); removeAvatar('copy'); } }, 70); try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); } catch (e) {} }
+// situation memory: when each player last entered a room, and when they last moved erratically (zig-zag / spinning in place)
+MP.roomT = {}; MP.roomIs = {}; MP.oddT = {}; MP.readAt = {};
+function sitTrack(id, q, t) { try { const r = X().roomAt(q[0], q[1]) + '@' + q[4]; if (MP.roomIs[id] !== r) { if (MP.roomIs[id] != null) MP.roomT[id] = Date.now(); MP.roomIs[id] = r; }
+  const n = t.length; if (n < 12) return; let rev = 0, path = 0; for (let i = n - 10; i < n; i++) { const a = t[i - 1], b = t[i], c = t[i - 2]; const ux = b[0] - a[0], uz = b[1] - a[1], vx = a[0] - c[0], vz = a[1] - c[1]; path += Math.hypot(ux, uz); if (ux * vx + uz * vz < -1e-4) rev++; }
+  const net = Math.hypot(t[n - 1][0] - t[n - 11][0], t[n - 1][1] - t[n - 11][1]); if (rev >= 4 && path > 1.2 && net < path * .35) MP.oddT[id] = Date.now(); } catch (e) {} }
 function roomOfPos(q) { return q ? X().roomAt(q[0], q[1]) : null; }
 // a player's movement habits, from their recorded positions (10 per second): turning, pauses, sprinting, torch, crouching, rooms
 const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -10066,7 +10071,7 @@ MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost };
 // ---------- her wearing a lured player's body (host runs it) ----------
 const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
 MP.track = {};
-function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); if (t.length > 3000) t.splice(0, t.length - 3000);
+function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); sitTrack(id, q, t); if (t.length > 3000) t.splice(0, t.length - 3000);
   // how close they stood to the nearest other living player (only while someone was within reach)
   if (ghostOf(id)) return; let nd = 99; for (const p of MP.roster) { if (p.id === id || ghostOf(p.id)) continue; const o = posOf(p.id); if (o && o[4] === q[4]) nd = Math.min(nd, Math.hypot(o[0] - q[0], o[1] - q[1])); }
   if (nd < 8) { const P = MP.prox[id] || (MP.prox[id] = []); P.push(+nd.toFixed(2)); if (P.length > 1500) P.splice(0, P.length - 1500); } }
@@ -10249,22 +10254,42 @@ function ctxTags(id, o = {}) { if (MP._ctxNow) return MP._ctxNow; const T = new 
   const said = o.self != null ? o.self : (MP.hist[id] || []).length; if (said < 2) T.add('greet');
   const L = MP.lastChat; if (L && L.from !== id && now - L.at < 10000) { let k = null; try { k = intentOf(L.text, (nameOf(id) || '').toLowerCase()); } catch (e) {} T.add('reply'); if (k) T.add('r:' + k); if (/^(insult|joke|teaseback|sus|accuse)$/.test(k || '') || /\b(lol|haha|watch this|im gonna|jk)\b/i.test(L.text)) T.add('odd'); if (/\b(run|help|aa+h*|what was that|omg|she.?s here|its here|hide)\b/i.test(L.text)) T.add('scare'); }
   if (o.reply) { T.add('reply'); T.add('r:' + o.reply); }
+  if (now - (MP.scareT[id] || 0) < 12000) T.add('scare');
+  if (now - (MP.roomT[id] || 0) < 8000) T.add('room');
+  if (now - ((MP.readAt || {})[id] || 0) < 15000) T.add('found');
+  if (L && L.from !== id && now - L.at < 10000 && /\?\s*$/.test(L.text)) T.add('q');
+  T.who = {}; if (q) { let fd = -1, nd = 99; for (const p of living()) { if (p.id === id || (PS.on && p.id === PS.id) || (CP.on && p.id === CP.orig)) continue; const o2 = posOf(p.id); if (!o2) continue; const d = o2[4] === q[4] ? Math.hypot(o2[0] - q[0], o2[1] - q[1]) : 99;
+    if (d < 12 && now - ((MP.oddT || {})[p.id] || 0) < 6000) { T.add('odd'); T.who.odd = p.id; } if (d > fd) { fd = d; T.who.far = p.id; } if (d < nd) { nd = d; T.who.near = p.id; } } }
+  if (L && L.from !== id && now - L.at < 10000) T.who.reply = L.from;
   if (!T.has('danger') && !T.has('scare') && !T.has('greet') && !T.has('reply')) T.add('idle');
   return T; }
-const KEYT = t => t === 'danger' || t === 'scare' || t === 'greet' || t === 'odd' || t === 'idle' || t.startsWith('r:');
+const KEYT = t => /^(danger|scare|greet|odd|idle|room|found|q|far|near)$/.test(t) || t.startsWith('r:');
+const SHOUT = k => { const L = k.replace(/[^A-Za-z]/g, ''), U = k.replace(/[^A-Z]/g, ''); return (L.length >= 3 && U.length / L.length > .7) || /!{2,}/.test(k); };
 function ownLine(id, o = {}) { const H = MP.hist[id] || [], C0 = MP.histCtx[id] || []; if (H.length < 8) return null;
   const now = Date.now(), U = MP.ownUsed[id] || (MP.ownUsed[id] = {}), C = o.tags || ctxTags(id, { self: o.self != null ? o.self : (PS.on && id === PS.id ? (PS.lastSaid ? 9 : 0) : CP.on && id === CP.orig ? (CP.lastSaid ? 9 : 0) : 9), reply: o.reply }), freq = {};
   for (const t of H) { const k = t.trim(); freq[k] = (freq[k] || 0) + 1; }
   const S = {}; H.forEach((t, i) => { const k = t.trim(), T = C0[i]; if (!T || !k || k.length > 60 || NOECHO.test(k) || KEEP_RE.test(k) || /^\*/.test(k) || now - (U[k] || -1e9) < 300000) return;
-    const T2 = T instanceof Set ? T : new Set(T); let m = 0; for (const g of T2) if (KEYT(g) && C.has(g)) m += g === 'idle' ? .3 : g.startsWith('r:') ? 2 : 1; if (!m) return;
+    const T2 = T instanceof Set ? T : new Set(T); let m = 0; for (const g of T2) if (KEYT(g) && C.has(g)) m += g === 'idle' ? .3 : g === 'far' || g === 'near' ? .5 : g.startsWith('r:') ? 2 : 1; if (!m || (m <= .5 && !T2.has('idle'))) return;
+    if (T2.has('idle') && !T2.has('danger') && (C.has('danger') || C.has('scare'))) return; // no small talk mid-chase
+    if (SHOUT(k) && !C.has('danger') && !C.has('scare')) return; // never shout with nothing chasing
+    for (const g of ['odd', 'found', 'q']) if (T2.has(g) && !C.has(g) && !T2.has('idle')) m *= .35;
     if ((T2.has('danger') || T2.has('scare')) && !C.has('danger') && !C.has('scare')) return; // urgent lines only when it is urgent again
     if ((T2.has('far') && C.has('near')) || (T2.has('near') && C.has('far'))) m *= .3; if (T2.has('greet') && !C.has('greet')) return;
     S[k] = (S[k] || 0) + m * Math.sqrt(freq[k]); });
   const E = Object.entries(S); if (!E.length) return null; const tot = E.reduce((a, e) => a + e[1], 0);
   if (Math.random() > Math.min(.85, .35 + tot * .12)) return null;
   let r = Math.random() * tot, w = E[0][0]; for (const [k, v] of E) if ((r -= v) <= 0) { w = k; break; }
-  U[w] = now; return '\u0001' + w; }
-function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; const so = styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
+  U[w] = now; const Tw = (() => { for (let i = H.length - 1; i >= 0; i--) if (H[i].trim() === w && C0[i]) return C0[i] instanceof Set ? C0[i] : new Set(C0[i]); return new Set(); })();
+  let out = w; const nm = [...Tw].filter(t => t.startsWith('n:')).map(t => t.slice(2)); if (nm.length) { const W = C.who || {}, pid = (C.has('odd') && W.odd) || (C.has('far') && W.far) || W.reply || W.near, cur = pid && (MP.roster.find(p => p.id === pid) || {}).name;
+    for (const n of nm) out = out.replace(new RegExp('\\b' + n.replace(/[^a-z0-9]/gi, '') + '\\b', 'gi'), cur ? cur.toLowerCase() : '').replace(/\s{2,}/g, ' ').trim(); if (!out) return null; }
+  return '\u0001' + varyOwn(out, H); }
+// light variation of a reused line, only in forms she herself types
+function varyOwn(k, H) { if (Math.random() > .35) return k; const all = ' ' + H.join(' \n ').toLowerCase() + ' ', has = re => re.test(all), V = [];
+  if (has(/\br\b/) && /\bare\b/i.test(k)) V.push(x => x.replace(/\bare\b/i, 'r')); if (has(/\bu\b/) && /\byou\b/i.test(k)) V.push(x => x.replace(/\byou\b/i, 'u'));
+  if (has(/\?\?/) && /\?$/.test(k)) V.push(x => x + '?'); if (/[?.!]$/.test(k) && H.filter(t => !/[?.!]\s*$/.test(t)).length > H.length / 2) V.push(x => x.replace(/[?.!]+$/, ''));
+  if (has(/!!/) && /!$/.test(k)) V.push(x => x + '!'); if (/^[A-Z ]+$/.test(k) && k.length < 20 && H.some(t => /([A-Z])\1{2,}/.test(t))) V.push(x => x.replace(/([A-Z])(?=[^A-Z]*$)/, '$1$1$1'));
+  return V.length ? V[Math.floor(Math.random() * V.length)](k) : k; }
+function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; let CT = null; try { CT = ctxTags(id); } catch (e) {} const so = CT && (CT.has('greet') || CT.has('danger')) ? [] : styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
 function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let t = fill(pick(Ls.length ? Ls : L0), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
 const NOECHO = /\b(gya+t+|thicc|thick|smash|freaky|mommy|daddy|zaddy|sexy|hot girl|rizz me)\b/i;
