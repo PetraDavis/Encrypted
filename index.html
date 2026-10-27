@@ -9980,7 +9980,7 @@ function copyTick(dt) {
   const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
   if (mirror !== CP.mirror) { CP.mirror = mirror; cpPub(); }
   if (mirror) {
-    if (CP.last) { const dx = o[0] - CP.last[0], dz = o[1] - CP.last[1]; if (Math.hypot(dx, dz) < 1.5 && !window.__ENC.blocked(CP.x + dx, CP.z + dz)) { CP.x += dx; CP.z += dz; } }
+    if (CP.last) { const dx = o[0] - CP.last[0], dz = o[1] - CP.last[1]; if (Math.hypot(dx, dz) < 1.5) { const B = window.__ENC.blocked; if (!B(CP.x + dx, CP.z + dz)) { CP.x += dx; CP.z += dz; } else if (!B(CP.x + dx, CP.z)) CP.x += dx; else if (!B(CP.x, CP.z + dz)) CP.z += dz; } } // slides along walls and furniture like a player would
     CP.yaw = o[2]; CP.eye = o[3]; CP.jump = o[9] || 0; CP.flash = o[6] ? 1 : 0; CP.last = o.slice(); CP.trail = []; return;
   }
   CP.last = o.slice(); CP.eye = 1.65;
@@ -10086,6 +10086,8 @@ function bodyFall(q) {
 // the ghost of the worn player is shown what their body is doing; nobody living sees this
 function psReport() { const r = X().roomAt(PS.x, PS.z); if (r && r !== PS.repRoom && r !== 'mpvoid') { const R = X().ROOMS[r]; if (PS.repRoom !== undefined && R) toPlayer(PS.id, { t: 'psdo', text: 'your body walks into the ' + R.name.toLowerCase() }); PS.repRoom = r; } }
 function bodySay(base, o) { if (!PS.on) return; speak(PS.id, base, Object.assign({ body: true }, o)); }
+// a step that slides along walls and furniture instead of stopping dead, like a player's movement
+function slideBy(o, dx, dz) { const B = window.__ENC.blocked; if (!B(o.x + dx, o.z + dz)) { o.x += dx; o.z += dz; } else if (!B(o.x + dx, o.z)) o.x += dx; else if (!B(o.x, o.z + dz)) o.z += dz; }
 function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); o.x += dx / l * st; o.z += dz / l * st; o.yaw = Math.atan2(-dx, -dz); return l; }
 const NOTE_RE = /note|letter|diary|log|book|page|card|paper|list|daybook|sheet|^v_|^m_|ld/i;
 function bodyReact() { if (!PS.on || Date.now() - (PS.reactT || 0) < 20000) return; PS.reactT = Date.now(); const R = MP.reacts[PS.id] || []; bodySay(R.length ? pick(R) : bankLine('scare', PS.id), { exact: !!R.length, delay: rnd(900, 2600) }); }
@@ -10097,7 +10099,7 @@ function possTick(dt) {
   if (MP.voidOn) { const r = x.roomAt(PS.x, PS.z); if (r === 'mpvoid') { walkObj(PS, 21.6, -3.4, 1.6 * dt); return; } }
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
   if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
-  if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1 && !E.blocked(PS.x + m.dx, PS.z + m.dz)) { PS.x += m.dx; PS.z += m.dz; } PS.yaw = m.yaw; } return; }
+  if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1) slideBy(PS, m.dx, m.dz); PS.yaw = m.yaw; } return; }
   if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(PS.id); const line = bankLine(cat, PS.id); bodySay(line, { sched: 1 }); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
   if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; if (now > PS.nextSay - 60000) bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
   if (PS.waitUntil) { if (now < PS.waitUntil) return; PS.waitUntil = 0; }
@@ -10113,7 +10115,7 @@ function possTick(dt) {
     while (PS.acc >= 1) { PS.acc--;
       const a = PS.snip[PS.idx - 1], b = PS.snip[PS.idx]; PS.idx++;
       if (!b || PS.idx >= PS.snip.length) { PS.snip = null; PS.acc = 0; PS.mode = Math.random() < .5 ? 'note' : 'replay'; return; }
-      if (a[4] === b[4]) { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < 1 && !E.blocked(PS.x + dx, PS.z + dz)) { PS.x += dx; PS.z += dz; } }
+      if (a[4] === b[4]) { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < 1) slideBy(PS, dx, dz); }
       PS.yaw = b[2]; PS.eye = b[3]; PS.pitch = b[8] || 0; PS.jump = b[9] || 0; if (b[6] !== undefined) PS.flash = b[6]; }
     return;
   }
