@@ -10186,7 +10186,10 @@ const BANK = {
   code: ['i think its on the {item}', 'the code was in {note}', 'idk the code yet', 'check the {item} for numbers', 'was it in the {room}?', 'i forgot it already lol', 'someone wrote it down right', 'try the numbers from {note}', 'maybe its a date', 'i saw numbers in the {room}', 'check the back of {note}', 'is it 4 digits?'],
   comfort: ['hey its ok', 'aw whats wrong', 'dont be sad', 'its ok we\'ll get out', 'we got this', 'hey im here', 'whats up?', 'dw its just a game lol', 'its fine, stick with me', 'dont cry we got this', 'its gonna be fine', 'im right here'],
   calm: ['whoa ok sorry', 'why u mad', 'chill lol', 'ok ok sorry', 'what did i do', 'dont be mad', 'relax its fine', 'sorry?? what happened', 'ok im sorry', 'dont be like that', 'whats wrong'],
-  meh: ['yeah idk either', 'same tbh', 'hmm', 'yeah its weird', 'fair', 'i know right', 'meh', 'eh', 'fair enough', 'whatever works'],
+  meh: ['yeah idk either', 'same tbh', 'hmm', 'yeah its weird', 'fair', 'i know right', 'meh', 'eh', 'fair enough', 'real'],
+  lockin: ['ok ok', 'locking in', 'bet', 'im locked in', 'ok focusing'],
+  serious: ['i am being serious', 'im so serious rn', 'ok ok fine', 'deadass tho'],
+  over: ['nah we got this', 'its not over yet', 'dont say that lol', 'kinda yeah', 'we are fine, relax'],
   love: ['aw', '<3', 'love u too lol', 'aww thanks', 'ok cute', 'haha <3', 'love u guys', '<3 lol', 'stoppp lol'],
   wink: ['lol what', 'stop 😭', 'ok weirdo', 'lmao', '...ok', 'what does that mean lol', 'ok weirdo lol', 'stopp'],
   happy: [':)', 'lol nice', 'yay', 'ok good', 'nice one', 'glad ur happy lol', 'glad someones having fun lol', 'ok ur in a good mood lol', 'ok someones happy lol'],
@@ -10424,7 +10427,7 @@ const SLANGP = [[/\bion\b/g, 'i do not'], [/\btryna\b/g, 'trying to'], [/\bfinna
   [/\b(this|that) (aint|is not) it\b/g, 'this is bad'], [/\bits giving\b/g, 'it is'], [/\bgot jumped\b/g, 'got scared'], [/\bhmu\b/g, 'tell me'], [/\bwym\b/g, 'what do you mean'], [/\bwdym\b/g, 'what do you mean'], [/^w (\w+)$/g, 'nice one $1'], [/^l (\w+)$/g, 'you are bad $1'], [/^(ratio|l)$/g, 'you are bad'],
   [/\b(u|you) (straight|alr|alright|good)\b/g, 'you ok'], [/^(bet bet|say less)$/g, 'bet'],
   [/^no cap\b ?(?=\w)|(?<=\w) no cap$/g, ''], [/^(ayo+|bffr|icl|nah bro|nah bruh|no bro)\b ?(?=\w)(?!(what|huh|wtf)$)/g, ''], [/^(fr|for real) tho\b ?(?=\w)/g, ''], [/^(fr|for real) tho$/g, 'real'], [/^(nah|no) (bro+|bruh+|fam|dude|gng)$/g, 'bruh'], [/^bffr$/g, 'bruh'],
-  [/^(ayo+|yo+) (what|huh|wtf)$|^(bro+|bruh+) (huh|wtf)$|^(bro+|bruh+)$|.*\b(thats|that is|its) (so |actually )?(crazy|wild|insane)$/g, 'bruh'], [/^(bro+|bruh+|ayo+) (wtf|what the \w+)\b.*/g, 'that is creepy'], [/^wtf$/g, 'bruh'],
+  [/^(ayo+|yo+) (what|huh|wtf)$|^(bro+|bruh+) huh$|^(bro+|bruh+)$|.*\b(thats|that is|its) (so |actually )?(crazy|wild|insane)$/g, 'bruh'], [/^(bro+|bruh+|ayo+) (wtf|what the \w+)\b.*/g, 'that is creepy'], [/^(ok|okay|yo|so|thats|that was) w\b/g, 'nice one'], [/^wtf$/g, 'bruh'],
   [/^sh+e+sh+$/g, 'nice one'], [/^sh+e+sh+ /g, 'nice one '], [/\bts\b/g, 'this'], [/\b(ur|you|u|you are|youre) (so )?pmo\b/g, 'you are so annoying'], [/^(ts|this|that|it|this game|this house) (is )?(so )?pmo$|\bpmo\b/g, 'i hate this game'],
   [/.*\b(gotta|got to|have to|need to|lets|time to) lock in\b.*|^lock (in|tf in)\b.*/g, 'real'], [/\b(its|it is|we are|were|its actually) (so )?over\b/g, 'its over'], [/\b(we are|were|we) (so )?back\b/g, 'so good'],
   [/\b(ur|u|you are|youre|you) (so |lowkey |actually )?chopped\b/g, 'you are bad'], [/\b(is|so|looks) chopped\b/g, 'so mid'], [/^ok(ay)? unc$|\b(an?|such an|ur|you are|youre) unc\b/g, 'lol'],
@@ -10521,6 +10524,9 @@ function intentOf(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k
 function intentOf0(raw, selfName, fz) {
   if (/[😂🤣💀😭]/u.test(raw) && !/[a-z]{3}/i.test(raw)) return 'laughs';
   if (/^\s*(bro+|bruh+|ayo+|gng)\s*[💀😭😂🤣]+\s*$/iu.test(raw)) return 'laughs';
+  if (/^\s*(bffr|be fr|be serious)\s*[?!.]*\s*$/i.test(raw)) return 'serious';
+  if (/\block (in|tf in)\b/i.test(raw)) return 'lockin';
+  if (/\b(it'?s|it is|we'?re|we are|were) (so |actually )?over\b|^\s*so over\s*$/i.test(raw)) return 'over';
   // "special": sincere with hearts/kind words, a dig with 💀/lol/sarcasm, otherwise ask
   if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
   if (/^\s*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw)) return 'laughs';
