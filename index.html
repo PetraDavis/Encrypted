@@ -9084,7 +9084,7 @@ function hostHandle(from, m) {
     const text = String(m.text || '').slice(0, 200); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); bodyHeard(from, text); copyHeard(from, text);
+    learnFrom(from, text); (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -9252,10 +9252,9 @@ function makeAvatar(id, o = {}) {
   const headG = new THREE.Group(); headG.position.set(0, 1.55, 0); head.position.set(0, .05, 0); hair.position.set(0, .07, .01); headG.add(head, hair);
   fig.add(torso, hips, neck, headG, armL, armR, legL, legR);
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex(o.name || nameOf(id), col), transparent: true, depthWrite: false, opacity: o.ghost ? .55 : 1 })); tag.scale.set(1.1, .275, 1); tag.position.y = 2.0;
-  let eyes = null; if (o.copy) { eyes = new THREE.MeshBasicMaterial({ color: 0xcfe0b0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }); const eg = new THREE.SphereGeometry(.011, 6, 4); headG.add(mesh(eg, eyes, -.045, .07, -.118), mesh(eg, eyes, .045, .07, -.118)); }
   if (o.ghost) torch.visible = false; torchRef = torch;
   grp.add(fig, tag); X().scene.add(grp);
-  return MP.av[id] = { eyes, headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
+  return MP.av[id] = { headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
 }
 function removeAvatar(id) { const a = MP.av[id]; if (!a) return; X().scene.remove(a.grp); delete MP.av[id]; }
 let avLast = performance.now();
@@ -9282,10 +9281,6 @@ function avLoop() {
     a.q = q; a.jy = (a.jy || 0) + ((q[9] ? .32 : 0) - (a.jy || 0)) * .35; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.ph) * .06 : a.jy;
     if (a.torch && kind !== 'ghost') { let on = q[6] !== 0; if (id === 'poss' && on) { const gh = MP.roster.some(r => ghostOf(r.id) && MP.pos[r.id] && Math.hypot(MP.pos[r.id][0] - a.x, MP.pos[r.id][1] - a.z) < 3.5) || (MP.ghost && Math.hypot(X().P.x - a.x, X().P.z - a.z) < 3.5); if (gh && Math.random() < .12) on = false; } a.torch.visible = on; }
     if (id === 'poss' && !PS.falling) { if (a.glitch) { a.tag.material.map = a.tagNorm; a.glitch = 0; } else if (Math.random() < .0006) { a.tagNorm = a.tag.material.map; a.tagLow = a.tagLow || tagTex(p.name.toLowerCase(), a.color); a.tag.material.map = a.tagLow; a.glitch = 1; } }
-    if (a.eyes) { // eyeshine: faint, only in the dark, only when facing you, a little more in your torch beam
-      const x = X(), cp = x.camera.position, ex = a.x, ez = a.z, dd = Math.hypot(cp.x - ex, cp.z - ez), at = Math.atan2(-(cp.x - ex), -(cp.z - ez)), face = Math.max(0, Math.cos(wrapA(a.yaw - at)));
-      let lit = 0; if (x.flashOn) { x.camera.getWorldDirection(tF); const l = dd || 1; lit = Math.max(0, (tF.x * (ex - cp.x) + tF.z * (ez - cp.z)) / l); lit = lit > .93 ? 1 : 0; }
-      a.eyes.opacity = dd > 14 || dd < .8 ? 0 : Math.pow(face, 6) * (lit ? .38 : .1) * Math.min(1, (14 - dd) / 6) * (.85 + Math.random() * .15); }
     a.grp.position.set(a.x, 0, a.z); a.fig.rotation.y = a.yaw; a.fig.scale.y = Math.max(.6, a.eye / 1.65);
     a.tag.position.y = 2.0 * Math.max(.6, a.eye / 1.65);
     a.grp.visible = (q[4] || 1) === (S.floor || 1) && !q[5];
@@ -10003,7 +9998,7 @@ function copyTick(dt) {
     }
     M.idleT = 0; M.hurry = Math.hypot(tq[0] - CP.x, tq[1] - CP.z) > (Hb.near || 1.6) + 4 || tq[4] !== CP.floor; const hs = habitStep(CP, Hb, M, dt, true);
     if (hs.paused && tr.length < 30) { lookStep(CP, Hb, M, dt, false, CP.yaw); return; } // they stop and look; it does too (unless it is falling far behind)
-    const x0 = CP.x, z0 = CP.z, sp = (Hb.seg && Hb.seg.move.length && !M.runOn ? (M.lastSp || Hb.speed) : hs.speed);
+    const x0 = CP.x, z0 = CP.z, sp = (now < (CP.slowUntil || 0) ? .55 : 1) * (Hb.seg && Hb.seg.move.length && !M.runOn ? (M.lastSp || Hb.speed) : hs.speed);
     while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], sp * dt) < .1) { tr.shift(); continue; } break; }
     // keep their distance from walls (huggers hug, middle-walkers keep to the middle)
     const wd = wallDist(CP.x, CP.z), E = window.__ENC; if (Hb.wallD && Math.abs(wd - Hb.wallD) > .3) { const r = X().roomAt(CP.x, CP.z), R = r && X().ROOMS[r]; if (R) { const cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2, k = (wd < Hb.wallD ? .4 : -.4) * dt, nx = CP.x + (cx - CP.x) * k * .2, nz = CP.z + (cz - CP.z) * k * .2; if (!E.blocked(nx, nz)) { CP.x = nx; CP.z = nz; } } }
@@ -10097,6 +10092,7 @@ function possTick(dt) {
   if (!PS.on) return; const x = X(), E = window.__ENC, now = Date.now();
   if (!MP.roster.some(p => p.id === PS.id)) { PS.on = false; return toAll({ t: 'ps', on: false, id: PS.id }); }
   psReport();
+  if (PS.waitFor) { const W2 = PS.waitFor, q = posOf(W2.id); if (!q || ghostOf(W2.id) || now > W2.until || (q[4] === PS.floor && Math.hypot(q[0] - PS.x, q[1] - PS.z) < 2.5)) PS.waitFor = null; else { if (q[4] === PS.floor) PS.yaw = Math.atan2(-(q[0] - PS.x), -(q[1] - PS.z)); return; } } // waiting for the one who asked
   if (MP.voidOn) { const r = x.roomAt(PS.x, PS.z); if (r === 'mpvoid') { walkObj(PS, 21.6, -3.4, 1.6 * dt); return; } }
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
   if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
@@ -10107,12 +10103,12 @@ function possTick(dt) {
   if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
   if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || q[4] !== PS.floor || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; }
     const H = PS.hab || (PS.hab = habitsOf(PS.id)), M = PS.mv || (PS.mv = {}); torchStep(PS, H, M); if (quirkStep(PS, H, M, dt, true)) return; PS.eye = M.crouch ? 1.0 : 1.65; const d = Math.hypot(q[0] - PS.x, q[1] - PS.z);
-    if (d > H.near + .4) { navTo(PS, q[0], q[1], x.roomAt(q[0], q[1]), (d > 5 ? 3.2 : 2.2) * dt); } else { M.lk = M.lk || null; lookStep(PS, H, M, dt, false, PS.yaw); } return; }
+    if (d > H.near + .4) { navTo(PS, q[0], q[1], x.roomAt(q[0], q[1]), (d > 5 ? 3.2 : 2.2) * dt * (now < (PS.slowUntil || 0) ? .55 : 1)); } else { M.lk = M.lk || null; lookStep(PS, H, M, dt, false, PS.yaw); } return; }
   if (PS.mode === 'replay' && !PS.snip && Math.random() < .25) { const H = PS.hab || (PS.hab = habitsOf(PS.id)); if ((MP.prox[PS.id] || []).length >= 20) { const c = living().filter(p => p.id !== PS.id).map(p => [p, posOf(p.id)]).filter(e => e[1] && e[1][4] === PS.floor && Math.hypot(e[1][0] - PS.x, e[1][1] - PS.z) < 10); if (c.length) { PS.fol = { id: pick(c)[0].id, until: now + rnd(10, 22) * 1000 }; PS.mode = 'follow'; return; } } } // stays near someone at the distance they always kept
   if (PS.mode === 'replay') {
     if (!PS.snip) { const tr = MP.track[PS.id] || []; if (tr.length < 40) { PS.mode = 'note'; return; } const len = Math.floor(rnd(80, 200)); let st = Math.floor(rnd(0, Math.max(1, tr.length - len - 1)));
       const RH = PS.hab || (PS.hab = habitsOf(PS.id)); if (RH.ret && RH.ret.length && Math.random() < .7) { for (let k = 0; k < 25; k++) { const c = Math.floor(rnd(0, Math.max(1, tr.length - len - 1))), q0 = tr[c]; if (q0 && q0[4] === PS.floor && RH.ret.includes(x.roomAt(q0[0], q0[1]))) { st = c; break; } } } /* snippets from the rooms they kept going back to */ PS.snip = tr.slice(st, st + len); PS.idx = 1; PS.half = 0; }
-    PS.acc = (PS.acc || 0) + dt * 10; // their recording is 10 samples a second: replay at the same pace whatever the tick rate
+    PS.acc = (PS.acc || 0) + dt * 10 * (now < (PS.slowUntil || 0) ? .55 : 1); // their recording is 10 samples a second: replay at the same pace whatever the tick rate
     while (PS.acc >= 1) { PS.acc--;
       const a = PS.snip[PS.idx - 1], b = PS.snip[PS.idx]; PS.idx++;
       if (!b || PS.idx >= PS.snip.length) { PS.snip = null; PS.acc = 0; PS.mode = Math.random() < .5 ? 'note' : 'replay'; return; }
@@ -10206,6 +10202,25 @@ const BANK = {
   praise: ['thanks lol', 'ty', 'i know im good', 'team effort', 'ty ty', 'finally someone noticed lol', 'ok thanks {name}'],
   reassured: ['ok thanks', 'yeah ok', 'thanks lol', 'ok good', 'ok cool', 'thank god lol'],
   suggest: ['yeah lets', 'idk, what do u think', 'sure lets try it', 'maybe, ur call', 'lets do it', 'ok but you first lol', 'fine, lead the way', 'yeah why not'],
+  whome: ['who me?', 'me?', 'r u talking to me?', 'wait me?', 'me??', 'u mean me?', 'talking to me?', 'wait who', 'huh, me?'],
+  comeback: ['coming back', 'ok ok omw back', 'sorry, coming', 'right, coming back', 'oops coming', 'k turning around'],
+  slowdown: ['ok ok slowing down', 'sorry lol', 'my bad, ill wait', 'oops ok', 'ok ill go slower', 'u just walk slow lol'],
+  afkq: ['sorry lag', 'was afk for a sec', 'my game froze', 'im here, just lagging', 'sorry was reading', 'sorry, phone', 'back, sorry'],
+  scaredme: ['lol sorry', 'got u', 'did i scare u lol', 'sorry lol', 'hehe', 'not on purpose i swear', 'ur so jumpy lol'],
+  hearq: ['yeah wtf was that', 'i heard it too', 'came from the {room} i think', 'no?? what noise', 'dont say that lol', 'i think it was upstairs', 'yeah that was close', 'prob just the house'],
+  dark: ['turn ur torch on', 'i cant see anything either', 'omg', 'stay close', 'where r u, i cant see', 'my torch is on, follow it', 'ok this is bad'],
+  staring: ['i wasnt staring lol', 'was just looking around', 'sorry zoned out', 'ur in my way lol', 'just thinking', 'lol ok'],
+  ignored: ['sorry was reading', 'im here im here', 'sorry didnt see', 'what?? im here', 'sorry, what', 'my bad, what did u say'],
+  plan: ['idk, the {room}?', 'just following u lol', 'anywhere but here', 'looking for a way out', 'the {room} i think', 'wherever the next clue is'],
+  directions: ['i think its through the {room}', 'idk, try upstairs', 'back past the {room}', 'follow the hallway', 'i forgot lol', 'near the {room} i think', 'no clue, i got lost earlier'],
+  lostq: ['me too lol', 'where r u, ill come', 'whats the room name', 'same', 'stay there ill find u', 'just follow the hallway'],
+  foundit: ['nice, where', 'omg what is it', 'ok what does it open', 'nice one', 'where was it', 'yesss', 'what does it do'],
+  take: ['ok give', 'u keep it', 'why me lol', 'ok got it', 'fine', 'sure ill hold it'],
+  warned: ['ok i wont', 'why whats in there', 'ok ok', 'too late lol', 'fine', 'why??'],
+  hand: ['my torch lol', 'just my torch', 'nothing', 'a torch??', 'what do u mean', 'just my hands lol'],
+  personal: ['old enough lol', 'why do u wanna know', 'lol random', 'focus on the game', 'idk, why', 'ask me later lol', 'thats random'],
+  request: ['ill try', 'i cant lol', 'how', 'ok one sec', 'where is it', 'idk if i can', 'ok wait'],
+  pls: ['pls what', 'what do u need', 'ok ok what', 'what', 'fine what'],
   creepy: ["it's quiet in here. i like it.", 'your voice sounds different', "i've been here before", 'we found something', 'we are coming', "why would i leave", 'the lights are nicer down here', 'i can hear all of you', 'stay a little longer'],
 };
 MP._bank = BANK;
@@ -10222,7 +10237,7 @@ function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 &
 function scaredRoom(id) { const h = MP.hist[id] || [], r = MP.histRoom[id] || [], x = X(); for (let i = h.length - 1; i >= 0; i--) if (/scar|nope|wtf|what was that|aaa|omg|help|run|creepy|jump/i.test(h[i]) && r[i] && x.ROOMS[r[i]]) return x.ROOMS[r[i]].name.toLowerCase(); return pick(ROOM_LIST); }
 // how that player addressed the others: a short form of the name they actually typed
 function nickFor(id, other) {
-  const n = other.name.toLowerCase(), words = {}; for (const t of MP.hist[id] || []) for (const w of t.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []) if (w.length >= 2 && w.slice(0, 2) === n.slice(0, 2)) words[w] = (words[w] || 0) + 1;
+  const n = other.name.toLowerCase(), words = {}; for (const t of MP.hist[id] || []) for (const w of toks(t)) if (w.length >= 2 && (other.id ? nickOf(w, id) === other.id : w.slice(0, 2) === n.slice(0, 2))) words[w] = (words[w] || 0) + 1; // only words that really meant that player
   const best = Object.entries(words).sort((a, b) => b[1] - a[1])[0]; return best ? best[0] : n;
 }
 // who they were, from what they typed and did: only traits they actually showed count
@@ -10265,6 +10280,7 @@ function persona(k, id) {
   if ((k === 'maybe' || k === 'vague') && P.follower && Math.random() < .3) return 'follower';
   if (k === 'comfort' && P.kind) return Math.random() < .5 ? 'kind' : k;
   if (k === 'joke' && P.joker) return 'jokey';
+  if ((k === 'hearq' || k === 'dark') && P.scared && Math.random() < .5) return 'scaredy';
   if (k === 'split' && P.scared) return 'scaredy';
   if (k === 'suggest' && P.leader && Math.random() < .5) return 'lead';
   if (k === 'praise' && P.rude && Math.random() < .4) return 'teaseback';
@@ -10287,7 +10303,7 @@ function speak(id, base, o = {}) {
   let fix = null; if (!o.exact && Math.random() < tR) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { if (Math.random() < fR) fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
-  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
+  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy) CP.lastSaid = Date.now(); else MP.saidAt[id] = Date.now(); if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
   setTimeout(send, o.delay != null ? o.delay : typeDelay(id, text));
 }
 // someone talks to the worn body
@@ -10305,12 +10321,28 @@ const INTENTS = [
   ['sus', /\b(sus|suspicious|not yourself|wrong with you|how (you|bob) types?|the way you type)\b|\b(seem|seems|sound|sounds|acting|being|look|looks|typing|talking) (so |really |kinda |a bit )?(off|different|weird|strange|odd)\b|\b(weird|odd|off|different) today\b/],
   ['backoff', /\bstop (following|chasing|copying|staring)|\bgo away\b|\bleave me alone\b|\bget away\b|\bback off\b|\bstay away\b/],
   ['helpyou', /\b(help me|help!|save me|im stuck|i am stuck|its got me|she is here|shes here|she is coming|its coming)\b|^help\b/],
-  ['whereother', /\bwhere (is|did|are|r) (?!you\b)(?!we\b)(?!i\b)(\w+)/],
+  ['whereother', /\bwhere (is|did|are|r) (?!you\b)(?!we\b)(?!i\b)(?!the\b)(?!that\b)(?!it\b)(?!this\b)(\w+)/],
   ['split', /\b(split up|separate|divide up|go different ways|split)\b/],
   ['praise', /\b(nice job|good job|well done|gg|nice work|good work|great job|ur good at|you are good at|nice one|clutch|smart)\b/],
   ['reassured', /^(it is ok|it is fine|its ok|its fine|ok good|all good|no worries|dont worry|np|no problem)\b/],
   ['suggest', /^(should|shall|can|could) we\b|^lets\b|^we should\b|\bwanna (go|check|try)\b/],
   ['denyclone', /\b(clone|copy|fake|impost[oe]r|pos+es+e?d|killed|took|lured|kill|killing|pretending)\b/], // the word itself
+  ['afkq', /\b(not (even )?moving|stopped moving|afk|frozen|are you stuck|you stuck|lagging|you there\?)\b/],
+  ['scaredme', /\b(you|u) (scared|spooked|got|startled) me\b|^boo+\b/],
+  ['hearq', /\b(hear|heard|hearing) (that|this|it|something|the|those)\b|\b(you|u) hear\b|\b(noise|sound|footsteps|scream|bang)\b/],
+  ['dark', /\blights? (went|are|is|just went) (out|off)|\bits (so )?dark\b|\bcant see\b|\bpower (went|is) (out|off)\b/],
+  ['staring', /\b(staring|stare|looking at me|watching me|stalking me)\b/],
+  ['ignored', /\banswer me\b|\bhello+\b.*\?|\brespond\b|\bignoring me\b|\bwhy (are|r) you (quiet|silent)\b|\bsay something\b/],
+  ['plan', /\bwhere (are|r) we going\b|\bwhats the plan\b|\bwhat is the plan\b|\bwhere to now\b|\bwhere (do|should) we go\b/],
+  ['directions', /\bwhich way\b|\bhow do (we|i) get to\b|\bway to the\b|\bwhere is the (attic|cellar|kitchen|library|study|exit|basement|stairs|door|office)\b/],
+  ['lostq', /\b(i am|im) (so |really )?(lost|stuck|confused)\b/],
+  ['foundit', /\b(i found|i got|found (a|the)|look what i)\b/],
+  ['take', /\b(take (the|this|it|that)|here take|hold (this|the))\b/],
+  ['warned', /\b(do not|dont) (go|open|touch|look|go in)\b/],
+  ['hand', /\b(in (your|ur) hand|holding|what is that|whats that)\b/],
+  ['love', /\b(miss you|best friend|love you|ily|like you|bestie)\b/],
+  ['personal', /\b(fav|favou?rite|birthday|how old|where do you live|your age|real life|irl)\b/],
+  ['pls', /^(pls|please)$/],
   ['notlying', /\b(lying|liar|lie|lies|capping|cap)\b/],
   ['leadwhy', /\b(lead|led|leading|brought|bring|bringing|took|taking|dragged) (us|me)\b|\bwhy (did|do|are) you (want|keep)? ?(going|taking|bringing|leading|going) (us|me)?/],
   ['trustme', /\b(trust|believe)\b/],
@@ -10321,21 +10353,24 @@ const INTENTS = [
   ['note', t => /\b(note|letter|diary|log|page|card|journal|paper|sheet|writing|book)\b/.test(t) && /\b(what|say|said|says|read|mean|remember|about)\b/.test(t)],
   ['solve', /\b(solve|decode|figure (it|this) out|what does (it|this) say|what is the (code|answer)|whats the (code|answer)|do you know the (code|answer))\b/],
   ['code', /\b(code|password|combination|pin|digits|numbers|keypad)\b/],
-  ['laughs', /\b(lo+l+|lmf?ao+|(ha){2,}h?|(he){2,}h?|xd|rofl|kek)\b/],
   ['scaredq', /\b(scar(e|ed|y|d)?y*|afraid|terrified|spooked|freaked|creepy|frightened|nervous)\b/],
-  ['insult', /\b(stupid|idiot|dumb|noob|trash|shut up|loser|useless|annoying|you suck|bad at|cringe|weirdo|clown)\b/],
-  ['waitok', /\b(wait|stop|stay|hold on|freeze|do not move|stay there|stand still)\b/],
-  ['followme', /\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry)\b/],
-  ['dodge', /\b(fav|favou?rite|birthday|how old|who are you|what is my|first pet|remember when|what is our|which of us|is that (really )?you|what did i say|whats my|my name)\b/],
+  ['insult', /\b(stupid|idiot|dumb|noob|trash|shut up|loser|useless|annoying|you suck|bad at|cringe|weirdo|clown|the worst|so slow|slowpoke|hate you)\b/],
+  ['comeback', /\b(come back|get back here|where are you going|dont leave|turn around|come here back)\b/],
+  ['slowdown', /\b(slow down|too fast|slow up|you are fast|ur fast|not so fast)\b/],
+  ['waitok', /\b(wait|wait me|wait up|hold up|stop|stay|hold on|freeze|do not move|stay there|stand still)\b/],
+  ['followme', /\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry|come (look|see)|stay close|stick close)\b/],
+  ['dodge', /\b(who are you|what is my|first pet|remember when|what is our|which of us|is that (really )?you|what did i say|whats my|my name)\b/],
   ['where', /\b(where are you|where is you|which room|what room|room are you|where you at|location|where)\b/],
   ['ok', /\b(are you ok|you ok|you good|are you alright|you alright|you there|you alive|everything ok)\b/],
   ['doing', /\b(what are you doing|what you doing|doing what|whatcha|what about you)\b/],
   ['helpful', /\b(found anything|find anything|got anything|any clues|found something|anything new|any ideas|what now|what next|what do we do)\b/],
   ['thanks', /\b(thanks|thank you|cheers|appreciate)\b/],
   ['sorry', /\b(sorry|my bad|oops|apologi[sz]e)\b/],
-  ['bye', /\b(bye+|got to go|leaving|i am out|good night|gn|cya|see ya|logging off)\b/],
+  ['bye', /\b(bye+|got to go|leaving|i am out|good night|gn|cya|see ya|logging off|night|nite|gnight|im off)\b/],
   ['joke', /\b(joke|funny|knock knock|pun)\b/],
+  ['laughs', /\b(lo+l+|lmf?ao+|(ha){2,}h?|(he){2,}h?|xd|rofl|kek)\b/],
   ['greet', /^(hi|hey|hello|yo|sup|howdy|hiya|heyo|morning|evening)\b/],
+  ['request', /^(can|could|will|would) you\b|^(pls|please) /],
   ['yesno', /^(is|are|do|does|did|can|could|should|will|would|have|has|was|were|you|want)\b/],
 ];
 function intentOf(raw, selfName) {
@@ -10347,9 +10382,10 @@ function intentOf(raw, selfName) {
   if (/<3|❤|♥|😍|🥰/u.test(em)) return 'love';
   if (/;-?[\)pd]|😉|😏/iu.test(em)) return 'wink';
   if (/(^|\s)(:-?[\/\\|s]|-_-|\._\.|😐|😑|🙄)(\s|$)/u.test(em)) return 'meh';
-  if (/(^|\s)(:-?[\)d]|=\)|\^_?\^|😊|🙂|😀|😄)(\s|$)/u.test(em) && em.replace(/\s/g, '').length < 6) return 'happy';
+  if (/(^|\s)(:-?[\)d]|=\)|\^_?\^|😊|🙂|😀|😄)(\s|$)/iu.test(em) && em.replace(/\s/g, '').length < 6) return 'happy';
   const t = norm(raw); if (selfName && new RegExp('\\bnot (really |the real )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal'; if (selfName && new RegExp('\\b(are you|is (this|that|it)( really| actually)?|you are|you really|are you (even|really|actually)|prove (you are|your|ur|youre)) (the real )?(even )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal';
-  for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(t) : m.test(t)) return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k;
+  const tt = selfName ? t.replace(new RegExp('^(hey |yo |oi )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b[ ,]*'), '').replace(new RegExp('[ ,]*\\b' + selfName.replace(/[^a-z0-9]/g, '') + '[?!]*$'), '') || t : t;
+  for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(tt) : m.test(tt)) return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k;
   const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || (bare.startsWith(selfName) && bare.length <= selfName.length + 3))))) return 'called';
   if (/\?\s*$/.test(t)) return 'vague';
   return null;
@@ -10359,29 +10395,97 @@ const usedR = {};
 function fresh(cat) { const L = BANK[cat] || BANK.vague, U = usedR[cat] || (usedR[cat] = []); const c = L.filter(x => !U.includes(x)); const w = pick(c.length ? c : L); U.push(w); while (U.length > Math.min(6, L.length - 1)) U.shift(); return w; }
 MP._reply = { norm, intentOf, fresh, fill: (t, id) => fill(t, id) };
 function replyCat(t) { const k = intentOf(t); return k && BANK[k] ? k : null; }
+// ---------- nicknames: which player each short name means, learned from chat ----------
+MP.nick = {}; MP.nickPend = [];
+const NSTOP = new Set('you u i a im the and to of in it is ok k lol yes no go me my we us he she they them so but or if on at by up be do did done what who where why how wait come here there this that then than now all yo hey hi hm hmm uh um oh ah ya ye yea yeah nah bro dude guys man fr tbh omg lmao rip gg ty np pls plz rn idk ik same nice cool sure good bad run hide help stop see saw got get let lets can cant will wont just like one two its im ur r n y c b x'.split(' ').filter(w => w.length > 1 || 'uiakyrnc'.includes(w)));
+const stemN = w => w.replace(/(ie|ey|y|o|i|s)$/, '').replace(/(.)\1$/, '$1');
+function nickScore(w, name) {
+  name = name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); if (!w || !name) return 0;
+  if (w === name) return 10;
+  if (w.length >= 2 && name.startsWith(w)) return 6 + w.length / name.length;
+  const st = stemN(w); if (st.length >= 2 && st !== w && name.startsWith(st)) return 5;
+  if (w.length >= 3 && name.includes(w)) return 4;
+  if (w.length >= 4 && lev(w, name) <= 1) return 4;
+  if (w.length === 1 && name[0] === w) return 2;
+  return 0;
+}
+function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
+const toks = text => String(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+// a short word in a message that could be a name: who it scores best for (the speaker never names themself)
+function nameCands(w, from, nTok) {
+  if (w.length === 1 ? nTok > 3 : NSTOP.has(w) && !MP.roster.some(p => p.name.toLowerCase() === w)) return [];
+  const sc = MP.roster.filter(p => p.id !== from).map(p => [p.id, nickScore(w, p.name)]).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
+  if (!sc.length) return []; const exact = MP.roster.find(p => p.name.toLowerCase() === w); if (exact && exact.id !== from) return [[exact.id, 10]];
+  return sc.filter(e => e[1] >= sc[0][1] - 1);
+}
+function credit(w, id, k) { const N = MP.nick[w] || (MP.nick[w] = {}); N[id] = (N[id] || 0) + k; }
+function learnNicks(from, text) {
+  const now = Date.now(), T = toks(text);
+  // someone answering right after being called by an unclear short name: that name was theirs
+  MP.nickPend = MP.nickPend.filter(p => now - p.at < 15000); for (const p of MP.nickPend) if (p.from !== from && p.cands.includes(from)) { credit(p.w, from, 3); p.done = 1; } MP.nickPend = MP.nickPend.filter(p => !p.done);
+  for (const w of new Set(T)) {
+    const c = nameCands(w, from, T.length); if (!c.length) continue;
+    if (c.length === 1) { credit(w, c[0][0], c[0][1] >= 10 ? 5 : 2); continue; }
+    // a tie: whoever is standing next to the speaker breaks it now, whoever answers settles it later
+    const q = posOf(from), near = q && c.map(e => [e[0], posOf(e[0])]).filter(e => e[1] && e[1][4] === q[4] && Math.hypot(e[1][0] - q[0], e[1][1] - q[1]) < 6);
+    if (near && near.length === 1) credit(w, near[0][0], 1);
+    MP.nickPend.push({ w, from, at: now, cands: c.map(e => e[0]) });
+  }
+}
+// who a word means, if it is clear
+function nickOf(w, from) {
+  const exact = MP.roster.find(p => p.name.toLowerCase() === w); if (exact) return exact.id === from ? null : exact.id;
+  const N = MP.nick[w]; if (N) { const e = Object.entries(N).filter(([id]) => id !== from && MP.roster.some(p => p.id === id)).sort((a, b) => b[1] - a[1]); if (e.length && e[0][1] >= 2 && (!e[1] || e[0][1] >= e[1][1] * 1.5)) return e[0][0]; }
+  const c = nameCands(w, from, 2); return c.length === 1 && c[0][1] >= 5 ? c[0][0] : null;
+}
+function mentioned(from, text) { const s = new Set(); for (const w of toks(text)) { const id = nickOf(w, from); if (id) s.add(id); } return s; }
+// is this message for me (the copied player self, whose body/copy stands at pos)?
+function addressee(from, text, self, pos, lastSaid, asked) {
+  if (asked && asked.from === from && Date.now() - asked.at < 15000) return 'me'; // they answered its "who me?"
+  const M = mentioned(from, text); if (M.has(self)) return 'me'; if (M.size) return 'other';
+  const T = toks(text); for (const w of T) { const c = nameCands(w, from, T.length); if (c.length > 1 && c.some(e => e[0] === self) && !nickOf(w, from)) return 'unsure'; } // a short name that could be it or someone else
+  const t = norm(text);
+  if (/\b(guys|everyone|everybody|yall|you all|all of you|team|people)\b/.test(t)) return 'group';
+  const L = living().filter(p => p.id !== from); if (L.length <= 1) return 'me';
+  const now = Date.now(); if (now - (lastSaid || 0) < 12000 && !L.some(p => p.id !== self && now - (MP.saidAt[p.id] || 0) < now - lastSaid)) return 'me'; // it spoke last
+  if (/\b(you|your|you are)\b/.test(t)) { const q = posOf(from); if (q && pos) { const d = p => p[2] === q[4] ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 99; const mine = d(pos), best = Math.min(99, ...L.filter(p => p.id !== self).map(p => posOf(p.id)).filter(Boolean).map(o => d([o[0], o[1], o[4]]))); if (mine < 6 && mine < best - 1) return 'me'; if (mine < 6) return 'unsure'; } }
+  return 'group';
+}
+MP.saidAt = {};
+MP._nick = { learnNicks, nickOf, mentioned, addressee, nickScore }; MP._nickFor = (a, b) => nickFor(a, b);
+// not sure it was meant for them: ask, like a person would (now and then)
+function askWho(id, from, st, say) { if (Math.random() > .5 || Date.now() - (st.askT || 0) < 30000) return false; st.askT = Date.now(); st.asked = { from, at: Date.now() }; say(fill(fresh('whome'), id)); return true; }
+const chatty = id => Math.min(.45, .08 + chatPerMin(id) * .08); // how often they joined in on talk not aimed at them
 // the clone answers the one person it follows, and only them
 function copyHeard(from, text) {
-  if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase(), t = norm(text);
-  if (Math.random() > (t.includes(n.slice(0, 3)) || living().length <= 2 ? .85 : .35)) return;
-  const c = intentOf(text, n); if (!c || ['note', 'solve'].includes(c)) return;
+  if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase();
+  const to = addressee(from, text, CP.orig, [CP.x, CP.z, CP.floor], CP.lastSaid, CP.asked); if (to === 'unsure' && askWho(CP.orig, from, CP, w => speak(CP.orig, w, { copy: true, only: CP.target }))) return; if (to === 'other' || (to === 'group' && Math.random() > chatty(CP.orig))) return;
+  const c = intentOf(text, n); if (!c || ['note', 'solve'].includes(c)) return; const M = CP.mv || (CP.mv = {}), now = Date.now();
+  if (c === 'waitok' || c === 'backoff') M.pauseUntil = now + rnd(12, 25) * 1000; // it does stop
+  if (c === 'slowdown') CP.slowUntil = now + 30000;
   const c2 = persona(c, CP.orig), w = c === 'laughs' ? bankLine('laughs', CP.orig) : fill(fresh(BANK[c2] ? c2 : 'vague'), CP.orig);
   speak(CP.orig, w, { copy: true, only: CP.target });
 }
 function bodyHeard(from, text) {
   if (!PS.on || from === PS.id || ghostOf(from)) return;
-  const n = nameOf(PS.id).toLowerCase(), t = norm(text), addressed = t.includes(n) || t.includes(n.slice(0, 3)) || Date.now() - (PS.lastSaid || 0) < 9000 || living().length <= 2;
-  if (!addressed) return;
-  const k = intentOf(text, n);
+  const n = nameOf(PS.id).toLowerCase(), t = norm(text), to = addressee(from, text, PS.id, [PS.x, PS.z, PS.floor], PS.lastSaid, PS.asked);
+  if (to === 'unsure' && askWho(PS.id, from, PS, w => bodySay(w))) return;
+  if (to === 'other' || (to === 'group' && Math.random() > chatty(PS.id))) return;
+  const k = intentOf(text, n), now = Date.now();
   if (k === 'affirmreal') { bodySay(fill(fresh('affirmreal'), PS.id)); if (Math.random() < .3) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
   if (k === 'denyclone') { bodySay(fill(fresh('denyclone'), PS.id)); const r2 = Math.random(); if (r2 < .3) setTimeout(() => bodySay(fill(fresh('accuse'), PS.id)), rnd(3000, 7000)); else if (r2 < .5) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
   if (k === 'note') return noteAnswer(t);
   if (k === 'laughs') { if (Math.random() < .6) bodySay(bankLine('laughs', PS.id)); return; }
   if (k === 'solve') return solveFor(from);
-  if (k === 'waitok') { PS.waitUntil = Date.now() + rnd(30, 60) * 1000; return bodySay(fill(fresh('waitok'), PS.id)); }
-  if (PS.waitUntil && (k === 'followme' || /\b(come|ok|go|lets go|follow|move)\b/.test(t))) { PS.waitUntil = 0; return bodySay(fill(fresh(k === 'followme' ? 'followme' : 'go'), PS.id)); }
+  // asked to wait, stop, come back or slow down: it really does
+  if (k === 'waitok') { if (/\b(for me|wait up|hold up|wait me|wait on me)\b/.test(t)) PS.waitFor = { id: from, until: now + 45000 }; else PS.waitUntil = now + rnd(30, 60) * 1000; PS.fol = null; if (PS.mode === 'follow') PS.mode = 'replay'; return bodySay(fill(fresh('waitok'), PS.id)); }
+  if (k === 'backoff') { PS.waitUntil = now + rnd(15, 30) * 1000; PS.fol = null; if (PS.mode === 'follow') PS.mode = 'replay'; return bodySay(fill(fresh('backoff'), PS.id)); }
+  if (k === 'comeback' || (k === 'followme' && !PS.waitUntil)) { PS.waitUntil = 0; PS.waitFor = null; PS.fol = { id: from, until: now + 25000 }; PS.mode = 'follow'; PS.snip = null; return bodySay(fill(fresh(persona(k, PS.id)), PS.id)); }
+  if (k === 'slowdown') { PS.slowUntil = now + 30000; return bodySay(fill(fresh('slowdown'), PS.id)); }
+  if (PS.waitUntil && (k === 'followme' || /\b(come|ok|go|lets go|follow|move)\b/.test(t))) { PS.waitUntil = 0; PS.fol = { id: from, until: now + 25000 }; PS.mode = 'follow'; return bodySay(fill(fresh(k === 'followme' ? 'followme' : 'go'), PS.id)); }
   if (k === 'helpful') return bodySay(bankLine('helpful', PS.id));
   if (k) return bodySay(fill(fresh(persona(k, PS.id)), PS.id));
-  if (Math.random() < .7) bodySay(fill(fresh('vague'), PS.id));
+  if (to === 'me' && Math.random() < .7) bodySay(fill(fresh('vague'), PS.id));
 }
 // she only knows the notes that player read before she wore them
 function noteAnswer(t) {
