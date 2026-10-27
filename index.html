@@ -8929,7 +8929,7 @@ window.__ENDCUT = ENDCUT;
 #mpchat .m b{font-weight:normal}
 #mpchat .m.y{color:#c98a90;font-style:italic;background:rgba(20,0,4,.45)}
 #mpchat .m.sys{color:#8c8478}
-#mpchat .m.gh{opacity:.55;font-style:italic;background:rgba(0,0,0,.25)}#mpchat .m.gh.old{opacity:0}
+#mpchat .m.gh{opacity:.55;font-style:italic;background:rgba(0,0,0,.25)}#mpchat .m.bodyme{color:#b9a7a7;font-style:italic;background:rgba(60,0,8,.35);border-left:2px solid #6e1520;letter-spacing:.02em}#mpchat .m.bodyme i{color:#8a6c6c}#mpchat .m.gh.old{opacity:0}
 #mpin{pointer-events:auto;width:100%;box-sizing:border-box;margin-top:.3rem;background:rgba(5,7,8,.92);border:1px solid #5a1a20;color:#e9e2d6;font:inherit;padding:.4rem .5rem}
 #mpvoice{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:3.2rem;font-family:var(--f-type);font-size:.75rem;letter-spacing:.1em;color:#8c8478;z-index:12;text-align:right;line-height:1.6;pointer-events:none}
 #mpvoice b{color:#d8d0c2;font-weight:normal}#mpvoice .on{color:var(--ember)}
@@ -9084,8 +9084,8 @@ function hostHandle(from, m) {
     const text = String(m.text || '').slice(0, 200); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); bodyHeard(from, text);
-    if (CP.on && from === CP.orig) setTimeout(() => { if (CP.on) toAll({ t: 'chat', from, text }); }, rnd(150, 400));
+    learnFrom(from, text); (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); bodyHeard(from, text); copyHeard(from, text);
+    if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
     return;
@@ -9096,7 +9096,7 @@ function hostHandle(from, m) {
   if (m.t === 'read') { (MP.reads[from] || (MP.reads[from] = [])).push({ title: String(m.title || '').slice(0, 90), snip: String(m.snip || '').slice(0, 160) }); return; }
   if (m.t === 'readt') { const r = MP.readT[from] || (MP.readT[from] = { s: 0, n: 0 }); r.s += Math.min(120, +m.sec || 0); r.n++; return; }
   if (m.t === 'mic') { MP.voiceUsed[from] = true; return; }
-  if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from]) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
+  if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from] || (PS.on && from === PS.id)) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
   if (m.t === 'sw') return swHost(from, m);
   if (m.t === 'bye') return dropPlayer(from);
   if (m.t === 'scare') { MP.scareT[from] = Date.now(); if (PS.on && from !== PS.id && !ghostOf(from)) bodyReact(); return; }
@@ -9116,6 +9116,7 @@ function clientHandle(m) {
     case 'pos': for (const id in m.a) if (id !== MP.me) MP.pos[id] = m.a[id]; if (!m.a.copy) delete MP.pos.copy; if (!m.a.poss) delete MP.pos.poss; return;
     case 'ws': applyDiff(m.d); return;
     case 'chat': chatLine(m.from, m.text, m.body); if (m.ap) apparition(m.ap); return;
+    case 'psdo': if (MP.ghost) addMsg(esc(m.text), 'bodyme sys'); return;
     case 'sys': sysMsg(m.text); return;
     case 'y': yLine(m.text); return;
     case 'role': MP.chosen = !!m.chosen; MP.trusted = !!m.trusted; return;
@@ -9212,10 +9213,10 @@ function syncTick() {
   if (!n) return;
   if (MP.host) bcast({ t: 'ws', d }); else send(null, { t: 'wd', d });
 }
-const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0, +P.pitch.toFixed(2)]; })() : MP.pos[id];
+const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0, +P.pitch.toFixed(2), P.jy > .05 ? 1 : 0]; })() : MP.pos[id];
 function posTick() {
   if (!MP.on || !MP.started || !X().S.started) return;
-  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2)]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, 0, +(CP.pitch || 0).toFixed(2)]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +avert(PS, PS.id).toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2), PS.jump ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +avert(CP, null).toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, CP.mv && CP.mv.runOn && !CP.mirror ? 2 : 0, +(CP.pitch || 0).toFixed(2), CP.jump ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
 }
 let loopsOn = false;
 function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
@@ -9251,9 +9252,10 @@ function makeAvatar(id, o = {}) {
   const headG = new THREE.Group(); headG.position.set(0, 1.55, 0); head.position.set(0, .05, 0); hair.position.set(0, .07, .01); headG.add(head, hair);
   fig.add(torso, hips, neck, headG, armL, armR, legL, legR);
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex(o.name || nameOf(id), col), transparent: true, depthWrite: false, opacity: o.ghost ? .55 : 1 })); tag.scale.set(1.1, .275, 1); tag.position.y = 2.0;
+  let eyes = null; if (o.copy) { eyes = new THREE.MeshBasicMaterial({ color: 0xcfe0b0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }); const eg = new THREE.SphereGeometry(.011, 6, 4); headG.add(mesh(eg, eyes, -.045, .07, -.118), mesh(eg, eyes, .045, .07, -.118)); }
   if (o.ghost) torch.visible = false; torchRef = torch;
   grp.add(fig, tag); X().scene.add(grp);
-  return MP.av[id] = { headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
+  return MP.av[id] = { eyes, headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
 }
 function removeAvatar(id) { const a = MP.av[id]; if (!a) return; X().scene.remove(a.grp); delete MP.av[id]; }
 let avLast = performance.now();
@@ -9277,9 +9279,13 @@ function avLoop() {
     const sp = Math.hypot(q[0] - a.x, q[1] - a.z); a.ph += Math.min(sp, .12) * 9; const sw = Math.sin(a.ph) * Math.min(1, sp * 12) * .55;
     a.pitch += ((q[8] || 0) - a.pitch) * .25; a.headG.rotation.x = a.pitch * .9; a.legL.rotation.x = sw; a.legR.rotation.x = -sw; a.armL.rotation.x = -sw * .8; a.armR.rotation.x = .9 + a.pitch * .9 + sw * .12; // head and torch follow where they look
     a.x += (q[0] - a.x) * k; a.z += (q[1] - a.z) * k; a.yaw += (((q[2] - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k; a.eye += (q[3] - a.eye) * k;
-    a.q = q; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.ph) * .06 : 0;
+    a.q = q; a.jy = (a.jy || 0) + ((q[9] ? .32 : 0) - (a.jy || 0)) * .35; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.ph) * .06 : a.jy;
     if (a.torch && kind !== 'ghost') { let on = q[6] !== 0; if (id === 'poss' && on) { const gh = MP.roster.some(r => ghostOf(r.id) && MP.pos[r.id] && Math.hypot(MP.pos[r.id][0] - a.x, MP.pos[r.id][1] - a.z) < 3.5) || (MP.ghost && Math.hypot(X().P.x - a.x, X().P.z - a.z) < 3.5); if (gh && Math.random() < .12) on = false; } a.torch.visible = on; }
     if (id === 'poss' && !PS.falling) { if (a.glitch) { a.tag.material.map = a.tagNorm; a.glitch = 0; } else if (Math.random() < .0006) { a.tagNorm = a.tag.material.map; a.tagLow = a.tagLow || tagTex(p.name.toLowerCase(), a.color); a.tag.material.map = a.tagLow; a.glitch = 1; } }
+    if (a.eyes) { // eyeshine: faint, only in the dark, only when facing you, a little more in your torch beam
+      const x = X(), cp = x.camera.position, ex = a.x, ez = a.z, dd = Math.hypot(cp.x - ex, cp.z - ez), at = Math.atan2(-(cp.x - ex), -(cp.z - ez)), face = Math.max(0, Math.cos(wrapA(a.yaw - at)));
+      let lit = 0; if (x.flashOn) { x.camera.getWorldDirection(tF); const l = dd || 1; lit = Math.max(0, (tF.x * (ex - cp.x) + tF.z * (ez - cp.z)) / l); lit = lit > .93 ? 1 : 0; }
+      a.eyes.opacity = dd > 14 || dd < .8 ? 0 : Math.pow(face, 6) * (lit ? .38 : .1) * Math.min(1, (14 - dd) / 6) * (.85 + Math.random() * .15); }
     a.grp.position.set(a.x, 0, a.z); a.fig.rotation.y = a.yaw; a.fig.scale.y = Math.max(.6, a.eye / 1.65);
     a.tag.position.y = 2.0 * Math.max(.6, a.eye / 1.65);
     a.grp.visible = (q[4] || 1) === (S.floor || 1) && !q[5];
@@ -9305,7 +9311,7 @@ function addMsg(html, cls) {
   while (box.children.length > 9) box.firstChild.remove();
   setTimeout(() => el.classList.add('old'), 14000);
 }
-function chatLine(from, text, body) { if (ghostOf(from) && !MP.ghost && !body) { const n = nameOf(from) || '?'; return addMsg(`<b style="color:${colorOf(from)};opacity:.6">${esc(n)}</b> ${esc(text)}`, 'gh'); } const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
+function chatLine(from, text, body) { if (body && from === MP.me && MP.ghost) return addMsg(`<i>your body says</i> ${esc(text)}`, 'bodyme'); if (ghostOf(from) && !MP.ghost && !body) { const n = nameOf(from) || '?'; return addMsg(`<b style="color:${colorOf(from)};opacity:.6">${esc(n)}</b> ${esc(text)}`, 'gh'); } const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
 function sysMsg(text) { addMsg(esc(text), 'sys'); }
 function yLine(text) { addMsg(esc(String(text).toLowerCase()), 'y'); }
 function chatOpen() {
@@ -9317,7 +9323,7 @@ $('mpin').addEventListener('input', () => { if (!MP.typeT0 && $('mpin').value) M
 $('mpin').addEventListener('keydown', e => {
   e.stopPropagation();
   if (e.key === 'Escape') { e.preventDefault(); return chatClose(); }
-  if (e.key === 'Enter') { e.preventDefault(); const v = $('mpin').value.trim().slice(0, 200); if (v && /^\/dust\s/.test(v)) { const w = v.replace(/^\/dust\s+/, '').trim().split(/\s+/)[0] || ''; if (w && MP.ghost && !MP.dustUsed) { MP.dustUsed = true; const P = X().P; toHost({ t: 'dust', word: w.slice(0, 12), x: +P.x.toFixed(2), z: +P.z.toFixed(2), yaw: P.yaw }); } } else if (v) { const sec = MP.typeT0 ? (performance.now() - MP.typeT0) / 1000 : 0; chatLine(MP.me, v); toHost({ t: 'chat', text: v, cps: sec > .4 ? +(v.length / sec).toFixed(2) : 0 }); } MP.typeT0 = 0; chatClose(); }
+  if (e.key === 'Enter') { e.preventDefault(); const v = $('mpin').value.trim().slice(0, 200); if (v && /^\/dust\s/.test(v)) { const w = v.replace(/^\/dust\s+/, '').trim().split(/\s+/)[0] || ''; if (w && MP.ghost && !MP.dustUsed && PS.on && PS.id === MP.me) addMsg('<i>your hand will not move in the dust</i>', 'bodyme'); else if (w && MP.ghost && !MP.dustUsed) { MP.dustUsed = true; const P = X().P; toHost({ t: 'dust', word: w.slice(0, 12), x: +P.x.toFixed(2), z: +P.z.toFixed(2), yaw: P.yaw }); } } else if (v) { const sec = MP.typeT0 ? (performance.now() - MP.typeT0) / 1000 : 0; chatLine(MP.me, v); if (MP.ghost && PS.on && PS.id === MP.me && !MP.psWarned) { MP.psWarned = 1; addMsg('<i>only the dead can hear you now</i>', 'bodyme'); } toHost({ t: 'chat', text: v, cps: sec > .4 ? +(v.length / sec).toFixed(2) : 0 }); } MP.typeT0 = 0; chatClose(); }
 });
 addEventListener('keydown', e => {
   if (!MP.on || !MP.started) return; const tg = e.target; if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return;
@@ -9856,7 +9862,7 @@ function inStyle(base, st) {
 }
 MP._style = (texts, base) => inStyle(base, styleOf(texts));
 MP._styleOf = styleOf; MP._gen = (texts, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
-function copySay(base, sched) { if (!CP.on) return; speak(CP.orig, base, { copy: true, sched }); }
+function copySay(base, sched) { if (!CP.on) return; speak(CP.orig, base, { copy: true, sched, only: CP.target }); }
 const cpPub = () => toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } });
 MP.copyStart = (orig, target) => {
   const L = living(); if (CP.on || L.length < 2) return false;
@@ -9883,7 +9889,7 @@ function habitsOf(id) {
   const tr = (MP.track[id] || []).slice(-3000), H = { sprint: .15, pauseRate: .02, pauseLen: 2, idleTurn: .6, turn: .5, flash: 1, flToggle: .01, crouch: 0, fav: [], n: tr.length, seg: { idle: [], move: [], entry: [] }, pitchM: 0, upR: 0, downR: 0, strafeR: 0, wallD: 1.2, speed: 2.4, jitter: 0, pauses: [], runs: [] };
   if (tr.length < 30) return H;
   let mv = 0, run = 0, still = 0, idleTurn = 0, turn = 0, fl = 0, flT = 0, cr = 0, n = 0, cur = 0, curRun = 0, pSum = 0, up = 0, down = 0, strafe = 0, wd = 0, spd = 0, jit = 0, prevDy = 0;
-  const pauses = [], runs = [], rooms = {}, x = X(); let seg = null, segK = '', entry = null, lastRoom = null;
+  const pauses = [], runs = [], rooms = {}, ent = {}, flOn = [], flOff = [], x = X(); let seg = null, segK = '', entry = null, lastRoom = null, flRun = 0, jmp = 0, crT = 0, bump = 0, spins = 0, circ = 0, spinAcc = 0, circAcc = 0, circN = 0;
   const close = () => { if (seg && seg.length >= 5 && H.seg[segK].length < 60) H.seg[segK].push(seg); seg = null; };
   for (let i = 1; i < tr.length; i++) {
     const a = tr[i - 1], b = tr[i]; if (a[4] !== b[4]) { close(); continue; } n++;
@@ -9893,14 +9899,22 @@ function habitsOf(id) {
     if (K !== segK) { close(); segK = K; seg = []; }
     if (moving) { mv++; spd += d * 10; if (d > .3 || b[7] === 2) run++; if (cur > 3) pauses.push(cur / 10); cur = 0; curRun++; const md = Math.atan2(-dx, -dz), off = wrapA(b[2] - md); if (Math.abs(off) > 1.0 && Math.abs(off) < 2.2) strafe++; wd += Math.min(2.5, wallDist(b[0], b[1])); seg.push([off, pb, d * 10]); }
     else { still++; cur++; idleTurn += Math.abs(dy); if (curRun > 3) runs.push(curRun / 10); curRun = 0; seg.push([dy, dp, pb]); }
-    if (b[6]) fl++; if (a[6] !== b[6]) flT++; if (b[3] < 1.3) cr++;
+    if (b[6]) fl++; flRun++; if (a[6] !== b[6]) { flT++; if (flRun < 1200) (a[6] ? flOn : flOff).push(flRun / 10); flRun = 0; } if (b[3] < 1.3) cr++;
+    if (b[9] && !a[9]) jmp++; if ((a[3] < 1.3) !== (b[3] < 1.3)) crT++; if (b[7] >= 1 && d < .01 && !(a[7] >= 1 && Math.hypot(a[0] - (tr[i - 2] || a)[0], a[1] - (tr[i - 2] || a)[1]) < .01)) bump++; // jumps, crouch toggles, walking into things
+    if (!moving) { spinAcc += dy; if (Math.abs(spinAcc) > 5.5) { spins++; spinAcc = 0; } } else spinAcc *= .9; // spinning on the spot
+    if (moving) { circAcc += dy; circN++; if (Math.abs(circAcc) > 5.5 && circN < 120) { circ++; circAcc = 0; circN = 0; } if (circN >= 120) { circAcc = 0; circN = 0; } } // walking in circles
     const r = x.roomAt(b[0], b[1]); if (r && r !== 'mpvoid') rooms[r] = (rooms[r] || 0) + 1;
+    if (r !== lastRoom && r && r !== 'mpvoid') ent[r] = (ent[r] || 0) + 1;
     if (r !== lastRoom) { if (entry && entry.length >= 5 && H.seg.entry.length < 40) H.seg.entry.push(entry); entry = lastRoom ? [] : null; lastRoom = r; }
     if (entry) { entry.push([dy, dp]); if (entry.length >= 30) { if (H.seg.entry.length < 40) H.seg.entry.push(entry); entry = null; } }
   }
   close(); if (cur > 3) pauses.push(cur / 10); if (!n) return H;
+  // rooms they kept coming back to (entries count most, time spent breaks ties), and the distance they kept from the others
+  const tot = Object.values(rooms).reduce((a, b) => a + b, 0) || 1, score = r => (ent[r] || 0) + 3 * rooms[r] / tot;
+  const px = (MP.prox[id] || []).slice().sort((a, b) => a - b); H.near = px.length >= 20 ? Math.max(.9, Math.min(4, px[Math.floor(px.length / 2)])) : 1.6; H.ret = Object.keys(rooms).sort((a, b) => score(b) - score(a)).slice(0, 3); H.retW = Object.fromEntries(H.ret.map(r => [r, score(r)]));
+  H.flOn = flOn.slice(-60); H.flOff = flOff.slice(-60); H.jumpR = jmp / n * 10; H.crTog = crT / n * 10; H.bumpR = bump / n * 10; H.spinR = still ? spins / still * 10 : 0; H.circR = mv ? circ / mv * 10 : 0;
   return Object.assign(H, { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
-    fav: Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n, pitchM: pSum / n, upR: up / n, downR: down / n, strafeR: mv ? strafe / mv : 0, wallD: mv ? wd / mv : 1.2, speed: mv ? spd / mv : 2.4, jitter: jit / n * 10, pauses, runs });
+    fav: H.ret.length ? H.ret : Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n, pitchM: pSum / n, upR: up / n, downR: down / n, strafeR: mv ? strafe / mv : 0, wallD: mv ? wd / mv : 1.2, speed: mv ? spd / mv : 2.4, jitter: jit / n * 10, pauses, runs });
 }
 // drive head / body / torch orientation from their recorded camera behaviour: replays real snippets of how they turned and looked
 function lookStep(o, H, M, dt, moving, moveDir) {
@@ -9921,7 +9935,7 @@ function lookStep(o, H, M, dt, moving, moveDir) {
 function habitStep(o, H, M, dt, moving) {
   const now = Date.now();
   if (now > M.runUntil) { M.runOn = Math.random() < H.sprint; M.runUntil = now + rnd(1500, 3500); }
-  if (Math.random() < H.flToggle * dt) o.flash = Math.random() < H.flash ? 1 : 0;
+  torchStep(o, H, M); if (quirkStep(o, H, M, dt, moving)) return { speed: 0, paused: true };
   if (now > M.crouchUntil) { M.crouchUntil = now + rnd(3000, 8000); M.crouch = Math.random() < H.crouch; }
   o.eye = M.crouch ? 1.0 : 1.65;
   if (moving && !M.pauseUntil && Math.random() < H.pauseRate * dt) { M.pauseUntil = now + Math.min(15000, H.pauseLen * rnd(.6, 1.4) * 1000); M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn; }
@@ -9930,7 +9944,36 @@ function habitStep(o, H, M, dt, moving) {
   if (idle && !(H.seg && (H.seg.idle.length || H.seg.move.length))) { if (Math.random() < dt * .8) M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn * rnd(.5, 1.5); o.yaw += M.look * dt; }
   return { speed: (M.runOn ? 4.0 : M.crouch ? 1.2 : 2.4), paused: !!M.pauseUntil };
 }
-MP._hab = { habitsOf, habitStep, lookStep }; MP._chat = { chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id) };
+// their torch habit: how long they kept it on, how long off, replayed from their own on/off durations (others see it)
+function torchStep(o, H, M) {
+  const now = Date.now(); if (!M.flNext) { M.flNext = now + rnd(1, 6) * 1000; if (o.flash == null) o.flash = H.flash > .5 ? 1 : 0; return; } if (now < M.flNext) return;
+  const pool = o.flash ? H.flOn : H.flOff;
+  if (!pool || !pool.length) { if (Math.random() < H.flToggle * 2) { o.flash = o.flash ? 0 : 1; M.flNext = now + rnd(.3, 2) * 1000; } else { o.flash = H.flash > .5 ? 1 : 0; M.flNext = now + 2000; } return; }
+  o.flash = o.flash ? 0 : 1; const nxt = (o.flash ? H.flOn : H.flOff) || []; M.flNext = now + (nxt.length ? pick(nxt) : 5) * rnd(.85, 1.15) * 1000; MP.flLog && MP.flLog.push([o === PS ? 'poss' : 'copy', now, o.flash]);
+}
+// the tell: it never quite looks into anyone's eyes; turned aside a little when it would face a living player head on
+function avert(o, skip) {
+  const ats = []; for (const p of MP.roster) { if (p.id === skip || ghostOf(p.id)) continue; const q = posOf(p.id); if (!q || q[4] !== o.floor) continue; const dx = q[0] - o.x, dz = q[1] - o.z, d = Math.hypot(dx, dz); if (d > 12 || d < .3) continue;
+    ats.push(Math.atan2(-dx, -dz)); }
+  const bad = y => ats.some(at => Math.abs(wrapA(y - at)) < .3); if (!bad(o.yaw)) return o.yaw;
+  for (let k = 1; k <= 12; k++) for (const sg of [1, -1]) { const y = o.yaw + sg * k * .08; if (!bad(y)) return y; } // the nearest heading that meets nobody's eyes
+  return o.yaw + 1;
+}
+// their odd little habits, at their own rates: hopping, crouch-spam, spinning on the spot, walking in circles, walking into walls
+function quirkStep(o, H, M, dt, moving) {
+  const now = Date.now(), Q = M.q || (M.q = {}); MP.qLog && (MP.qLog.n = (MP.qLog.n || 0) + dt);
+  o.jump = now < (Q.jumpUntil || 0) ? 1 : 0; if (!o.jump && Math.random() < (H.jumpR || 0) * dt) { Q.jumpUntil = now + 550; MP.qLog && (MP.qLog.jump = (MP.qLog.jump || 0) + 1); }
+  if (Math.random() < (H.crTog || 0) * dt) { M.crouch = !M.crouch; M.crouchUntil = now + rnd(250, 900); MP.qLog && (MP.qLog.crouch = (MP.qLog.crouch || 0) + 1); }
+  if (M.hurry) { Q.spin = Q.circ = null; Q.bump = 0; return false; }
+  if (Q.spin) { const st = Math.min(Q.spin.left, 6 * dt); o.yaw += st * Q.spin.dir; Q.spin.left -= st; if (Q.spin.left <= 0) Q.spin = null; return true; }
+  if (Q.circ) { if (now > Q.circ.until) Q.circ = null; else { o.yaw += Q.circ.dir * 1.8 * dt; const nx = o.x - Math.sin(o.yaw) * 1.6 * dt, nz = o.z - Math.cos(o.yaw) * 1.6 * dt; if (!window.__ENC.blocked(nx, nz)) { o.x = nx; o.z = nz; } else Q.circ = null; return true; } }
+  if (Q.bump) { if (now > Q.bump) Q.bump = 0; else return true; }
+  if (!moving && Math.random() < (H.spinR || 0) * dt) { Q.spin = { left: Math.PI * 2 * rnd(.8, 1.3), dir: Math.random() < .5 ? -1 : 1 }; MP.qLog && (MP.qLog.spin = (MP.qLog.spin || 0) + 1); }
+  if (moving && Math.random() < (H.circR || 0) * dt) { Q.circ = { until: now + rnd(2500, 4500), dir: Math.random() < .5 ? -1 : 1 }; MP.qLog && (MP.qLog.circ = (MP.qLog.circ || 0) + 1); }
+  if (moving && Math.random() < (H.bumpR || 0) * dt * .5) { Q.bump = now + rnd(300, 1100); MP.qLog && (MP.qLog.bump = (MP.qLog.bump || 0) + 1); }
+  return false;
+}
+MP._hab = { habitsOf, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id) };
 function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
@@ -9942,23 +9985,23 @@ function copyTick(dt) {
   if (mirror !== CP.mirror) { CP.mirror = mirror; cpPub(); }
   if (mirror) {
     if (CP.last) { const dx = o[0] - CP.last[0], dz = o[1] - CP.last[1]; if (Math.hypot(dx, dz) < 1.5 && !window.__ENC.blocked(CP.x + dx, CP.z + dz)) { CP.x += dx; CP.z += dz; } }
-    CP.yaw = o[2]; CP.eye = o[3]; CP.last = o.slice(); CP.trail = []; return;
+    CP.yaw = o[2]; CP.eye = o[3]; CP.jump = o[9] || 0; CP.flash = o[6] ? 1 : 0; CP.last = o.slice(); CP.trail = []; return;
   }
   CP.last = o.slice(); CP.eye = 1.65;
   if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .4 ? 'lure' : pick(['casual', 'social', 'helpful', 'dumb']), CP.orig), 1); }
   if (CP.phase === 'follow') {
     const tr = CP.trail, lp = tr[tr.length - 1]; if (!lp || Math.hypot(tq[0] - lp[0], tq[1] - lp[1]) > .25 || tq[4] !== lp[4]) tr.push(tq.slice());
     const Hb = CP.hab || (CP.hab = habitsOf(CP.orig)), M = CP.mv || (CP.mv = { pauseUntil: 0, runUntil: 0, crouchUntil: 0, look: 0, idleT: 0 });
-    const near = Math.hypot(tq[0] - CP.x, tq[1] - CP.z) < 1.6 && tq[4] === CP.floor;
+    const near = Math.hypot(tq[0] - CP.x, tq[1] - CP.z) < (Hb.near || 1.6) && tq[4] === CP.floor;
     // idling by its target like they idle: look around, and drift into one of their favourite rooms if it is right here
     if (near || M.fav) {
-      M.idleT = near ? M.idleT + dt : 0; M.vx = (M.vx || 0) * .7; M.vz = (M.vz || 0) * .7; habitStep(CP, Hb, M, dt, false); lookStep(CP, Hb, M, dt, false, CP.yaw);
+      M.hurry = false; M.idleT = near ? M.idleT + dt : 0; M.vx = (M.vx || 0) * .7; M.vz = (M.vz || 0) * .7; habitStep(CP, Hb, M, dt, false); lookStep(CP, Hb, M, dt, false, CP.yaw);
       const x = X(), cr = x.roomAt(CP.x, CP.z);
       if (!M.fav && M.idleT > 12 && Math.random() < dt * .1) { const nb = x.neighbors ? x.neighbors(cr).map(n => n[0]) : []; const f = Hb.fav.find(r => r === cr || nb.includes(r)); if (f && f !== 'mpvoid') { const R = x.ROOMS[f]; M.fav = { room: f, x: rnd(R.x0 + 1, R.x1 - 1), z: rnd(R.z0 + 1, R.z1 - 1), until: Date.now() + rnd(6000, 12000) }; } }
       if (M.fav) { if (Date.now() > M.fav.until || Math.hypot(tq[0] - CP.x, tq[1] - CP.z) > 9 || tq[4] !== CP.floor) { M.fav = null; } else { navTo(CP, M.fav.x, M.fav.z, M.fav.room, 2.4 * dt); return; } }
       if (near) { tr.length = 0; tr.push(tq.slice()); return; }
     }
-    M.idleT = 0; const hs = habitStep(CP, Hb, M, dt, true);
+    M.idleT = 0; M.hurry = Math.hypot(tq[0] - CP.x, tq[1] - CP.z) > (Hb.near || 1.6) + 4 || tq[4] !== CP.floor; const hs = habitStep(CP, Hb, M, dt, true);
     if (hs.paused && tr.length < 30) { lookStep(CP, Hb, M, dt, false, CP.yaw); return; } // they stop and look; it does too (unless it is falling far behind)
     const x0 = CP.x, z0 = CP.z, sp = (Hb.seg && Hb.seg.move.length && !M.runOn ? (M.lastSp || Hb.speed) : hs.speed);
     while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], sp * dt) < .1) { tr.shift(); continue; } break; }
@@ -10026,12 +10069,16 @@ MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost };
 // ---------- her wearing a lured player's body (host runs it) ----------
 const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
 MP.track = {};
-function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); if (t.length > 3000) t.splice(0, t.length - 3000); }
+function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); if (t.length > 3000) t.splice(0, t.length - 3000);
+  // how close they stood to the nearest other living player (only while someone was within reach)
+  if (ghostOf(id)) return; let nd = 99; for (const p of MP.roster) { if (p.id === id || ghostOf(p.id)) continue; const o = posOf(p.id); if (o && o[4] === q[4]) nd = Math.min(nd, Math.hypot(o[0] - q[0], o[1] - q[1])); }
+  if (nd < 8) { const P = MP.prox[id] || (MP.prox[id] = []); P.push(+nd.toFixed(2)); if (P.length > 1500) P.splice(0, P.length - 1500); } }
+MP.prox = {};
 function possess(id, q) {
   chatStop(id);
-  Object.assign(PS, { hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + chatGap(id) * rnd(.3, 1) });
+  Object.assign(PS, { repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + chatGap(id) * rnd(.3, 1) });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
-  if (MP.voiceUsed[id]) setTimeout(() => bodySay(pick(BANK.mic)), rnd(15, 35) * 1000);
+  if (MP.voiceUsed[id]) setTimeout(() => bodySay(fill(pick(BANK.mic), PS.id)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
 }
 function unpossess() { if (!PS.on) return; PS.on = false; toAll({ t: 'psgone', q: [PS.x, PS.z, PS.yaw, 1.65, PS.floor, 0] }); toAll({ t: 'ps', on: false, id: PS.id }); }
@@ -10040,6 +10087,8 @@ function bodyFall(q) {
   try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); X().tone(60, .5, .4, 'sine'); } catch (e) {}
   let k = 0; const f = setInterval(() => { const a = MP.av.poss; if (a) { a.fig.rotation.x = Math.min(1.5, k * .12); a.fig.position.y = -Math.min(.5, k * .04); a.tag.visible = false; } if (++k > 90) { clearInterval(f); PS.falling = null; removeAvatar('poss'); } }, 33);
 }
+// the ghost of the worn player is shown what their body is doing; nobody living sees this
+function psReport() { const r = X().roomAt(PS.x, PS.z); if (r && r !== PS.repRoom && r !== 'mpvoid') { const R = X().ROOMS[r]; if (PS.repRoom !== undefined && R) toPlayer(PS.id, { t: 'psdo', text: 'your body walks into the ' + R.name.toLowerCase() }); PS.repRoom = r; } }
 function bodySay(base, o) { if (!PS.on) return; speak(PS.id, base, Object.assign({ body: true }, o)); }
 function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); o.x += dx / l * st; o.z += dz / l * st; o.yaw = Math.atan2(-dx, -dz); return l; }
 const NOTE_RE = /note|letter|diary|log|book|page|card|paper|list|daybook|sheet|^v_|^m_|ld/i;
@@ -10047,6 +10096,7 @@ function bodyReact() { if (!PS.on || Date.now() - (PS.reactT || 0) < 20000) retu
 function possTick(dt) {
   if (!PS.on) return; const x = X(), E = window.__ENC, now = Date.now();
   if (!MP.roster.some(p => p.id === PS.id)) { PS.on = false; return toAll({ t: 'ps', on: false, id: PS.id }); }
+  psReport();
   if (MP.voidOn) { const r = x.roomAt(PS.x, PS.z); if (r === 'mpvoid') { walkObj(PS, 21.6, -3.4, 1.6 * dt); return; } }
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
   if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
@@ -10055,14 +10105,19 @@ function possTick(dt) {
   if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; if (now > PS.nextSay - 60000) bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
   if (PS.waitUntil) { if (now < PS.waitUntil) return; PS.waitUntil = 0; }
   if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
+  if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || q[4] !== PS.floor || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; }
+    const H = PS.hab || (PS.hab = habitsOf(PS.id)), M = PS.mv || (PS.mv = {}); torchStep(PS, H, M); if (quirkStep(PS, H, M, dt, true)) return; PS.eye = M.crouch ? 1.0 : 1.65; const d = Math.hypot(q[0] - PS.x, q[1] - PS.z);
+    if (d > H.near + .4) { navTo(PS, q[0], q[1], x.roomAt(q[0], q[1]), (d > 5 ? 3.2 : 2.2) * dt); } else { M.lk = M.lk || null; lookStep(PS, H, M, dt, false, PS.yaw); } return; }
+  if (PS.mode === 'replay' && !PS.snip && Math.random() < .25) { const H = PS.hab || (PS.hab = habitsOf(PS.id)); if ((MP.prox[PS.id] || []).length >= 20) { const c = living().filter(p => p.id !== PS.id).map(p => [p, posOf(p.id)]).filter(e => e[1] && e[1][4] === PS.floor && Math.hypot(e[1][0] - PS.x, e[1][1] - PS.z) < 10); if (c.length) { PS.fol = { id: pick(c)[0].id, until: now + rnd(10, 22) * 1000 }; PS.mode = 'follow'; return; } } } // stays near someone at the distance they always kept
   if (PS.mode === 'replay') {
-    if (!PS.snip) { const tr = MP.track[PS.id] || []; if (tr.length < 40) { PS.mode = 'note'; return; } const len = Math.floor(rnd(80, 200)), st = Math.floor(rnd(0, Math.max(1, tr.length - len - 1))); PS.snip = tr.slice(st, st + len); PS.idx = 1; PS.half = 0; }
+    if (!PS.snip) { const tr = MP.track[PS.id] || []; if (tr.length < 40) { PS.mode = 'note'; return; } const len = Math.floor(rnd(80, 200)); let st = Math.floor(rnd(0, Math.max(1, tr.length - len - 1)));
+      const RH = PS.hab || (PS.hab = habitsOf(PS.id)); if (RH.ret && RH.ret.length && Math.random() < .7) { for (let k = 0; k < 25; k++) { const c = Math.floor(rnd(0, Math.max(1, tr.length - len - 1))), q0 = tr[c]; if (q0 && q0[4] === PS.floor && RH.ret.includes(x.roomAt(q0[0], q0[1]))) { st = c; break; } } } /* snippets from the rooms they kept going back to */ PS.snip = tr.slice(st, st + len); PS.idx = 1; PS.half = 0; }
     PS.acc = (PS.acc || 0) + dt * 10; // their recording is 10 samples a second: replay at the same pace whatever the tick rate
     while (PS.acc >= 1) { PS.acc--;
       const a = PS.snip[PS.idx - 1], b = PS.snip[PS.idx]; PS.idx++;
       if (!b || PS.idx >= PS.snip.length) { PS.snip = null; PS.acc = 0; PS.mode = Math.random() < .5 ? 'note' : 'replay'; return; }
       if (a[4] === b[4]) { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < 1 && !E.blocked(PS.x + dx, PS.z + dz)) { PS.x += dx; PS.z += dz; } }
-      PS.yaw = b[2]; PS.eye = b[3]; PS.pitch = b[8] || 0; if (b[6] !== undefined) PS.flash = b[6]; }
+      PS.yaw = b[2]; PS.eye = b[3]; PS.pitch = b[8] || 0; PS.jump = b[9] || 0; if (b[6] !== undefined) PS.flash = b[6]; }
     return;
   }
   // walk to a real note and say so
@@ -10070,12 +10125,12 @@ function possTick(dt) {
     const cands = E.I.filter(i => i.p && NOTE_RE.test(i.id) && x.roomAt(i.p.x, i.p.z) && (x.ROOMS[x.roomAt(i.p.x, i.p.z)].floor || 1) === PS.floor);
     if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi]; PS.goal = { x: g.p.x, z: g.p.z, room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; PS.pass = null;
   }
-  const G = PS.goal; PS.eye = 1.65; const PH = PS.hab || (PS.hab = habitsOf(PS.id)), PM = PS.mv || (PS.mv = {}), px0 = PS.x, pz0 = PS.z;
+  const G = PS.goal; PS.eye = 1.65; const PH = PS.hab || (PS.hab = habitsOf(PS.id)), PM = PS.mv || (PS.mv = {}), px0 = PS.x, pz0 = PS.z; torchStep(PS, PH, PM); if (quirkStep(PS, PH, PM, dt, true)) return;
   setTimeout(() => { if (PS.on && PS.goal === G) { const mvd = Math.hypot(PS.x - px0, PS.z - pz0) > .001; lookStep(PS, PH, PM, dt, mvd, mvd ? Math.atan2(-(PS.x - px0), -(PS.z - pz0)) : PS.yaw); } }, 0);
   if (now > G.until) { PS.goal = null; PS.mode = 'replay'; return; }
   if (PS.pass) { if (walkObj(PS, PS.pass[0], PS.pass[1], 4.0 * dt) < .1) PS.pass = null; return; }
   const here = x.roomAt(PS.x, PS.z);
-  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
+  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ toPlayer(PS.id, { t: 'psdo', text: 'your body stops to read something' }); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
   const d = here && x.firstDoor(here, G.room);
   if (!d) { PS.goal = null; PS.mode = 'replay'; return; }
   if (walkObj(PS, d.x, d.z, 4.0 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); PS.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
@@ -10086,26 +10141,47 @@ const ROOM_LIST = ['kitchen', 'library', 'dining room', 'living room', 'hallway'
 const ITEMS = ['clock', 'fridge', 'tv', 'phone', 'bookshelf', 'breaker box', 'laptop', 'mirror', 'radio', 'piano', 'drawer', 'keypad', 'thermostat', 'lamp'];
 const NOTES = ['the note by the clock', 'the diary', 'that letter', 'the log on the nail', 'the card', 'the paper on the fridge', 'the scribbles on the wall', 'the receipt'];
 const BANK = {
-  casual: ['wait', 'ok', 'lol', 'brb', 'hold on', 'my torch is being weird', 'lag', 'sec', 'k', 'one sec', 'hmm', 'huh', 'ok wait', 'lag sorry', 'my game froze for a sec', 'oops', 'mb', 'kk', 'yeah', 'yep', 'sure', 'ok ok', 'one min', 'gimme a sec', 'this game is so dark', 'brightness is so low', 'my mouse is being weird', 'lol what', 'bruh', 'yikes', 'cool', 'nice', 'wait what', 'hm ok'],
-  dumb: ['where are we', 'which way was the {room} again', 'what does that note mean', 'i forgot what we were doing', 'did someone move', 'was this door open before', 'how do i open the journal again', 'wait which floor are we on', 'did we check the {room}', 'is the {item} important', 'what were we looking for', 'whats the objective', 'i got lost lol', 'how did i get here', 'is this the {room}', 'did anyone read {note}', 'what was the code for', 'wait did we already do this', 'which one is the {room}', 'ive been walking in circles', 'wheres everyone', 'what button is interact'],
-  helpful: ['hey i found a note', 'theres something in the {room}', 'try the {item}', 'i think the code is on the wall in the {room}', 'check the {item} in the {room}', 'theres a {item} in the {room} that looks weird', 'someone read {note} again', '{note} says something about the {room}', 'the {item} was doing something', 'i think we missed something in the {room}', 'go look at the {item}', 'the {room} has something', 'i think the {item} matters', 'found something behind the {item}', 'we should go back to the {room}'],
-  scare: ['did u hear that', 'nope nope', 'something just moved', 'im not going in there', 'what was that', 'nope', 'thats creepy', 'did the lights just flicker', 'i heard something in the {room}', 'something is in the {room}', 'ok that scared me', 'why is it so quiet', 'i dont like this room', 'did anyone else see that', 'i saw something by the {item}', 'my heart lol'],
-  social: ['{name} where are you', 'wait for me', 'follow me', 'stay together', '{name} come here', 'where is everyone', 'dont split up', '{name}?', 'whos in the {room}', 'im coming', 'where did {name} go', 'come with me', 'lets stick together', 'im by the {item}', 'im in the {room}'],
-  vague: ['idk', 'cant remember', 'why are you asking that', 'obviously', 'its me lol', 'what', 'huh?', 'not sure', 'maybe', 'i guess', 'why', 'dunno', 'probably', 'does it matter', 'ask someone else lol'],
-  lure: ['i found this room', 'come look', '{room}, come here, i found something', 'guys over here', 'come to the {room}', 'theres a door here', 'over here', 'follow me', 'i found a way through', 'come see this', 'this room wasnt here before right'],
-  note: ['hey i found a note', 'found a note here', 'theres a note here', 'come read this', 'another note', 'found something to read', 'theres writing here', 'note here'],
-  greet: ['hey', 'hi', 'yo', 'hey hey', 'hello', 'sup'],
-  ok: ['im fine', 'yeah im ok', 'im good', 'fine lol', 'all good', 'yeah why', 'never better', 'just lagging'],
-  dodge: ['why are you asking that', 'its me lol', 'obviously its me', 'cant remember', 'what kind of question is that', 'idk do you', 'stop being weird', 'thats random', 'ask me later', 'its me, relax', 'bro its me'],
-  where: ['in the {here}', '{here}', 'near the {here} i think', 'still in the {here}', 'by the {item} in the {here}', 'the {here}', 'just went into the {here}'],
+  casual: ['wait', 'ok', 'lol', 'brb', 'hold on', 'my torch is being weird', 'lag', 'sec', 'k', 'one sec', 'hmm', 'huh', 'ok wait', 'lag sorry', 'my game froze for a sec', 'oops', 'mb', 'kk', 'yeah', 'yep', 'sure', 'ok ok', 'one min', 'gimme a sec', 'this game is so dark', 'brightness is so low', 'my mouse is being weird', 'lol what', 'bruh', 'yikes', 'cool', 'nice', 'wait what', 'hm ok', 'ok this is so creepy', 'my fps just died', 'anyone else lagging', 'i keep walking into stuff', 'why is everything brown', 'this house is huge', 'ok ok im here', 'my torch keeps flickering', 'brb drink', 'hold up', 'lmao my guy just ran into a wall', 'wait im stuck on the {item}', 'these stairs are so loud', 'wait what time is it in game', 'ok i think i get it now', 'im so lost', 'who keeps closing doors', 'the {here} is so dark', 'is it just me or is the {here} colder', 'why does the {item} keep making that noise'],
+  dumb: ['where are we', 'which way was the {room} again', 'what does that note mean', 'i forgot what we were doing', 'did someone move', 'was this door open before', 'how do i open the journal again', 'wait which floor are we on', 'did we check the {room}', 'is the {item} important', 'what were we looking for', 'whats the objective', 'i got lost lol', 'how did i get here', 'is this the {room}', 'did anyone read {note}', 'what was the code for', 'wait did we already do this', 'which one is the {room}', 'ive been walking in circles', 'wheres everyone', 'what button is interact', 'did we check upstairs', 'wait is the {here} the same room as before', 'what does {note} even mean', 'do we need the {item}', 'how many floors are there', 'did anyone find a key', 'what do we do with the {item}', 'is there a map', 'which way is out', 'did someone already read {note}', 'how do u crouch again', 'wait is this the {room} or the {here}', 'whats behind the {item}', 'do we have to go in the basement', 'am i going the right way'],
+  helpful: ['hey i found a note', 'theres something in the {room}', 'try the {item}', 'i think the code is on the wall in the {room}', 'check the {item} in the {room}', 'theres a {item} in the {room} that looks weird', 'someone read {note} again', '{note} says something about the {room}', 'the {item} was doing something', 'i think we missed something in the {room}', 'go look at the {item}', 'the {room} has something', 'i think the {item} matters', 'found something behind the {item}', 'we should go back to the {room}', 'the {item} in the {here} looks important', 'i read {note}, its about the {room}', 'check behind the {item}', 'theres a drawer in the {here} that opens', 'we havent done the {room} yet', 'i think the {item} needs a code', '{name} did you check the {item}', 'the {room} door is open now', 'theres more stuff in the {here}', 'read {note} again, theres a clue', 'the number on the {item} might be the code', 'lets split the {room} and the {here}', 'the {here} has a note somewhere', 'i saw writing near the {item}', 'ok the {item} did something'],
+  scare: ['did u hear that', 'nope nope', 'something just moved', 'im not going in there', 'what was that', 'nope', 'thats creepy', 'did the lights just flicker', 'i heard something in the {room}', 'something is in the {room}', 'ok that scared me', 'why is it so quiet', 'i dont like this room', 'did anyone else see that', 'i saw something by the {item}', 'my heart lol', 'something touched me', 'i swear i saw someone in the {here}', 'the door just shut by itself', 'who just whispered', 'theres someone standing in the {room}', 'why did my torch turn off', 'i heard footsteps above us', 'nope not going back to the {room}', 'the {item} moved', 'wtf was that noise', 'ok im actually scared', 'guys theres something in the {here}', 'i saw a face', 'why is the {here} so loud', 'who is that', 'theres breathing', 'i heard my name'],
+  social: ['{name} where are you', 'wait for me', 'follow me', 'stay together', '{name} come here', 'where is everyone', 'dont split up', '{name}?', 'whos in the {room}', 'im coming', 'where did {name} go', 'come with me', 'lets stick together', 'im by the {item}', 'im in the {room}', '{name} wait up', '{name} where did you go', 'guys where are you', 'im in the {here}, come', '{name} you there?', 'dont leave me', '{name} stay with me', 'where r u guys', '{name} come to the {here}', 'everyone in the {here}?', 'lets go together', '{name} follow me', 'im right behind you {name}', '{name} wanna check the {room}', 'who has the torch on'],
+  vague: ['idk', 'cant remember', 'why are you asking that', 'huh lol', 'what', 'huh?', 'not sure', 'wdym', 'why', 'dunno', 'what do u mean', 'does it matter', 'ask someone else lol'],
+  lure: ['i found this room', 'come look', '{room}, come here, i found something', 'guys over here', 'come to the {room}', 'theres a door here', 'over here', 'follow me', 'i found a way through', 'come see this', 'this room wasnt here before right', 'come to the {here}', '{name} come here', 'theres something you need to see', 'found a door that wasnt there', 'come here quick', 'its just over here'],
+  note: ['hey i found a note', 'found a note here', 'theres a note here', 'come read this', 'another note', 'found something to read', 'theres writing here', 'note here', 'theres a note in the {here}', 'found {note}', 'come read this in the {here}', 'another note in the {here}', 'this note is creepy', 'theres a page on the floor here'],
+  greet: ['hey', 'hi', 'yo', 'hey hey', 'hello', 'sup', 'hiya', 'heyy', 'hey guys', 'yo whats up', 'hi hi', 'hey {name}'],
+  ok: ['im fine', 'yeah im ok', 'im good', 'fine lol', 'all good', 'yeah why', 'never better', 'just lagging', 'yeah im here', 'all good here', 'fine just slow', 'im ok, you?', 'yeah yeah im fine', 'im alright'],
+  dodge: ['why are you asking that', 'im me lol, the real one', 'obviously me, the real me', 'cant remember', 'what kind of question is that', 'idk do you', 'stop being weird', 'thats random', 'ask me later', 'relax, im the real one', 'bro im real', 'why does it matter', 'u know im real', 'dont be weird', 'lol what', 'stop asking me stuff', 'who else would i be', 'the real me obviously', 'i dont remember everything lol'],
+  where: ['in the {here}', '{here}', 'near the {here} i think', 'still in the {here}', 'by the {item} in the {here}', 'the {here}', 'just went into the {here}', 'im in the {here}', '{here} still', 'just in the {here}', 'near the {item}, {here}', '{here}, by the door'],
   waitok: ['ok', 'k', 'waiting', 'ok ill wait', 'sure', 'k hurry'],
   go: ['ok', 'coming', 'omw', 'k', 'ok going'],
   stall: ['hold on', 'lemme look', 'thinking', 'one sec', 'wait let me see', 'hmm hold on'],
   memory: ['remember when i said "{past}" lol', 'like i said earlier, {past}', 'told u earlier, {past}', 'remember when i got scared in the {scared} lol', 'still thinking about the {scared} ngl'],
   laughs: ['{laugh}', '{laugh} ok', 'stop {laugh}', '{laugh} what'],
-  offended: ['bro what 😭', 'excuse me??', 'wow ok', 'im literally me', 'why would u say that', 'ok thats rude', 'what?? its me', 'bro', 'seriously?', 'u good?'],
+  offended: ['bro what 😭', 'excuse me??', 'wow ok', 'im not the clone', 'why would u say that', 'ok thats rude', 'what?? no', 'bro', 'seriously?', 'u good?'],
   accuse: ['{name} is the one acting weird tho', 'ask {name}, theyve been quiet', 'what about {name}', 'honestly {name} has been weird', '{name} was gone for ages'],
   mic: ['my mic broke', 'mic stopped working', 'my mic died', 'cant use voice anymore, mic broke', 'mic is broken sorry'],
+  affirmreal: ['yes its really me', 'yeah obviously im real', 'yes?? why', 'yeah its the real me', 'of course im real', 'yes lol why', 'yeah im real, chill', 'yes, the real one', 'yeah?? who else', 'yes im me lol', 'yes i am lol', 'uh yes??'],
+  denyclone: ['no?? wdym', 'wait what no', 'bro its me the real one', 'why would i be the clone', 'no lol are YOU?', 'what no im real', 'no im not the clone', 'nope not the clone, im real', 'im not the copy lol', 'no?? im the real one', 'what? no', 'no wtf', 'definitely not the clone', 'im real, check {name}', 'no, torch me if u want lol', 'nah im the real one', 'huh? no im not', 'not the clone, promise', 'no?? why would u think that', 'no lol im real'],
+  scaredq: ['yeah kinda ngl', 'a little', 'im fine its just a game lol', 'not really', 'yeah this place is creepy', 'scared? no. nervous yes', 'the {here} freaks me out', 'a bit yeah', 'im ok as long as we stay together', 'i was earlier in the {scared}', 'nah im good', 'only of the {room}'],
+  insult: ['wow ok', 'rude', 'ok calm down', 'says you', 'lol ok', 'u done?', 'bro chill', 'that was mean', 'ur the noob', 'ok mr perfect', 'relax lol', 'whatever'],
+  joke: ['lol', 'thats actually funny', 'haha ok', 'lmao stop', 'not funny', 'ok that one got me', 'lol why', 'ur so weird', 'bro 😭', 'hahaha'],
+  yes: ['yeah', 'yes', 'yep', 'i think so', 'yeah why', 'ye', 'sure', 'yes obviously', 'mhm', 'pretty sure yeah'],
+  no: ['no', 'nope', 'nah', 'i dont think so', 'no why', 'not yet', 'no lol', 'nah not really'],
+  maybe: ['maybe', 'idk', 'not sure', 'possibly', 'could be', 'no idea', 'hmm maybe', 'idk tbh'],
+  followme: ['ok coming', 'omw', 'right behind u', 'coming coming', 'wait for me', 'ok lead the way', 'k following', 'where tho', 'ok one sec', 'in the {here}? coming'],
+  thanks: ['np', 'no problem', 'yw', 'ofc', 'sure thing', 'anytime', 'np lol'],
+  sorry: ['its ok', 'all good', 'dw', 'no worries', 'its fine', 'ur good'],
+  doing: ['just looking around the {here}', 'nothing really', 'checking the {item}', 'reading stuff', 'walking around', 'looking for clues', 'trying to find the {room}', 'idk just exploring', 'standing in the {here}', 'waiting for u lol'],
+  called: ['yeah?', 'what', 'hm?', 'yes?', 'im here', 'whats up', 'here', 'what happened', 'yeah whats up', '?'],
+  bye: ['dont leave', 'wait no', 'bye?', 'already?', 'ok bye', 'noo stay'],
+  code: ['i think its on the {item}', 'the code was in {note}', 'idk the code yet', 'check the {item} for numbers', 'was it in the {room}?', 'i forgot it already lol', 'someone wrote it down right'],
+  comfort: ['hey its ok', 'aw whats wrong', 'dont be sad', 'its ok we\'ll get out', 'we got this', 'hey im here', 'whats up?', 'dw its just a game lol', 'its fine, stick with me'],
+  calm: ['whoa ok sorry', 'why u mad', 'chill lol', 'ok ok sorry', 'what did i do', 'dont be mad', 'relax its fine', 'sorry?? what happened'],
+  meh: ['yeah idk either', 'same tbh', 'hmm', 'yeah its weird', 'fair', 'i know right', 'meh'],
+  love: ['aw', '<3', 'love u too lol', 'aww thanks', 'ok cute', 'haha <3'],
+  wink: ['lol what', 'stop 😭', 'ok weirdo', 'lmao', '...ok'],
+  happy: [':)', 'lol nice', 'yay', 'ok good', 'nice one', 'glad ur happy lol'],
   creepy: ["it's quiet in here. i like it.", 'your voice sounds different', "i've been here before", 'we found something', 'we are coming', "why would i leave", 'the lights are nicer down here', 'i can hear all of you', 'stay a little longer'],
 };
 MP._bank = BANK;
@@ -10141,28 +10217,88 @@ function speak(id, base, o = {}) {
   const G0 = styleOf(MP.hist[id] || []).G, tR = G0 ? Math.max(.02, G0.typoR) : .08, fR = G0 ? Math.min(1, G0.fixR) : 1;
   let fix = null; if (!o.exact && Math.random() < tR) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { if (Math.random() < fR) fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
-  const out = m2 => o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
+  const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
   const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
   setTimeout(send, o.delay != null ? o.delay : typeDelay(id, text));
 }
 // someone talks to the worn body
+// ---------- understanding what a player said to it: slang, typos and no-grammar folded to plain words first ----------
+const RSLANG = { u: 'you', ya: 'you', yu: 'you', yuo: 'you', r: 'are', ur: 'your', youre: 'you are', ure: 'you are', wat: 'what', wut: 'what', wht: 'what', waht: 'what', wher: 'where', whr: 'where', were: 'where', wear: 'where', wre: 'where', y: 'why', pls: 'please', plz: 'please', thx: 'thanks', ty: 'thanks', tysm: 'thanks', thnx: 'thanks', teh: 'the', da: 'the', im: 'i am', iam: 'i am', ok: 'ok', k: 'ok', kk: 'ok', okay: 'ok', okey: 'ok', omw: 'coming', cmon: 'come on', c: 'see', dont: 'do not', didnt: 'did not', cant: 'can not', wont: 'will not', isnt: 'is not', arent: 'are not', whats: 'what is', wheres: 'where is', whos: 'who is', hows: 'how is', its: 'it is', thats: 'that is', ppl: 'people', sry: 'sorry', srry: 'sorry', soz: 'sorry', mb: 'my bad', rn: 'right now', idk: 'i do not know', ik: 'i know', wyd: 'what are you doing', wbu: 'what about you', hbu: 'what about you', bc: 'because', cuz: 'because', smth: 'something', sth: 'something', stfu: 'shut up', noob: 'noob', n00b: 'noob', gtg: 'got to go', g2g: 'got to go', brb: 'be right back', cood: 'code', cdoe: 'code', scard: 'scared', scarred: 'scared', clon: 'clone', colne: 'clone', fllow: 'follow', folow: 'follow', follw: 'follow', hlep: 'help', ys: 'yes', ye: 'yes', yea: 'yes', yeah: 'yes', yep: 'yes', yup: 'yes', nah: 'no', nope: 'no', heya: 'hey', hii: 'hi', helo: 'hello', hallo: 'hello', wassup: 'sup', wsp: 'sup' };
+function norm(text) {
+  let t = String(text).toLowerCase().replace(/[’`]/g, "'").replace(/'/g, '').replace(/([a-z])\1{2,}/g, '$1$1').replace(/[^\p{L}\p{N}\s?!]/gu, ' ');
+  t = t.split(/\s+/).map(w => { const q = w.replace(/[?!]+$/, ''), tail = w.slice(q.length); let v = RSLANG[q]; if (v === undefined && /(.)\1/.test(q)) v = RSLANG[q.replace(/(.)\1/g, '$1')]; return (v !== undefined ? v : q) + tail; }).join(' ').replace(/\s+/g, ' ').trim();
+  return t;
+}
+// what they meant, in priority order; null when nothing fits
+const INTENTS = [
+  ['denyclone', /\b(clone|copy|fake|impost[oe]r|pos+es+e?d|killed|took|lured)\b/], // the word itself means the answer is no
+  ['affirmreal', /\b(really you|is (it|that) you|are you real|you real|are you really|prove (it|that|you are|your|ur)|real one\b|real (bob|you)|(you are|your) not\b|not (really )?you\b|not the real)/],
+  ['denyclone', /\b(are|is) (you|it) (the |a |her )?(clone|copy|fake|real|pos+es+e?d|ysolde|her|it|imposter|impostor)\b|\b(clone|copy|impost[oe]r|pos+es+e?d)\b|\bnot (really )?you\b|\bprove it\b|\b(is (it|that)|it is) really you\b|\b(you are|your) not\b|\b(a|the|so|you are|your|is) fake\b|\bnot the real\b|\bfake\b/],
+  ['denyclone', /\b(you (killed|took|lured|got) |was it you|did you (kill|take|lure|do it)|you are (her|it|evil|a ghost|dead|not human|the monster))/],
+  ['note', t => /\b(note|letter|diary|log|page|card|journal|paper|sheet|writing|book)\b/.test(t) && /\b(what|say|said|says|read|mean|remember|about)\b/.test(t)],
+  ['solve', /\b(solve|decode|figure (it|this) out|what does (it|this) say|what is the (code|answer)|whats the (code|answer)|do you know the (code|answer))\b/],
+  ['code', /\b(code|password|combination|pin|digits|numbers|keypad)\b/],
+  ['laughs', /\b(lo+l+|lmf?ao+|(ha){2,}h?|(he){2,}h?|xd|rofl|kek)\b/],
+  ['scaredq', /\b(scar(e|ed|y|d)?y*|afraid|terrified|spooked|freaked|creepy|frightened|nervous)\b/],
+  ['insult', /\b(stupid|idiot|dumb|noob|trash|shut up|loser|useless|annoying|you suck|bad at|cringe|weirdo|clown)\b/],
+  ['waitok', /\b(wait|stop|stay|hold on|freeze|do not move|stay there|stand still)\b/],
+  ['followme', /\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry)\b/],
+  ['dodge', /\b(fav|favou?rite|birthday|how old|who are you|what is my|first pet|remember when|what is our|which of us|is that (really )?you|what did i say|whats my|my name)\b/],
+  ['where', /\b(where are you|where is you|which room|where you at|location|where)\b/],
+  ['ok', /\b(are you ok|you ok|you good|are you alright|you alright|you there|you alive|everything ok)\b/],
+  ['doing', /\b(what are you doing|what you doing|doing what|whatcha|what about you)\b/],
+  ['helpful', /\b(found anything|find anything|got anything|any clues|found something|anything new|any ideas|what now|what next|what do we do)\b/],
+  ['thanks', /\b(thanks|thank you|cheers|appreciate)\b/],
+  ['sorry', /\b(sorry|my bad|oops|apologi[sz]e)\b/],
+  ['bye', /\b(bye+|got to go|leaving|i am out|good night|gn|cya|see ya|logging off)\b/],
+  ['joke', /\b(joke|funny|knock knock|pun)\b/],
+  ['greet', /^(hi|hey|hello|yo|sup|howdy|hiya|heyo|morning|evening)\b/],
+  ['yesno', /^(is|are|do|does|did|can|could|should|will|would|have|has|was|were|you|want)\b/],
+];
+function intentOf(raw, selfName) {
+  if (/[😂🤣💀😭]/u.test(raw) && !/[a-z]{3}/i.test(raw)) return 'laughs';
+  const em = String(raw); // text faces, read before punctuation is folded away
+  if (/>:-?[\(\[\/]|:-?@|😠|😡|🤬|>:-?\|/.test(em)) return 'calm';
+  if (/[:;=]'?-?[\(\[]|:'-?\(|\bd:|😢|😞|😔|🥺|☹/u.test(em)) return 'comfort';
+  if (/\bx-?d+\b/i.test(em)) return 'laughs';
+  if (/<3|❤|♥|😍|🥰/u.test(em)) return 'love';
+  if (/;-?[\)pd]|😉|😏/iu.test(em)) return 'wink';
+  if (/(^|\s)(:-?[\/\\|s]|-_-|\._\.|😐|😑|🙄)(\s|$)/u.test(em)) return 'meh';
+  if (/(^|\s)(:-?[\)d]|=\)|\^_?\^|😊|🙂|😀|😄)(\s|$)/u.test(em) && em.replace(/\s/g, '').length < 6) return 'happy';
+  const t = norm(raw); if (selfName && new RegExp('\\bnot (really |the real )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal';
+  for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(t) : m.test(t)) return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k;
+  const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || bare.startsWith(selfName))))) return 'called';
+  if (/\?\s*$/.test(t)) return 'vague';
+  return null;
+}
+// never the same reply twice in a row from one category (remembers the last few)
+const usedR = {};
+function fresh(cat) { const L = BANK[cat] || BANK.vague, U = usedR[cat] || (usedR[cat] = []); const c = L.filter(x => !U.includes(x)); const w = pick(c.length ? c : L); U.push(w); while (U.length > Math.min(6, L.length - 1)) U.shift(); return w; }
+MP._reply = { norm, intentOf, fresh };
+function replyCat(t) { const k = intentOf(t); return k && BANK[k] ? k : null; }
+// the clone answers the one person it follows, and only them
+function copyHeard(from, text) {
+  if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase(), t = norm(text);
+  if (Math.random() > (t.includes(n.slice(0, 3)) || living().length <= 2 ? .85 : .35)) return;
+  const c = intentOf(text, n); if (!c || ['note', 'solve'].includes(c)) return;
+  const w = c === 'laughs' ? bankLine('laughs', CP.orig) : fill(fresh(BANK[c] ? c : 'vague'), CP.orig);
+  speak(CP.orig, w, { copy: true, only: CP.target });
+}
 function bodyHeard(from, text) {
   if (!PS.on || from === PS.id || ghostOf(from)) return;
-  const n = nameOf(PS.id).toLowerCase(), t = text.toLowerCase(), addressed = t.includes(n) || Date.now() - (PS.lastSaid || 0) < 9000 || living().length <= 2;
+  const n = nameOf(PS.id).toLowerCase(), t = norm(text), addressed = t.includes(n) || t.includes(n.slice(0, 3)) || Date.now() - (PS.lastSaid || 0) < 9000 || living().length <= 2;
   if (!addressed) return;
-  const has = re => re.test(t);
-  if (has(/(you'?re|ur|u r|you are) (the )?(fake|copy|not real|her|possessed)|(it'?s|that'?s) not (you|u|really)|prove it|impost[oe]r|not (really )?you|fake/)) { bodySay(pick(BANK.offended)); if (Math.random() < .4) setTimeout(() => bodySay(fill(pick(BANK.accuse), PS.id)), rnd(3000, 7000)); return; }
-  if (has(/\b(note|letter|diary|log|page|card)\b/) && has(/\b(what|say|said|read|mean|remember)\b/)) return noteAnswer(t);
-  if (has(/\b(lol+|lmao+|haha+|hehe+|xd|rofl)\b|😂|🤣/) && Math.random() < .6) return bodySay(bankLine('laughs', PS.id));
-  if (has(/\b(solve|decode|figure (it|this) out|what does (it|this) say|can you do this( one)?|whats the (code|answer)|what is the (code|answer))\b/)) return solveFor(from);
-  if (has(/\b(wait|stop|stay|hold on|freeze|dont move)\b/)) { PS.waitUntil = Date.now() + rnd(30, 60) * 1000; return bodySay(pick(BANK.waitok)); }
-  if (PS.waitUntil && has(/\b(come|ok|okay|go|lets go|follow|move)\b/)) { PS.waitUntil = 0; return bodySay(pick(BANK.go)); }
-  if (has(/\b(who are you|prove|only you|what('?s| is| was) my|first pet|remember when|whats? our|which of us|are you really|is that you|real )/)) return bodySay(pick(BANK.dodge));
-  if (has(/\b(where are you|where r u|wher|location|which room|where)\b/)) return bodySay(fill(pick(BANK.where), PS.id));
-  if (has(/\b(you ok|u ok|are you ok|okay\?|alright|you good|u good)\b/)) return bodySay(pick(BANK.ok));
-  if (has(/\b(found anything|find anything|anything\?|got anything|any clues|found something)\b/)) return bodySay(bankLine('helpful', PS.id));
-  if (has(/^(hi|hey|hello|yo|sup)\b/)) return bodySay(pick(BANK.greet));
-  if (Math.random() < .7) bodySay(pick(BANK.vague));
+  const k = intentOf(text, n);
+  if (k === 'affirmreal') { bodySay(fill(fresh('affirmreal'), PS.id)); if (Math.random() < .3) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
+  if (k === 'denyclone') { bodySay(fill(fresh('denyclone'), PS.id)); const r2 = Math.random(); if (r2 < .3) setTimeout(() => bodySay(fill(fresh('accuse'), PS.id)), rnd(3000, 7000)); else if (r2 < .5) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
+  if (k === 'note') return noteAnswer(t);
+  if (k === 'laughs') { if (Math.random() < .6) bodySay(bankLine('laughs', PS.id)); return; }
+  if (k === 'solve') return solveFor(from);
+  if (k === 'waitok') { PS.waitUntil = Date.now() + rnd(30, 60) * 1000; return bodySay(fill(fresh('waitok'), PS.id)); }
+  if (PS.waitUntil && (k === 'followme' || /\b(come|ok|go|lets go|follow|move)\b/.test(t))) { PS.waitUntil = 0; return bodySay(fill(fresh(k === 'followme' ? 'followme' : 'go'), PS.id)); }
+  if (k === 'helpful') return bodySay(bankLine('helpful', PS.id));
+  if (k) return bodySay(fill(fresh(k), PS.id));
+  if (Math.random() < .7) bodySay(fill(fresh('vague'), PS.id));
 }
 // she only knows the notes that player read before she wore them
 function noteAnswer(t) {
