@@ -243,7 +243,7 @@ button{font:inherit;cursor:pointer}
 <div id="intro" class="ov" hidden><div id="intro_blk"></div><div id="intro_vg"></div><div class="card" id="intro_card"></div><div class="skip">Click, Esc or Enter to skip</div></div>
 <div id="note" class="ov panel" hidden><div class="paper" id="notebody"></div></div>
 <div id="journal" class="ov panel" hidden><div class="journal" id="jbody"></div></div>
-<div id="pause" class="ov" hidden><div style="font-family:var(--f-display);font-size:2rem;letter-spacing:.3em">PAUSED</div><div>Click to return to the house</div><button class="btn setb" id="psetb" type="button">Settings</button></div>
+<div id="pause" class="ov" hidden><div style="font-family:var(--f-display);font-size:2rem;letter-spacing:.3em">PAUSED</div><div>Click to return to the house</div><button class="btn setb" id="psetb" type="button">Settings</button><button class="btn setb" id="ptitle" type="button">Title screen</button></div>
 <div id="death" class="ov"><p>you become part of the signal</p></div>
 <div id="dev" class="ov panel" hidden><div class="dev" id="devbody"></div></div>
 <div id="ivy" class="ov" hidden><div class="win">
@@ -4960,6 +4960,14 @@ window.__ENC = { openIvy, S, P, Y, PURE, I, DOORS, ROOMS, saveGame, readSave, PU
   const close = () => { $('settings').hidden = true; if (S.started) S.ui = wasUi; if (from === 'pause') { $('pause').hidden = false; } else if (from === 'title') $('setb').focus(); };
   $('setb').onclick = () => open('title');
   $('psetb').onclick = e => { e.stopPropagation(); $('pause').hidden = true; open('pause'); };
+  // back to the title screen: save, leave any multiplayer room properly (others are told), then start the page fresh
+  $('ptitle').onclick = e => {
+    e.stopPropagation(); const M = window.__MP, msg = M && M.on ? 'Leave the room and go back to the title screen?' : 'Go back to the title screen? Your progress is saved.';
+    if (!confirm(msg)) return;
+    try { saveGame(); } catch (x) {}
+    try { if (M && M.on && M.leave) M.leave(); } catch (x) {}
+    setTimeout(() => location.reload(), M && M.on ? 400 : 0);
+  };
   $('s_close').onclick = close; $('s_reset').onclick = () => { Object.assign(FX, FX_DEF); sync(); fxApply(); fxSave(); };
   $('settings').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); });
   $('settings').addEventListener('click', e => { if (e.target.id === 'settings') close(); });
@@ -9020,6 +9028,12 @@ function joinRoom(code) {
     peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
   }).catch(() => status('Could not reach the multiplayer service. Check your connection and try again.'));
 }
+MP.leave = () => { // a clean goodbye: the host's guests see the host leave; a guest is dropped from the host's roster
+  try { if (MP.host) bcast({ t: 'sys', text: (MP.name || 'the host') + ' left. the house goes quiet.' }); else send(null, { t: 'bye' }); } catch (e) {}
+  try { for (const id in MP.calls) MP.calls[id] && MP.calls[id].close(); } catch (e) {}
+  try { MP.stream && MP.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  setTimeout(() => { try { for (const id in MP.conns) MP.conns[id].close(); MP.hostConn && MP.hostConn.close(); MP.peer && MP.peer.destroy(); } catch (e) {} }, 150);
+};
 function hostGone() {
   if (!MP.on) return; MP.on = false; SW.on = false;
   for (const id in MP.av) removeAvatar(id);
@@ -9084,6 +9098,7 @@ function hostHandle(from, m) {
   if (m.t === 'mic') { MP.voiceUsed[from] = true; return; }
   if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from]) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
   if (m.t === 'sw') return swHost(from, m);
+  if (m.t === 'bye') return dropPlayer(from);
   if (m.t === 'scare') { MP.scareT[from] = Date.now(); if (PS.on && from !== PS.id && !ghostOf(from)) bodyReact(); return; }
 }
 function clientHandle(m) {
@@ -9197,10 +9212,10 @@ function syncTick() {
   if (!n) return;
   if (MP.host) bcast({ t: 'ws', d }); else send(null, { t: 'wd', d });
 }
-const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0]; })() : MP.pos[id];
+const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0, +P.pitch.toFixed(2)]; })() : MP.pos[id];
 function posTick() {
   if (!MP.on || !MP.started || !X().S.started) return;
-  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +PS.yaw.toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2)]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +CP.yaw.toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, 0, +(CP.pitch || 0).toFixed(2)]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
 }
 let loopsOn = false;
 function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
@@ -9233,11 +9248,12 @@ function makeAvatar(id, o = {}) {
   const armL = limb(.6, .055, mat), armR = limb(.6, .055, mat), legL = limb(.74, .075, dark), legR = limb(.74, .075, dark);
   armL.position.set(-.235, 1.4, 0); armR.position.set(.235, 1.4, 0); armL.rotation.z = -.07; armR.rotation.z = .07; legL.position.set(-.09, .74, 0); legR.position.set(.09, .74, 0);
   const torch = mesh(new THREE.BoxGeometry(.05, .05, .16), new THREE.MeshBasicMaterial({ color: 0xfff0d8 }), 0, -.58, -.07); armR.add(torch); armR.rotation.x = .9;
-  fig.add(torso, hips, neck, head, hair, armL, armR, legL, legR);
+  const headG = new THREE.Group(); headG.position.set(0, 1.55, 0); head.position.set(0, .05, 0); hair.position.set(0, .07, .01); headG.add(head, hair);
+  fig.add(torso, hips, neck, headG, armL, armR, legL, legR);
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex(o.name || nameOf(id), col), transparent: true, depthWrite: false, opacity: o.ghost ? .55 : 1 })); tag.scale.set(1.1, .275, 1); tag.position.y = 2.0;
   if (o.ghost) torch.visible = false; torchRef = torch;
   grp.add(fig, tag); X().scene.add(grp);
-  return MP.av[id] = { torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
+  return MP.av[id] = { headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
 }
 function removeAvatar(id) { const a = MP.av[id]; if (!a) return; X().scene.remove(a.grp); delete MP.av[id]; }
 let avLast = performance.now();
@@ -9259,7 +9275,7 @@ function avLoop() {
     const k = kind === 'copy' && CP.mirror ? .6 : .2;
     if (a.x === null || Math.hypot(q[0] - a.x, q[1] - a.z) > 4) { a.x = q[0]; a.z = q[1]; }
     const sp = Math.hypot(q[0] - a.x, q[1] - a.z); a.ph += Math.min(sp, .12) * 9; const sw = Math.sin(a.ph) * Math.min(1, sp * 12) * .55;
-    a.legL.rotation.x = sw; a.legR.rotation.x = -sw; a.armL.rotation.x = -sw * .8; a.armR.rotation.x = .9 + sw * .12;
+    a.pitch += ((q[8] || 0) - a.pitch) * .25; a.headG.rotation.x = a.pitch * .9; a.legL.rotation.x = sw; a.legR.rotation.x = -sw; a.armL.rotation.x = -sw * .8; a.armR.rotation.x = .9 + a.pitch * .9 + sw * .12; // head and torch follow where they look
     a.x += (q[0] - a.x) * k; a.z += (q[1] - a.z) * k; a.yaw += (((q[2] - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k; a.eye += (q[3] - a.eye) * k;
     a.q = q; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.ph) * .06 : 0;
     if (a.torch && kind !== 'ghost') { let on = q[6] !== 0; if (id === 'poss' && on) { const gh = MP.roster.some(r => ghostOf(r.id) && MP.pos[r.id] && Math.hypot(MP.pos[r.id][0] - a.x, MP.pos[r.id][1] - a.z) < 3.5) || (MP.ghost && Math.hypot(X().P.x - a.x, X().P.z - a.z) < 3.5); if (gh && Math.random() < .12) on = false; } a.torch.visible = on; }
@@ -9696,6 +9712,72 @@ function killMe(how) {
 // ---------- The Copy (up to twice per game, host runs it) ----------
 const CP = MP.copy = { on: false, orig: null, target: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mirror: false };
 const COPY_LINES = ['i found this room', 'come look', 'guys over here', 'over here', 'this way', 'come here', 'found something', 'wait for me', 'follow me'];
+// ---------- how someone writes when they don't bother with grammar (learned only from what they actually typed) ----------
+const SHORT = [['you are', 'ur'], ["you're", 'ur'], ['your', 'ur'], ['you', 'u'], ['are', 'r'], ['people', 'ppl'], ['right now', 'rn'], ['because', 'bc'], ['please', 'pls'], ['okay', 'k'], ['ok', 'k'], ['though', 'tho'], ['thanks', 'thx'], ["i don't know", 'idk'], ['i dont know', 'idk'], ['before', 'b4'], ['something', 'smth'], ['probably', 'prob'], ['what', 'wat'], ['see you', 'cya'], ['to be honest', 'tbh'], ['oh my god', 'omg'], ['with', 'w'], ['tomorrow', 'tmrw'], ['message', 'msg'], ['about', 'abt'], ['really', 'rly'], ['why', 'y'], ['too', '2'], ['for', '4']];
+const STRETCH = ['so', 'no', 'help', 'what', 'why', 'pls', 'please', 'ok', 'yes', 'hey', 'wait', 'come', 'here', 'go', 'stop', 'omg', 'oh', 'ugh', 'scary', 'creepy', 'nope', 'hi', 'guys', 'run', 'dark'];
+let KNOWN = null;
+function knownWords() {
+  if (KNOWN) return KNOWN; KNOWN = new Set(COMMON);
+  const add = t => (String(t).toLowerCase().match(/[a-z]+/g) || []).forEach(w => KNOWN.add(w));
+  for (const k in BANK) BANK[k].forEach(add); ROOM_LIST.forEach(add); ITEMS.forEach(add); NOTES.forEach(add);
+  add('the because people please really weird scared house door light lights key note found where there their they going coming something someone everyone think know does would could should which again behind through basement cellar kitchen library upstairs downstairs creepy scary quiet hallway little before after maybe actually definitely probably believe receive separate until friend tomorrow which while across');
+  return KNOWN;
+}
+function ed1(a, b) { // within one edit (incl. swap)?
+  if (a === b) return false; const la = a.length, lb = b.length; if (Math.abs(la - lb) > 1) return false;
+  if (la === lb) { const d = []; for (let i = 0; i < la; i++) if (a[i] !== b[i]) d.push(i); return d.length === 1 || (d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]]); }
+  const [s1, s2] = la < lb ? [a, b] : [b, a]; let i = 0, j = 0, e = 0; while (i < s1.length && j < s2.length) { if (s1[i] === s2[j]) { i++; j++; } else { if (++e > 1) return false; j++; } } return true;
+}
+function grammarOf(T, raw) {
+  const N = T.length, has = re => T.filter(t => re.test(t)).length, K = knownWords();
+  const words = T.join(' ').toLowerCase().match(/[a-z']+/g) || [], nW = Math.max(1, words.length);
+  const G = {};
+  // apostrophes: dropped only if they show it (dont, im, its...) and never use one
+  G.noApos = !T.some(t => /\w'\w/.test(t)) && has(/\b(dont|im|cant|wont|didnt|thats|whats|ive|youre|theres|isnt|doesnt|lets|ill)\b/i) > 0;
+  // shorthand they actually use, and how often relative to chances
+  G.short = SHORT.filter(([, sh]) => { const re = new RegExp('(^|\\s)' + sh.replace(/\d/, '\\d') + '(?=\\s|$|[?!.,])', 'i'); return has(re) >= (sh.length === 1 ? 2 : 1); }).map(([full, sh]) => [full, sh]);
+  // commas, run-ons, dropped little words
+  G.noComma = !T.some(t => /,/.test(t)) && N >= 3;
+  G.runOn = !T.some(t => /[.!?]\s+\S/.test(t.trim().replace(/[.!?]+$/, ''))) && N >= 3;
+  const arts = words.filter(w => w === 'the' || w === 'a' || w === 'an').length, avgLen = nW / N;
+  G.dropArt = avgLen >= 3 && arts / nW < .02 ? .6 : 0;
+  G.dropI = has(/^(found|going|coming|got|think|heard|saw|gonna|need|cant|dont|can't|don't|see|hate|love|have|went|know)\b/i) / N >= .2 ? .6 : 0;
+  // stretched words (sooo, nooo, helppp)
+  const st = T.join(' ').match(/\b[a-z]*([a-z])\1{2,}[a-z]*\b/gi) || []; G.stretchR = has(/([a-z])\1{2,}/i) / N; G.stretchW = st.map(w => w.toLowerCase());
+  // their own misspellings (2+ times): an unknown word one edit from a known one
+  const SH = new Set(SHORT.map(x => x[1]).concat(SLANG, [...ABBR], 'dont im cant wont didnt thats whats ive youre theres isnt doesnt lets ill hes shes wasnt arent couldnt shouldnt wouldnt gonna wanna gotta lemme ya yea yeah nah'.split(' ')));
+  const cnt = {}; for (const w of words) if (w.length > 2 && !K.has(w) && !SH.has(w) && !K.has(w.replace(/([a-z])\1+/g, '$1'))) cnt[w] = (cnt[w] || 0) + 1;
+  G.miss = {}; let typoN = 0; const pre = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
+  for (const w in cnt) { let k = null, kb = -1; for (const kw of K) if (kw.length > 2 && ed1(w, kw)) { const sc = pre(w, kw) * 2 - Math.abs(w.length - kw.length) + (kw.length >= w.length ? 1 : 0); if (sc > kb) { kb = sc; k = kw; } } if (!k) continue; if (cnt[w] >= 2) G.miss[k] = w; else typoN += cnt[w]; }
+  G.typoR = Math.min(.4, typoN / N); G.fixR = (raw || []).filter(t => /^\*\w/.test(t.trim())).length / Math.max(1, typoN);
+  // no capitals at all (even "i")
+  G.noCaps = T.every(t => t === t.toLowerCase()) && has(/\bi\b/) + has(/\bim\b/) > 0 ? 1 : T.every(t => t === t.toLowerCase()) ? .5 : 0;
+  // spacing quirks
+  const RW = (raw || []).slice(-20); G.dbl = RW.filter(t => /\S  +\S/.test(t)).length / Math.max(1, RW.length); G.noSp = RW.filter(t => /[,.!?][a-z]/i.test(t)).length / Math.max(1, RW.length);
+  // question / exclamation endings exactly as they type them
+  const qe = {}, xe = {}; for (const t of T) { const m = t.trim().match(/([!?]{2,}|[!?])$/); if (!m) continue; const k = m[1]; if (k.includes('?')) qe[k] = (qe[k] || 0) + 1; else xe[k] = (xe[k] || 0) + 1; }
+  G.qEnd = Object.entries(qe).sort((a, b) => b[1] - a[1]).map(e => e[0])[0] || ''; G.xEnd = Object.entries(xe).sort((a, b) => b[1] - a[1]).map(e => e[0])[0] || '';
+  G.xR = Object.values(xe).reduce((a, b) => a + b, 0) / N;
+  return G;
+}
+// rewrite a template line in their grammar (not just suffixes)
+function regrammar(t, G) {
+  if (!G) return t;
+  for (const k in G.miss) t = t.replace(new RegExp('\\b' + k + '\\b', 'gi'), G.miss[k]);
+  for (const [full, sh] of G.short) t = t.replace(new RegExp('\\b' + full.replace("'", "'?") + '\\b', 'gi'), sh);
+  if (G.dropArt && Math.random() < G.dropArt) t = t.replace(/\b(the|a|an) /gi, (m) => Math.random() < .7 ? '' : m);
+  if (G.dropI && Math.random() < G.dropI) t = t.replace(/^(i |i'm |im )/i, '');
+  if (G.noComma) t = t.replace(/,/g, '');
+  if (G.runOn) t = t.replace(/([.!?])\s+(\S)/g, (m, p, c) => ' ' + c);
+  if (G.noApos) t = t.replace(/(\w)'(\w)/g, '$1$2');
+  if (G.stretchR && Math.random() < Math.min(.95, G.stretchR * 2.2)) {
+    const own = G.stretchW.find(w => t.toLowerCase().includes(w.replace(/([a-z])\1{2,}/g, '$1')));
+    const ws = t.split(' '); const i = ws.findIndex(w => STRETCH.includes(w.toLowerCase().replace(/[^a-z]/g, '')));
+    if (own && Math.random() < .6) t = t.replace(new RegExp('\\b' + own.replace(/([a-z])\1{2,}/g, '$1') + '\\b', 'i'), own);
+    else if (i >= 0) { ws[i] = ws[i].replace(/([a-z])([^a-z]*)$/i, (m, c, r) => c.repeat(Math.floor(rnd(3, 6))) + r); t = ws.join(' '); }
+  }
+  return t;
+}
 // ---------- text emoticons / kaomoji: found as whole tokens so punctuation handling never breaks them ----------
 // western  :) :-( ;P =D 8) XD xDDD :/ :'( >:3 :3 :c :))))  reversed  (: D: ):  hearts <3 </3
 // eastern  ^_^ ^^ -_- T_T ;_; o.O O_o >_< x_x u_u ._. owo uwu  and parenthesised faces (o_o) (╯°□°)╯ ¯\_(ツ)_/¯ ( ͡° ͜ʖ ͡°)
@@ -9722,7 +9804,7 @@ function styleOf(texts) {
   const emo = {}; for (const t of T0) { const es = emosIn(t), rest = stripEmos(t); for (const { e, i } of es) { const k = e, o = emo[k] || (emo[k] = { e: k, n: 0, alone: 0, end: 0, start: 0 }); o.n++; if (!rest) o.alone++; else if (i + e.length >= t.trimEnd().length - 1) o.end++; else if (i === 0) o.start++; } }
   const EM = Object.values(emo).filter(o => o.n >= 2).map(o => ({ e: o.e, r: o.n / T0.length, aloneR: o.alone / T0.length, inR: (o.n - o.alone) / T0.length, pos: o.end >= o.start ? 'end' : 'start' }));
   const T = T0.map(stripEmos).filter(t => /[a-z]/i.test(t)); if (!T.length) T.push('ok');
-  const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/(\.\.\.|!!+|\?+|[.!?])$/); const k = m ? m[1] : ''; ends[k] = (ends[k] || 0) + 1; }
+  const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/([!?]{2,}|\.\.\.|[.!?])$/); const k = m ? m[1] : ''; if (k.includes('?')) continue; ends[k] = (ends[k] || 0) + 1; }
   const ems = T.join(' ').match(/\p{Extended_Pictographic}/gu) || [], emoji = ems[0] || '', emRate = cnt(t => /\p{Extended_Pictographic}/u.test(t));
   const lm = T.join(' ').match(/\b(lmao+|lmfao|lol+|haha+|hehe+|xd|rofl)\b|😂|🤣|😭/gi), laugh = lm ? lm[lm.length - 1] : 'lol';
   // their own filler words, and where they put them
@@ -9740,7 +9822,8 @@ function styleOf(texts) {
   }
   const lower = cnt(t => t === t.toLowerCase()) > .7, noPunct = !T.some(t => /[.,!?;:']/.test(t)), apos = T.some(t => /\w'\w/.test(t));
   for (const o of EM) if (o.aloneR > 0) solo.push({ w: o.e.toLowerCase(), r: o.aloneR, form: o.e });
-  return { emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: Object.entries(ends).sort((a, b) => b[1] - a[1])[0][0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
+  const G = grammarOf(T, texts);
+  return { G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
 }
 function inStyle(base, st) {
   const so = (st.solo || []).find(x => x.w === base.trim().toLowerCase()); if (so) return so.form; // a standalone reaction, exactly how they type it
@@ -9749,17 +9832,24 @@ function inStyle(base, st) {
   if (!face) for (const o of st.emo || []) if (o.inR > 0 && Math.random() < Math.min(.9, o.inR)) { face = o.e; facePos = o.pos; break; }
   if (st.used) { const t2 = t.replace(/\b([a-z]+)\b/gi, (m, w) => ABBR.has(w.toLowerCase()) && !st.used.has(w.toLowerCase()) ? '' : m).replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim(); if (t2) t = t2; } // only their words
   if (st.u) t = t.replace(/\byou\b/g, 'u').replace(/\byour\b/g, 'ur'); else t = t.replace(/\bu\b/g, 'you').replace(/\bur\b/g, 'your'); if (!st.guys) t = t.replace(/^guys,? /, '');
-  if (st.pls && Math.random() < .3) t += ' pls';
+  t = regrammar(t, st.G);
+  if (st.pls && !/\bpl[sz]\b/i.test(t) && Math.random() < (st.plsR != null ? st.plsR : .3)) t += ' pls';
   for (const g of st.tags || []) if (!/^(lol|lmao)$/.test(g.w) && Math.random() < Math.min(.9, g.r) && !new RegExp('\\b' + g.w + '\\b', 'i').test(t)) t = g.start ? g.w + ' ' + t : t.replace(/[.!?]+$/, '') + ' ' + g.w;
   if (st.noPunct) t = t.replace(/[.,!?;:']/g, '').replace(/\s+/g, ' ').trim();
   else if (!st.apos && st.lower) t = t.replace(/(\w)'(\w)/g, '$1$2');
   else t = t.replace(/[.!?]+$/, '');
-  if (!st.lol && st.caps !== undefined && !/lol|lmao|haha/i.test(st.laugh === 'lol' ? '' : st.laugh)) t = t.replace(/\s*\b(lol|lmao)\b\s*/gi, ' ').trim() || t;
+  if (!st.lol && st.caps !== undefined && !/lol|lmao|haha/i.test(st.laugh === 'lol' ? '' : st.laugh)) t = t.replace(/\s*\b(lol|lmao)\b\s*/gi, ' ').trim() || 'ok';
   if (st.lol && !/\b(lol|lmao)\b/i.test(t) && Math.random() < .5) t += ' ' + (/^lmao/i.test(st.laugh) ? 'lmao' : 'lol');
   if (st.shout) t = t.toUpperCase();
   else if (st.lower) t = t.toLowerCase();
   else if (st.caps) { t = t.replace(/\bi\b/g, 'I').replace(/\bim\b/gi, "I'm").replace(/\bdont\b/g, "don't"); t = t[0].toUpperCase() + t.slice(1).replace(/([.!?] )([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
-  if (!st.noPunct) t += /^(did|does|do|who|what|where|why|how|is|are|can|could|anyone|has|have|was|were|wait did|ok who|so who)\b/i.test(t) && st.q ? '?' : st.end;
+  const isQ = /^(did|does|do|who|whos|what|whats|wat|where|wheres|which|why|y|how|is|are|r|can|could|anyone|has|have|was|were|wait did|wait which|wait what|ok who|so who)\b/i.test(t) || /\?$/.test(base.trim());
+  if (!st.noPunct) t += isQ && st.q ? (st.G && st.G.qEnd ? st.G.qEnd : '?') : st.end;
+  else if (st.G && isQ && st.G.qEnd && st.q) t += st.G.qEnd;
+  if (st.G && st.G.xEnd && !isQ && !/[!?]$/.test(t) && Math.random() < st.G.xR) t = t.replace(/[.]$/, '') + st.G.xEnd;
+  if (st.G && st.G.noCaps === 1) t = t.toLowerCase();
+  if (st.G && st.G.noSp && Math.random() < st.G.noSp) t = t.replace(/([,.!?]) (?=[a-z])/gi, '$1');
+  if (st.G && st.G.dbl && Math.random() < st.G.dbl) { const sp = [...t.matchAll(/ /g)]; if (sp.length) { const k = sp[Math.floor(Math.random() * sp.length)].index; t = t.slice(0, k) + '  ' + t.slice(k + 1); } }
   if (st.ems && st.ems.length && !/\p{Extended_Pictographic}\s*$/u.test(t) && Math.random() < Math.max(st.emRate, st.emRate > .5 ? .9 : 0)) t += ' ' + pick(st.ems);
   if (face) t = facePos === 'start' ? face + ' ' + t : t.replace(/[.]$/, '') + ' ' + face; // faces go on after case and punctuation, exactly as typed
   return t;
@@ -9774,7 +9864,7 @@ MP.copyStart = (orig, target) => {
   const q = posOf(tg.id); if (!q) return false;
   Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + rnd(20, 40) * 1000, last: null });
   if (window.__ENC.blocked(CP.x, CP.z)) { CP.x = q[0]; CP.z = q[1]; }
-  CP.hab = habitsOf(o.id); CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
+  CP.hab = habitsOf(o.id); CP.pitch = CP.hab.pitchM; CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
   MP.copyN = (MP.copyN || 0) + 1; CP.success = false; MP.copyDone = MP.copyN >= 2; cpPub(); return { orig: o.id, target: tg.id };
 };
 function copyEnd(how) {
@@ -9785,20 +9875,47 @@ function copyEnd(how) {
 function copyVanish() { const a = MP.av.copy; if (!a) return; let k = 0; const f = setInterval(() => { a.grp.visible = k % 2 === 0; a.fig.position.x = rnd(-.08, .08); if (++k > 12) { clearInterval(f); removeAvatar('copy'); } }, 70); try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); } catch (e) {} }
 function roomOfPos(q) { return q ? X().roomAt(q[0], q[1]) : null; }
 // a player's movement habits, from their recorded positions (10 per second): turning, pauses, sprinting, torch, crouching, rooms
+const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+function wallDist(x, z) { const r = X().roomAt(x, z), R = r && X().ROOMS[r]; return R ? Math.min(x - R.x0, R.x1 - x, z - R.z0, R.z1 - z) : 1; }
+// a player's movement and camera habits, from their recorded positions (10 per second): turning (how often, how far, how smooth),
+// looking up / down, how they scan a room on entering, pauses, speed and stop/start rhythm, strafing, wall-hugging, sprint, torch, crouch, rooms
 function habitsOf(id) {
-  const tr = (MP.track[id] || []).slice(-2400), H = { sprint: .15, pauseRate: .02, pauseLen: 2, idleTurn: .6, turn: .5, flash: 1, flToggle: .01, crouch: 0, fav: [], n: tr.length };
+  const tr = (MP.track[id] || []).slice(-3000), H = { sprint: .15, pauseRate: .02, pauseLen: 2, idleTurn: .6, turn: .5, flash: 1, flToggle: .01, crouch: 0, fav: [], n: tr.length, seg: { idle: [], move: [], entry: [] }, pitchM: 0, upR: 0, downR: 0, strafeR: 0, wallD: 1.2, speed: 2.4, jitter: 0, pauses: [], runs: [] };
   if (tr.length < 30) return H;
-  let mv = 0, run = 0, still = 0, idleTurn = 0, turn = 0, fl = 0, flT = 0, cr = 0, n = 0, cur = 0; const pauses = [], rooms = {}, x = X();
+  let mv = 0, run = 0, still = 0, idleTurn = 0, turn = 0, fl = 0, flT = 0, cr = 0, n = 0, cur = 0, curRun = 0, pSum = 0, up = 0, down = 0, strafe = 0, wd = 0, spd = 0, jit = 0, prevDy = 0;
+  const pauses = [], runs = [], rooms = {}, x = X(); let seg = null, segK = '', entry = null, lastRoom = null;
+  const close = () => { if (seg && seg.length >= 5 && H.seg[segK].length < 60) H.seg[segK].push(seg); seg = null; };
   for (let i = 1; i < tr.length; i++) {
-    const a = tr[i - 1], b = tr[i]; if (a[4] !== b[4]) continue; n++;
-    const d = Math.hypot(b[0] - a[0], b[1] - a[1]); const dy = Math.abs(Math.atan2(Math.sin(b[2] - a[2]), Math.cos(b[2] - a[2])));
-    turn += dy; if (d > .04) { mv++; if (d > .3 || b[7] === 2) run++; if (cur > 3) pauses.push(cur); cur = 0; } else { still++; cur++; idleTurn += dy; }
+    const a = tr[i - 1], b = tr[i]; if (a[4] !== b[4]) { close(); continue; } n++;
+    const dx = b[0] - a[0], dz = b[1] - a[1], d = Math.hypot(dx, dz), dy = wrapA(b[2] - a[2]), pa = a[8] || 0, pb = b[8] || 0, dp = pb - pa;
+    turn += Math.abs(dy); jit += Math.abs(dy - prevDy); prevDy = dy; pSum += pb; if (pb > .25) up++; if (pb < -.25) down++;
+    const moving = d > .04, K = moving ? 'move' : 'idle';
+    if (K !== segK) { close(); segK = K; seg = []; }
+    if (moving) { mv++; spd += d * 10; if (d > .3 || b[7] === 2) run++; if (cur > 3) pauses.push(cur / 10); cur = 0; curRun++; const md = Math.atan2(-dx, -dz), off = wrapA(b[2] - md); if (Math.abs(off) > 1.0 && Math.abs(off) < 2.2) strafe++; wd += Math.min(2.5, wallDist(b[0], b[1])); seg.push([off, pb, d * 10]); }
+    else { still++; cur++; idleTurn += Math.abs(dy); if (curRun > 3) runs.push(curRun / 10); curRun = 0; seg.push([dy, dp, pb]); }
     if (b[6]) fl++; if (a[6] !== b[6]) flT++; if (b[3] < 1.3) cr++;
     const r = x.roomAt(b[0], b[1]); if (r && r !== 'mpvoid') rooms[r] = (rooms[r] || 0) + 1;
+    if (r !== lastRoom) { if (entry && entry.length >= 5 && H.seg.entry.length < 40) H.seg.entry.push(entry); entry = lastRoom ? [] : null; lastRoom = r; }
+    if (entry) { entry.push([dy, dp]); if (entry.length >= 30) { if (H.seg.entry.length < 40) H.seg.entry.push(entry); entry = null; } }
   }
-  if (cur > 3) pauses.push(cur); if (!n) return H;
-  return { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length / 10 : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
-    fav: Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n };
+  close(); if (cur > 3) pauses.push(cur / 10); if (!n) return H;
+  return Object.assign(H, { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
+    fav: Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n, pitchM: pSum / n, upR: up / n, downR: down / n, strafeR: mv ? strafe / mv : 0, wallD: mv ? wd / mv : 1.2, speed: mv ? spd / mv : 2.4, jitter: jit / n * 10, pauses, runs });
+}
+// drive head / body / torch orientation from their recorded camera behaviour: replays real snippets of how they turned and looked
+function lookStep(o, H, M, dt, moving, moveDir) {
+  const S = H.seg || {}, L = M.lk || (M.lk = { seg: null, i: 0, k: '', entryOff: 0 });
+  const room = X().roomAt(o.x, o.z); if (room !== L.room) { if (L.room && S.entry && S.entry.length) { L.entry = pick(S.entry); L.ei = 0; } L.room = room; }
+  const raw = moving ? 'move' : 'idle'; if (raw !== L.raw) { L.raw = raw; L.rawT = 0; } L.rawT += dt;
+  const want = L.k && L.rawT < .4 ? L.k : raw; // a brief stop or step does not restart their look pattern
+  if (L.k !== want || !L.seg || L.i >= L.seg.length) { let pool = S[want] || [], k2 = want; if (!pool.length) { k2 = want === 'idle' ? 'move' : 'idle'; pool = S[k2] || []; } L.seg = pool.length ? pick(pool) : null; L.i = 0; L.k = want; L.src = k2; L.prev = null; } // someone who never stops: their standing still looks like their walking
+  let out = null;
+  if (L.seg) { const smp = L.seg[Math.min(L.seg.length - 1, Math.floor(L.i))]; L.i += dt * 10; out = smp;
+    if (L.src === 'move') { if (moving) o.yaw = moveDir + smp[0]; else if (L.prev != null) o.yaw += wrapA(smp[0] - L.prev); L.prev = smp[0]; o.pitch = smp[1]; } else { o.yaw += smp[0] * dt * 10; o.pitch = smp[2]; } }
+  else if (moving) o.yaw = moveDir;
+  if (L.entry) { const e = L.entry[Math.floor(L.ei)]; L.ei += dt * 10; if (!e) L.entry = null; else { L.entryOff += e[0] * dt * 10; } } else L.entryOff *= Math.max(0, 1 - dt * 1.5);
+  o.yaw += L.entryOff * (moving ? 1 : 0); o.pitch = Math.max(-1.2, Math.min(1.2, o.pitch || 0));
+  return moving && out ? Math.max(.6, Math.min(5, out[2])) : null; // their walking speed at this moment of the snippet
 }
 // one step of moving "like them": sprint bursts, stop-and-look pauses, torch and crouch habits, idle looking around
 function habitStep(o, H, M, dt, moving) {
@@ -9810,10 +9927,10 @@ function habitStep(o, H, M, dt, moving) {
   if (moving && !M.pauseUntil && Math.random() < H.pauseRate * dt) { M.pauseUntil = now + Math.min(15000, H.pauseLen * rnd(.6, 1.4) * 1000); M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn; }
   if (M.pauseUntil && now > M.pauseUntil) M.pauseUntil = 0;
   const idle = !moving || M.pauseUntil;
-  if (idle) { if (Math.random() < dt * .8) M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn * rnd(.5, 1.5); o.yaw += M.look * dt; }
+  if (idle && !(H.seg && (H.seg.idle.length || H.seg.move.length))) { if (Math.random() < dt * .8) M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn * rnd(.5, 1.5); o.yaw += M.look * dt; }
   return { speed: (M.runOn ? 4.0 : M.crouch ? 1.2 : 2.4), paused: !!M.pauseUntil };
 }
-MP._hab = { habitsOf, habitStep };
+MP._hab = { habitsOf, habitStep, lookStep };
 function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
@@ -9835,16 +9952,21 @@ function copyTick(dt) {
     const near = Math.hypot(tq[0] - CP.x, tq[1] - CP.z) < 1.6 && tq[4] === CP.floor;
     // idling by its target like they idle: look around, and drift into one of their favourite rooms if it is right here
     if (near || M.fav) {
-      M.idleT = near ? M.idleT + dt : 0; habitStep(CP, Hb, M, dt, false);
+      M.idleT = near ? M.idleT + dt : 0; M.vx = (M.vx || 0) * .7; M.vz = (M.vz || 0) * .7; habitStep(CP, Hb, M, dt, false); lookStep(CP, Hb, M, dt, false, CP.yaw);
       const x = X(), cr = x.roomAt(CP.x, CP.z);
       if (!M.fav && M.idleT > 12 && Math.random() < dt * .1) { const nb = x.neighbors ? x.neighbors(cr).map(n => n[0]) : []; const f = Hb.fav.find(r => r === cr || nb.includes(r)); if (f && f !== 'mpvoid') { const R = x.ROOMS[f]; M.fav = { room: f, x: rnd(R.x0 + 1, R.x1 - 1), z: rnd(R.z0 + 1, R.z1 - 1), until: Date.now() + rnd(6000, 12000) }; } }
       if (M.fav) { if (Date.now() > M.fav.until || Math.hypot(tq[0] - CP.x, tq[1] - CP.z) > 9 || tq[4] !== CP.floor) { M.fav = null; } else { navTo(CP, M.fav.x, M.fav.z, M.fav.room, 2.4 * dt); return; } }
       if (near) { tr.length = 0; tr.push(tq.slice()); return; }
     }
     M.idleT = 0; const hs = habitStep(CP, Hb, M, dt, true);
-    if (hs.paused && tr.length < 30) return; // they stop and look; it does too (unless it is falling far behind)
-    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], hs.speed * dt) < .1) { tr.shift(); continue; } break; }
-    if (Hb.turn > 1 && Math.random() < dt) CP.yaw += rnd(-.4, .4) * Math.min(2, Hb.turn);
+    if (hs.paused && tr.length < 30) { lookStep(CP, Hb, M, dt, false, CP.yaw); return; } // they stop and look; it does too (unless it is falling far behind)
+    const x0 = CP.x, z0 = CP.z, sp = (Hb.seg && Hb.seg.move.length && !M.runOn ? (M.lastSp || Hb.speed) : hs.speed);
+    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], sp * dt) < .1) { tr.shift(); continue; } break; }
+    // keep their distance from walls (huggers hug, middle-walkers keep to the middle)
+    const wd = wallDist(CP.x, CP.z), E = window.__ENC; if (Hb.wallD && Math.abs(wd - Hb.wallD) > .3) { const r = X().roomAt(CP.x, CP.z), R = r && X().ROOMS[r]; if (R) { const cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2, k = (wd < Hb.wallD ? .4 : -.4) * dt, nx = CP.x + (cx - CP.x) * k * .2, nz = CP.z + (cz - CP.z) * k * .2; if (!E.blocked(nx, nz)) { CP.x = nx; CP.z = nz; } } }
+    const ddx = CP.x - x0, ddz = CP.z - z0, jump = Math.hypot(ddx, ddz) > 1; if (!jump && dt > 0) { M.vx = (M.vx || 0) * .7 + ddx / dt * .3; M.vz = (M.vz || 0) * .7 + ddz / dt * .3; } // smoothed heading, so tiny steps do not spin the head
+    const md = Math.atan2(-(M.vx || 0), -(M.vz || 0)), mvd = Math.hypot(M.vx || 0, M.vz || 0) > .4;
+    const ls = lookStep(CP, Hb, M, dt, mvd, mvd ? md : CP.yaw); if (ls) M.lastSp = ls;
     if (now > CP.lureAt && tq[4] === 1 && CP.floor === 1) { CP.phase = 'lure'; CP.lureEnd = now + 150000; toAll({ t: 'void', on: true }); setTimeout(() => copySay('i found this room'), 2500); setTimeout(() => copySay('come look'), 11000); CP.pass = null; }
     return;
   }
@@ -9867,11 +9989,11 @@ let cpLast = 0; setInterval(() => { const n = performance.now(), dt = cpLast ? M
 // how deep the group is: ground floor / upstairs low, cellar higher, the tunnel higher, the lab highest (with story progress)
 function depthOf() {
   const L = living(); let sum = 0, n = 0;
-  for (const p of L) { const q = posOf(p.id); if (!q) continue; const f = q[4]; sum += f === -2 ? 1 : f === -1 ? (q[0] > 66 ? .65 : .45) : f === 3 ? .15 : .1; n++; }
+  for (const p of L) { const q = posOf(p.id); if (!q) continue; const f = q[4]; sum += f === -2 ? 1 : f === -1 ? (q[0] > 66 ? .65 : .45) : f === 3 ? .14 : f === 2 ? .118 : .06; n++; } // ground ~4%/min, first floor ~6%, attic ~7%
   const S = X().S, pr = S.lVisited ? .9 : S.cellarOpen ? .4 : 0;
   return Math.max(n ? sum / n : 0, pr);
 }
-const copyPerMin = dp => Math.min(.97, .03 + .92 * Math.pow(dp, 1.6)); // ~5%/min upstairs, ~30% cellar, ~50% tunnel, ~95% lab
+const copyPerMin = dp => Math.min(.97, .03 + .92 * Math.pow(dp, 1.6)); // ground 4%/min, first floor 6%, attic 7%, cellar 29%, tunnel 49%, lab 95%
 MP._depth = { depthOf, copyPerMin };
 // up to twice per game, never in the first five minutes; each 5 s roll uses a per-minute chance that grows with depth
 setInterval(() => {
@@ -9906,7 +10028,7 @@ const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor
 MP.track = {};
 function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); if (t.length > 3000) t.splice(0, t.length - 3000); }
 function possess(id, q) {
-  Object.assign(PS, { flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(20, 40) * 1000 });
+  Object.assign(PS, { hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(20, 40) * 1000 });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(pick(BANK.mic)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
@@ -9934,18 +10056,21 @@ function possTick(dt) {
   if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
   if (PS.mode === 'replay') {
     if (!PS.snip) { const tr = MP.track[PS.id] || []; if (tr.length < 40) { PS.mode = 'note'; return; } const len = Math.floor(rnd(80, 200)), st = Math.floor(rnd(0, Math.max(1, tr.length - len - 1))); PS.snip = tr.slice(st, st + len); PS.idx = 1; PS.half = 0; }
-    if ((PS.half = (PS.half + 1) % 2) === 0) return;
-    const a = PS.snip[PS.idx - 1], b = PS.snip[PS.idx]; PS.idx++;
-    if (!b || PS.idx >= PS.snip.length) { PS.snip = null; PS.mode = Math.random() < .5 ? 'note' : 'replay'; return; }
-    if (a[4] === b[4]) { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < 1 && !E.blocked(PS.x + dx, PS.z + dz)) { PS.x += dx; PS.z += dz; } }
-    PS.yaw = b[2]; PS.eye = b[3]; if (b[6] !== undefined) PS.flash = b[6]; return;
+    PS.acc = (PS.acc || 0) + dt * 10; // their recording is 10 samples a second: replay at the same pace whatever the tick rate
+    while (PS.acc >= 1) { PS.acc--;
+      const a = PS.snip[PS.idx - 1], b = PS.snip[PS.idx]; PS.idx++;
+      if (!b || PS.idx >= PS.snip.length) { PS.snip = null; PS.acc = 0; PS.mode = Math.random() < .5 ? 'note' : 'replay'; return; }
+      if (a[4] === b[4]) { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < 1 && !E.blocked(PS.x + dx, PS.z + dz)) { PS.x += dx; PS.z += dz; } }
+      PS.yaw = b[2]; PS.eye = b[3]; PS.pitch = b[8] || 0; if (b[6] !== undefined) PS.flash = b[6]; }
+    return;
   }
   // walk to a real note and say so
   if (!PS.goal) {
     const cands = E.I.filter(i => i.p && NOTE_RE.test(i.id) && x.roomAt(i.p.x, i.p.z) && (x.ROOMS[x.roomAt(i.p.x, i.p.z)].floor || 1) === PS.floor);
     if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi]; PS.goal = { x: g.p.x, z: g.p.z, room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; PS.pass = null;
   }
-  const G = PS.goal; PS.eye = 1.65;
+  const G = PS.goal; PS.eye = 1.65; const PH = PS.hab || (PS.hab = habitsOf(PS.id)), PM = PS.mv || (PS.mv = {}), px0 = PS.x, pz0 = PS.z;
+  setTimeout(() => { if (PS.on && PS.goal === G) { const mvd = Math.hypot(PS.x - px0, PS.z - pz0) > .001; lookStep(PS, PH, PM, dt, mvd, mvd ? Math.atan2(-(PS.x - px0), -(PS.z - pz0)) : PS.yaw); } }, 0);
   if (now > G.until) { PS.goal = null; PS.mode = 'replay'; return; }
   if (PS.pass) { if (walkObj(PS, PS.pass[0], PS.pass[1], 4.0 * dt) < .1) PS.pass = null; return; }
   const here = x.roomAt(PS.x, PS.z);
@@ -9954,7 +10079,7 @@ function possTick(dt) {
   if (!d) { PS.goal = null; PS.mode = 'replay'; return; }
   if (walkObj(PS, d.x, d.z, 4.0 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); PS.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
 }
-setInterval(() => { if (MP.host && MP.started) try { possTick(.05); } catch (e) { console.warn(e); } }, 50);
+let psLast = 0; setInterval(() => { const n = performance.now(), dt = psLast ? Math.min(.5, (n - psLast) / 1000) : .05; psLast = n; if (MP.host && MP.started) try { possTick(dt); } catch (e) { console.warn(e); } }, 50);
 // ---------- what she says with someone else's hands ----------
 const ROOM_LIST = ['kitchen', 'library', 'dining room', 'living room', 'hallway', 'office', 'foyer', 'pantry', 'study'];
 const ITEMS = ['clock', 'fridge', 'tv', 'phone', 'bookshelf', 'breaker box', 'laptop', 'mirror', 'radio', 'piano', 'drawer', 'keypad', 'thermostat', 'lamp'];
@@ -10009,7 +10134,8 @@ const swapTypo = w => { if (w.length < 4) return null; const i = Math.floor(rnd(
 function speak(id, base, o = {}) {
   let text = inStyle(base, styleOf(MP.hist[id] || []));
   if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
-  let fix = null; if (!o.exact && Math.random() < .08) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
+  const G0 = styleOf(MP.hist[id] || []).G, tR = G0 ? Math.max(.02, G0.typoR) : .08, fR = G0 ? Math.min(1, G0.fixR) : 1;
+  let fix = null; if (!o.exact && Math.random() < tR) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { if (Math.random() < fR) fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
   const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) PS.lastSaid = Date.now(); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
