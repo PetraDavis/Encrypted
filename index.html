@@ -9824,7 +9824,8 @@ function styleOf(texts) {
   const lower = cnt(t => t === t.toLowerCase()) > .7, noPunct = !T.some(t => /[.,!?;:']/.test(t)), apos = T.some(t => /\w'\w/.test(t));
   for (const o of EM) if (o.aloneR > 0) solo.push({ w: o.e.toLowerCase(), r: o.aloneR, form: o.e });
   const G = grammarOf(T, texts);
-  return { G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
+  const wpm = T.reduce((a, t) => a + t.trim().split(/\s+/).length, 0) / T.length;
+  return { wpm, G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
 }
 function inStyle(base, st) {
   const so = (st.solo || []).find(x => x.w === base.trim().toLowerCase()); if (so) return so.form; // a standalone reaction, exactly how they type it
@@ -9840,7 +9841,7 @@ function inStyle(base, st) {
   else if (!st.apos && st.lower) t = t.replace(/(\w)'(\w)/g, '$1$2');
   else t = t.replace(/[.!?]+$/, '');
   if (!st.lol && st.caps !== undefined && !/lol|lmao|haha/i.test(st.laugh === 'lol' ? '' : st.laugh)) t = t.replace(/\s*\b(lol|lmao)\b\s*/gi, ' ').trim() || 'ok';
-  if (st.lol && !/\b(lol|lmao)\b/i.test(t) && Math.random() < .5) t += ' ' + (/^lmao/i.test(st.laugh) ? 'lmao' : 'lol');
+  if (st.lol && !/\b(lol|lmao)\b/i.test(t) && Math.random() < .5) t += ' ' + (/^(lo+l+|lmf?ao+)$/i.test(st.laugh || '') ? st.laugh : /^lmao/i.test(st.laugh) ? 'lmao' : 'lol');
   if (st.shout) t = t.toUpperCase();
   else if (st.lower) t = t.toLowerCase();
   else if (st.caps) { t = t.replace(/\bi\b/g, 'I').replace(/\bim\b/gi, "I'm").replace(/\bdont\b/g, "don't"); t = t[0].toUpperCase() + t.slice(1).replace(/([.!?] )([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
@@ -10236,8 +10237,8 @@ function fill(t, id) {
 }
 function bankLine(cat, id) { const so = styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
-function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; let t = fill(pick(BANK[cat] || BANK.vague), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
-function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && t.length < 70 && !KEEP_RE.test(t)); return h.length ? pick(h).toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
+function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let t = fill(pick(Ls.length ? Ls : L0), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
+function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && /\s/.test(t.trim()) && t.length < 70 && !KEEP_RE.test(t)); return h.length ? (stripEmos(pick(h)) || 'this place is weird').toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
 function scaredRoom(id) { const h = MP.hist[id] || [], r = MP.histRoom[id] || [], x = X(); for (let i = h.length - 1; i >= 0; i--) if (/scar|nope|wtf|what was that|aaa|omg|help|run|creepy|jump/i.test(h[i]) && r[i] && x.ROOMS[r[i]]) return x.ROOMS[r[i]].name.toLowerCase(); return pick(ROOM_LIST); }
 // how that player addressed the others: a short form of the name they actually typed
 function nickFor(id, other) {
@@ -10442,19 +10443,23 @@ const NSTOP = new Set('you u i a im the and to of in it is ok k lol yes no go me
 const stemN = w => w.replace(/(ie|ey|y|o|i|s)$/, '').replace(/(.)\1$/, '$1');
 function nickScore(w, name) {
   name = name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); if (!w || !name) return 0;
+  if (/[a-z]/.test(w) && /[01345]/.test(w) && !/[01345]/.test(name)) w = w.replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's'); // b0b
   if (w === name) return 10;
   if (w.length >= 2 && name.startsWith(w)) return 6 + w.length / name.length;
   const st = stemN(w); if (st.length >= 2 && st !== w && name.startsWith(st)) return 5;
   if (w.length >= 3 && name.includes(w)) return 4;
   if (w.length >= 4 && lev(w, name) <= 1) return 4;
+  if (name.length >= 3 && w.startsWith(name) && w.length <= name.length + 4) return 5; // bobert, bobster
+  if (w.length === 3 && name.length === 3 && w[0] === name[0] && lev(w, name) === 1 && !NSTOP.has(w)) return 5; // bub
+
   if (w.length === 1 && name[0] === w) return 2;
   return 0;
 }
 function lev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
 const toks = text => String(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
 // a short word in a message that could be a name: who it scores best for (the speaker never names themself)
-function nameCands(w, from, nTok) {
-  if (w.length === 1 ? nTok > 3 : NSTOP.has(w) && !MP.roster.some(p => p.name.toLowerCase() === w)) return [];
+function nameCands(w, from, nTok, first) {
+  if (w.length === 1 ? nTok > 3 && !(first && !'uiakyrncx'.includes(w)) : NSTOP.has(w) && !MP.roster.some(p => p.name.toLowerCase() === w)) return [];
   const sc = MP.roster.filter(p => p.id !== from).map(p => [p.id, nickScore(w, p.name)]).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
   if (!sc.length) return []; const exact = MP.roster.find(p => p.name.toLowerCase() === w); if (exact && exact.id !== from) return [[exact.id, 10]];
   return sc.filter(e => e[1] >= sc[0][1] - 1);
@@ -10474,19 +10479,19 @@ function learnNicks(from, text) {
   }
 }
 // who a word means, if it is clear
-function nickOf(w, from) {
+function nickOf(w, from, first) {
   const exact = MP.roster.find(p => p.name.toLowerCase() === w); if (exact) return exact.id === from ? null : exact.id;
   const N = MP.nick[w]; if (N) { const e = Object.entries(N).filter(([id]) => id !== from && MP.roster.some(p => p.id === id)).sort((a, b) => b[1] - a[1]); if (e.length && e[0][1] >= 2 && (!e[1] || e[0][1] >= e[1][1] * 1.5)) return e[0][0]; }
-  const c = nameCands(w, from, 2); return c.length === 1 && c[0][1] >= 5 ? c[0][0] : null;
+  const c = nameCands(w, from, 2, first); return c.length === 1 && (c[0][1] >= 5 || (first && w.length === 1 && !'uiakyrncx'.includes(w) && c[0][1] >= 2)) ? c[0][0] : null;
 }
-function mentioned(from, text) { const s = new Set(); for (const w of toks(text)) { const id = nickOf(w, from); if (id) s.add(id); } return s; }
+function mentioned(from, text) { const s = new Set(); for (const [i, w] of toks(text).entries()) { const id = nickOf(w, from, i === 0); if (id) s.add(id); } return s; }
 // is this message for me (the copied player self, whose body/copy stands at pos)?
 function addressee(from, text, self, pos, lastSaid, asked) {
   if (asked && asked.from === from && Date.now() - asked.at < 15000) return 'me'; // they answered its "who me?"
   const M = mentioned(from, text); if (M.has(self)) return 'me'; if (M.size) return 'other';
-  const T = toks(text); for (const w of T) { const c = nameCands(w, from, T.length); if (c.length > 1 && c.some(e => e[0] === self) && !nickOf(w, from)) return 'unsure'; } // a short name that could be it or someone else
+  const T = toks(text); for (const [i, w] of T.entries()) { const c = nameCands(w, from, T.length, i === 0); if (c.length > 1 && c.some(e => e[0] === self) && !nickOf(w, from)) return 'unsure'; } // a short name that could be it or someone else
   const t = norm(text);
-  if (/\b(guys|everyone|everybody|yall|you all|all of you|team|people)\b/.test(t)) return 'group';
+  if (/\b(guys|everyone|everybody|yall|you all|all of you|team|people|you two|you both|both of you|you 2|you three)\b/.test(t)) return 'group';
   const L = living().filter(p => p.id !== from); if (L.length <= 1) return 'me';
   const now = Date.now(); if (now - (lastSaid || 0) < 12000 && !L.some(p => p.id !== self && now - (MP.saidAt[p.id] || 0) < now - lastSaid)) return 'me'; // it spoke last
   if (/\b(you|your|you are)\b/.test(t)) { const q = posOf(from); if (q && pos) { const d = p => p[2] === q[4] ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 99; const mine = d(pos), best = Math.min(99, ...L.filter(p => p.id !== self).map(p => posOf(p.id)).filter(Boolean).map(o => d([o[0], o[1], o[4]]))); if (mine < 6 && mine < best - 1) return 'me'; if (mine < 6) return 'unsure'; } }
