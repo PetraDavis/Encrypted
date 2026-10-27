@@ -9988,7 +9988,7 @@ function copyTick(dt) {
     CP.yaw = o[2]; CP.eye = o[3]; CP.jump = o[9] || 0; CP.flash = o[6] ? 1 : 0; CP.last = o.slice(); CP.trail = []; return;
   }
   CP.last = o.slice(); CP.eye = 1.65;
-  if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .4 ? 'lure' : pick(['casual', 'social', 'helpful', 'dumb']), CP.orig), 1); }
+  if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .3 ? 'lure' : pickCat(CP.orig), CP.orig), 1); }
   if (CP.phase === 'follow') {
     const tr = CP.trail, lp = tr[tr.length - 1]; if (!lp || Math.hypot(tq[0] - lp[0], tq[1] - lp[1]) > .25 || tq[4] !== lp[4]) tr.push(tq.slice());
     const Hb = CP.hab || (CP.hab = habitsOf(CP.orig)), M = CP.mv || (CP.mv = { pauseUntil: 0, runUntil: 0, crouchUntil: 0, look: 0, idleT: 0 });
@@ -10101,7 +10101,7 @@ function possTick(dt) {
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
   if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
   if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1 && !E.blocked(PS.x + m.dx, PS.z + m.dz)) { PS.x += m.dx; PS.z += m.dz; } PS.yaw = m.yaw; } return; }
-  if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(); const line = bankLine(cat, PS.id); bodySay(line, { sched: 1 }); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
+  if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(PS.id); const line = bankLine(cat, PS.id); bodySay(line, { sched: 1 }); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
   if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; if (now > PS.nextSay - 60000) bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
   if (PS.waitUntil) { if (now < PS.waitUntil) return; PS.waitUntil = 0; }
   if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
@@ -10146,50 +10146,74 @@ const BANK = {
   helpful: ['hey i found a note', 'theres something in the {room}', 'try the {item}', 'i think the code is on the wall in the {room}', 'check the {item} in the {room}', 'theres a {item} in the {room} that looks weird', 'someone read {note} again', '{note} says something about the {room}', 'the {item} was doing something', 'i think we missed something in the {room}', 'go look at the {item}', 'the {room} has something', 'i think the {item} matters', 'found something behind the {item}', 'we should go back to the {room}', 'the {item} in the {here} looks important', 'i read {note}, its about the {room}', 'check behind the {item}', 'theres a drawer in the {here} that opens', 'we havent done the {room} yet', 'i think the {item} needs a code', '{name} did you check the {item}', 'the {room} door is open now', 'theres more stuff in the {here}', 'read {note} again, theres a clue', 'the number on the {item} might be the code', 'lets split the {room} and the {here}', 'the {here} has a note somewhere', 'i saw writing near the {item}', 'ok the {item} did something'],
   scare: ['did u hear that', 'nope nope', 'something just moved', 'im not going in there', 'what was that', 'nope', 'thats creepy', 'did the lights just flicker', 'i heard something in the {room}', 'something is in the {room}', 'ok that scared me', 'why is it so quiet', 'i dont like this room', 'did anyone else see that', 'i saw something by the {item}', 'my heart lol', 'something touched me', 'i swear i saw someone in the {here}', 'the door just shut by itself', 'who just whispered', 'theres someone standing in the {room}', 'why did my torch turn off', 'i heard footsteps above us', 'nope not going back to the {room}', 'the {item} moved', 'wtf was that noise', 'ok im actually scared', 'guys theres something in the {here}', 'i saw a face', 'why is the {here} so loud', 'who is that', 'theres breathing', 'i heard my name'],
   social: ['{name} where are you', 'wait for me', 'follow me', 'stay together', '{name} come here', 'where is everyone', 'dont split up', '{name}?', 'whos in the {room}', 'im coming', 'where did {name} go', 'come with me', 'lets stick together', 'im by the {item}', 'im in the {room}', '{name} wait up', '{name} where did you go', 'guys where are you', 'im in the {here}, come', '{name} you there?', 'dont leave me', '{name} stay with me', 'where r u guys', '{name} come to the {here}', 'everyone in the {here}?', 'lets go together', '{name} follow me', 'im right behind you {name}', '{name} wanna check the {room}', 'who has the torch on'],
-  vague: ['idk', 'cant remember', 'why are you asking that', 'huh lol', 'what', 'huh?', 'not sure', 'wdym', 'why', 'dunno', 'what do u mean', 'does it matter', 'ask someone else lol'],
+  vague: ['idk', 'why are you asking that', 'huh lol', 'what', 'huh?', 'not sure', 'wdym', 'why', 'dunno', 'what do u mean', 'does it matter', 'ask someone else lol', 'hm?', 'say that again', 'i dont get it', 'wait what'],
   lure: ['i found this room', 'come look', '{room}, come here, i found something', 'guys over here', 'come to the {room}', 'theres a door here', 'over here', 'follow me', 'i found a way through', 'come see this', 'this room wasnt here before right', 'come to the {here}', '{name} come here', 'theres something you need to see', 'found a door that wasnt there', 'come here quick', 'its just over here'],
   note: ['hey i found a note', 'found a note here', 'theres a note here', 'come read this', 'another note', 'found something to read', 'theres writing here', 'note here', 'theres a note in the {here}', 'found {note}', 'come read this in the {here}', 'another note in the {here}', 'this note is creepy', 'theres a page on the floor here'],
-  greet: ['hey', 'hi', 'yo', 'hey hey', 'hello', 'sup', 'hiya', 'heyy', 'hey guys', 'yo whats up', 'hi hi', 'hey {name}'],
-  ok: ['im fine', 'yeah im ok', 'im good', 'fine lol', 'all good', 'yeah why', 'never better', 'just lagging', 'yeah im here', 'all good here', 'fine just slow', 'im ok, you?', 'yeah yeah im fine', 'im alright'],
-  dodge: ['why are you asking that', 'im me lol, the real one', 'obviously me, the real me', 'cant remember', 'what kind of question is that', 'idk do you', 'stop being weird', 'thats random', 'ask me later', 'relax, im the real one', 'bro im real', 'why does it matter', 'u know im real', 'dont be weird', 'lol what', 'stop asking me stuff', 'who else would i be', 'the real me obviously', 'i dont remember everything lol'],
-  where: ['in the {here}', '{here}', 'near the {here} i think', 'still in the {here}', 'by the {item} in the {here}', 'the {here}', 'just went into the {here}', 'im in the {here}', '{here} still', 'just in the {here}', 'near the {item}, {here}', '{here}, by the door'],
-  waitok: ['ok', 'k', 'waiting', 'ok ill wait', 'sure', 'k hurry'],
-  go: ['ok', 'coming', 'omw', 'k', 'ok going'],
-  stall: ['hold on', 'lemme look', 'thinking', 'one sec', 'wait let me see', 'hmm hold on'],
-  memory: ['remember when i said "{past}" lol', 'like i said earlier, {past}', 'told u earlier, {past}', 'remember when i got scared in the {scared} lol', 'still thinking about the {scared} ngl'],
-  laughs: ['{laugh}', '{laugh} ok', 'stop {laugh}', '{laugh} what'],
-  offended: ['bro what 😭', 'excuse me??', 'wow ok', 'im not the clone', 'why would u say that', 'ok thats rude', 'what?? no', 'bro', 'seriously?', 'u good?'],
-  accuse: ['{name} is the one acting weird tho', 'ask {name}, theyve been quiet', 'what about {name}', 'honestly {name} has been weird', '{name} was gone for ages'],
+  greet: ['hey', 'hi', 'yo', 'hey hey', 'hello', 'sup', 'hiya', 'heyy', 'hey guys', 'yo whats up', 'hi hi', 'hey {name}', 'hey hey hey', 'oh hey', 'yoo'],
+  ok: ['im fine', 'yeah im ok', 'im good', 'fine lol', 'all good', 'yeah why', 'never better', 'just lagging', 'yeah im here', 'all good here', 'fine just slow', 'im ok, you?', 'yeah yeah im fine', 'im alright', 'better now', 'ok-ish lol', 'im alive at least'],
+  dodge: ['why are you asking that', 'im me lol, the real one', 'obviously me, the real me', 'what kind of question is that', 'stop being weird', 'thats random', 'relax, im the real one', 'bro im real', 'why does it matter', 'u know im real', 'dont be weird', 'lol what', 'stop asking me stuff', 'who else would i be', 'the real me obviously'],
+  where: ['in the {here}', '{here}', 'near the {here} i think', 'still in the {here}', 'by the {item} in the {here}', 'the {here}', 'just went into the {here}', 'im in the {here}', '{here} still', 'just in the {here}', 'near the {item}, {here}', '{here}, by the door', 'in the {here} rn', '{here}, wbu', 'im in the {here}, where r u', '{here}, near the stairs i think'],
+  waitok: ['ok', 'k', 'waiting', 'ok ill wait', 'sure', 'k hurry', 'ok im not moving', 'staying here', 'k waiting', 'fine, hurry tho', 'ill be right here', 'dont take forever lol'],
+  go: ['ok', 'coming', 'omw', 'k', 'ok going', 'ok lets go', 'finally', 'right behind u', 'coming now', 'ok moving'],
+  stall: ['hold on', 'lemme look', 'thinking', 'one sec', 'wait let me see', 'hmm hold on', 'gimme a sec', 'uhh', 'let me think', 'wait im reading it', 'hmm one sec', 'i think i know'],
+  memory: ['remember when i said "{past}" lol', 'like i said earlier, {past}', 'told u earlier, {past}', 'remember when i got scared in the {scared} lol', 'still thinking about the {scared} ngl', 'didnt i say {past} earlier', 'i literally said {past} lol', '{past}, remember?', 'the {scared} still scares me', 'we were in the {scared} earlier right'],
+  laughs: ['{laugh}', '{laugh} ok', 'stop {laugh}', '{laugh} what', '{laugh} stop', '{laugh} why', 'im dying {laugh}', '{laugh} no way', '{laugh} ur so dumb', '{laugh} ok that was good'],
+  offended: ['bro what 😭', 'excuse me??', 'wow ok', 'im not the clone', 'why would u say that', 'ok thats rude', 'what?? im not the clone', 'bro', 'seriously?', 'u good?'],
+  accuse: ['{name} is the one acting weird tho', 'ask {name}, theyve been quiet', 'what about {name}', 'honestly {name} has been weird', '{name} was gone for ages', '{name} has been quiet for ages', 'why is {name} always alone', '{name} went off by themselves earlier', 'has anyone checked on {name}', '{name} was acting weird in the {room}'],
   mic: ['my mic broke', 'mic stopped working', 'my mic died', 'cant use voice anymore, mic broke', 'mic is broken sorry'],
-  affirmreal: ['yes its really me', 'yeah obviously im real', 'yes?? why', 'yeah its the real me', 'of course im real', 'yes lol why', 'yeah im real, chill', 'yes, the real one', 'yeah?? who else', 'yes im me lol', 'yes i am lol', 'uh yes??'],
-  denyclone: ['no?? wdym', 'wait what no', 'bro its me the real one', 'why would i be the clone', 'no lol are YOU?', 'what no im real', 'no im not the clone', 'nope not the clone, im real', 'im not the copy lol', 'no?? im the real one', 'what? no', 'no wtf', 'definitely not the clone', 'im real, check {name}', 'no, torch me if u want lol', 'nah im the real one', 'huh? no im not', 'not the clone, promise', 'no?? why would u think that', 'no lol im real'],
-  scaredq: ['yeah kinda ngl', 'a little', 'im fine its just a game lol', 'not really', 'yeah this place is creepy', 'scared? no. nervous yes', 'the {here} freaks me out', 'a bit yeah', 'im ok as long as we stay together', 'i was earlier in the {scared}', 'nah im good', 'only of the {room}'],
+  affirmreal: ['wdym im {self}??', 'uh i am {self} lol', 'im literally {self}', 'its really me, {self}', 'how?? im real i swear', 'im the real {self}', 'its me {self}, the real one', 'i am {self} wtf', 'of course im {self}', 'im real, its {self}', 'bro im {self}', 'obviously im the real {self}', 'its {self}, the actual me', 'im {self}?? who else would i be'],
+  alive: ['im not dead lol, im right here', 'im alive?? its {self}', 'still alive, still {self}', 'im not a ghost lol, im {self}', 'im fine, im alive', 'alive and still {self} lol', 'im human lol, its {self}', 'still here, still {self}', 'i didnt die lol', 'nothing got me, im fine'],
+  sus: ['im just tired lol, im still {self}', 'wdym, im {self}, same as always', 'im acting normal?? its {self}', 'this place is getting to me, still {self} tho', 'bro im {self}, im just scared', 'im {self}, lag is making me weird', 'its {self}, im fine, just creeped out', 'i always type like this, im {self}', 'im fine, just tired', 'wdym weird, im normal', 'im just quiet, im {self}'],
+  denyclone: ['no im not the clone??', 'wait what, im not the clone', 'bro im not the clone, its {self}', 'why would i be the clone', 'im not the clone lol are YOU?', 'im not the clone, im real', 'no, im not the clone', 'im not the copy lol', 'im the real {self}, not the clone', 'definitely not the clone', 'im real, check {name}', 'torch me if u want, im not the clone lol', 'im the real one, not the copy', 'im not the clone, promise', 'why would u think im the clone', 'im {self}, not the clone lol', 'i didnt do anything, im {self}', 'it wasnt me, im the real {self}'],
+  scaredq: ['yeah kinda ngl', 'a little', 'im fine its just a game lol', 'not really', 'yeah this place is creepy', 'scared? no. nervous yes', 'the {here} freaks me out', 'a bit yeah', 'im ok as long as we stay together', 'i was earlier in the {scared}', 'nah im good', 'only of the {room}', 'kinda yeah', 'this place gets worse', 'only when the lights go'],
   insult: ['wow ok', 'rude', 'ok calm down', 'says you', 'lol ok', 'u done?', 'bro chill', 'that was mean', 'ur the noob', 'ok mr perfect', 'relax lol', 'whatever'],
-  joke: ['lol', 'thats actually funny', 'haha ok', 'lmao stop', 'not funny', 'ok that one got me', 'lol why', 'ur so weird', 'bro 😭', 'hahaha'],
+  joke: ['lol', 'thats actually funny', 'haha ok', 'lmao stop', 'not funny', 'ok that one got me', 'lol why', 'ur so weird', 'bro 😭', 'hahaha', 'lol ok that was dumb', 'why did i laugh at that', 'ur not funny lol', 'ok ok good one'],
   yes: ['yeah', 'yes', 'yep', 'i think so', 'yeah why', 'ye', 'sure', 'yes obviously', 'mhm', 'pretty sure yeah'],
   no: ['no', 'nope', 'nah', 'i dont think so', 'no why', 'not yet', 'no lol', 'nah not really'],
   maybe: ['maybe', 'idk', 'not sure', 'possibly', 'could be', 'no idea', 'hmm maybe', 'idk tbh'],
   followme: ['ok coming', 'omw', 'right behind u', 'coming coming', 'wait for me', 'ok lead the way', 'k following', 'where tho', 'ok one sec', 'in the {here}? coming'],
-  thanks: ['np', 'no problem', 'yw', 'ofc', 'sure thing', 'anytime', 'np lol'],
-  sorry: ['its ok', 'all good', 'dw', 'no worries', 'its fine', 'ur good'],
-  doing: ['just looking around the {here}', 'nothing really', 'checking the {item}', 'reading stuff', 'walking around', 'looking for clues', 'trying to find the {room}', 'idk just exploring', 'standing in the {here}', 'waiting for u lol'],
-  called: ['yeah?', 'what', 'hm?', 'yes?', 'im here', 'whats up', 'here', 'what happened', 'yeah whats up', '?'],
-  bye: ['dont leave', 'wait no', 'bye?', 'already?', 'ok bye', 'noo stay'],
-  code: ['i think its on the {item}', 'the code was in {note}', 'idk the code yet', 'check the {item} for numbers', 'was it in the {room}?', 'i forgot it already lol', 'someone wrote it down right'],
-  comfort: ['hey its ok', 'aw whats wrong', 'dont be sad', 'its ok we\'ll get out', 'we got this', 'hey im here', 'whats up?', 'dw its just a game lol', 'its fine, stick with me'],
-  calm: ['whoa ok sorry', 'why u mad', 'chill lol', 'ok ok sorry', 'what did i do', 'dont be mad', 'relax its fine', 'sorry?? what happened'],
-  meh: ['yeah idk either', 'same tbh', 'hmm', 'yeah its weird', 'fair', 'i know right', 'meh'],
-  love: ['aw', '<3', 'love u too lol', 'aww thanks', 'ok cute', 'haha <3'],
-  wink: ['lol what', 'stop 😭', 'ok weirdo', 'lmao', '...ok'],
-  happy: [':)', 'lol nice', 'yay', 'ok good', 'nice one', 'glad ur happy lol'],
+  thanks: ['np', 'no problem', 'yw', 'ofc', 'sure thing', 'anytime', 'np lol', 'no prob', 'u got it', 'happy to help', 'dont mention it lol'],
+  sorry: ['its ok', 'all good', 'dw', 'no worries', 'its fine', 'ur good', 'its cool', 'dont worry about it', 'eh its fine', 'happens lol'],
+  doing: ['just looking around the {here}', 'nothing really', 'checking the {item}', 'reading stuff', 'walking around', 'looking for clues', 'trying to find the {room}', 'idk just exploring', 'standing in the {here}', 'waiting for u lol', 'looking for the {item}', 'nothing, just scared lol', 'trying not to die lol'],
+  called: ['yeah?', 'what', 'hm?', 'yes?', 'im here', 'whats up', 'here', 'what happened', 'yeah whats up', '?', 'yo', 'ya?', 'sup', 'mhm?'],
+  bye: ['dont leave', 'wait no', 'bye?', 'already?', 'ok bye', 'noo stay', 'cya', 'bye lol', 'wait ur leaving?', 'come back soon', 'noo dont go'],
+  code: ['i think its on the {item}', 'the code was in {note}', 'idk the code yet', 'check the {item} for numbers', 'was it in the {room}?', 'i forgot it already lol', 'someone wrote it down right', 'try the numbers from {note}', 'maybe its a date', 'i saw numbers in the {room}', 'check the back of {note}', 'is it 4 digits?'],
+  comfort: ['hey its ok', 'aw whats wrong', 'dont be sad', 'its ok we\'ll get out', 'we got this', 'hey im here', 'whats up?', 'dw its just a game lol', 'its fine, stick with me', 'dont cry we got this', 'its gonna be fine', 'im right here'],
+  calm: ['whoa ok sorry', 'why u mad', 'chill lol', 'ok ok sorry', 'what did i do', 'dont be mad', 'relax its fine', 'sorry?? what happened', 'ok im sorry', 'dont be like that', 'what\'s wrong'],
+  meh: ['yeah idk either', 'same tbh', 'hmm', 'yeah its weird', 'fair', 'i know right', 'meh', 'eh', 'fair enough', 'whatever works'],
+  love: ['aw', '<3', 'love u too lol', 'aww thanks', 'ok cute', 'haha <3', 'love u guys', '<3 lol', 'stop ur making me blush'],
+  wink: ['lol what', 'stop 😭', 'ok weirdo', 'lmao', '...ok', 'what does that mean lol', 'ok creep lol', 'stopp'],
+  happy: [':)', 'lol nice', 'yay', 'ok good', 'nice one', 'glad ur happy lol', 'glad someones having fun', 'ok ur in a good mood lol', 'love the energy'],
+  scaredy: ['i dont like this at all', 'can we leave', 'im so scared rn', 'nope nope nope', 'why did we come here', 'i want to go home', 'my hands are shaking lol', 'i hate this house', 'please dont leave me alone', 'something is watching us'],
+  brave: ['its just a house lol', 'im not scared', 'lets go in', 'come on its fine', 'ill go first', 'nothing here can hurt us', 'stop being scared lol', 'lets check the {room}', 'easy', 'i\'ll check it out'],
+  jokey: ['imagine if we just left lol', 'this house needs a cleaner', '10/10 vacation spot', 'ghost if ur real do a backflip', 'lmao this is like a bad movie', 'rate this house out of 10', 'who decorated this lol', 'next time we\'re going to the beach', 'this is my house now', 'hello mr ghost'],
+  lead: ['everyone to the {room}', 'follow me', 'ok go check the {item}', '{name} take the {room}', 'stay here, ill look', 'split up, i\'ll do the {room}', 'go go go', 'this way', 'wait here', '{name} come with me', 'lets do the {room} next'],
+  follower: ['where do we go now', 'what should i do', 'ok wait for me', 'which way', 'what now', '{name} where should i go', 'tell me what to do', 'ill follow you {name}'],
+  tease: ['ur so slow lol', '{name} ur useless lol', 'hurry up noob', 'bro {name} cant even find a door', 'skill issue', 'imagine being scared lol', '{name} is so bad at this', 'keep up lol'],
+  kind: ['{name} u ok?', 'careful guys', 'everyone good?', 'we got this', 'nice one {name}', 'take ur time', 'stay safe guys', 'dont worry {name}'],
+  explore: ['whats in the {room}', 'lets look around more', 'i wanna see the {room}', 'there has to be more rooms', 'did anyone check upstairs', 'i\'m gonna look around', 'what\'s behind this door'],
+  scaredyes: ['yeah im terrified', 'ya im so scared', 'yes this place is awful', 'yeah i wanna leave', 'so scared rn', 'yes dont leave me'],
+  braveno: ['nah its fine', 'not really lol', 'no, its just a house', 'nope, im good', 'scared? nah', 'no lol u?'],
+  teaseback: ['ur worse lol', 'cry about it', 'skill issue', 'ok and', 'lol ur one to talk', 'whatever noob'],
+  notlying: ['im not lying, im {self}', 'why would i lie', 'im telling the truth wtf', 'i swear im not lying', 'no cap, its {self}', 'im not lying, ask anyone', 'what would i even lie about', 'im being honest, its {self}', 'why would i lie about that', 'im not lying lol', 'swear on everything'],
+  leadwhy: ['i thought there was something here', 'i didnt mean to lead u anywhere', 'i was just exploring', 'i thought this was the way out', 'i saw something here, i swear', 'idk i got lost too', 'i thought the {item} was here', 'sorry i thought it was this way'],
+  trustme: ['u can trust me, its {self}', 'why wouldnt u trust me', 'ok dont then, im still {self}', 'i get it but its really me, {self}', 'trust me pls, im {self}', 'bro its {self}, u know me', 'fair but im still {self}', 'u trusted me five minutes ago lol', 'what did i do'],
+  dotest: ['im not doing that lol, im {self}', 'why would i do that, im fine', 'im fine, stop being weird', 'lol no, im {self}', 'ok ok im fine, im {self}', 'im not a dog lol, im {self}', 'im ok, im {self}, chill', 'no lol, i\'m fine', 'ur being weird, im ok'],
+  backoff: ['ok ok sorry', 'i wasnt following u lol', 'fine ill go', 'i just didnt wanna be alone', 'k sorry', 'im going im going', 'wow ok', 'sorry, didnt mean to crowd u'],
+  helpyou: ['where are u?? coming', 'what happened', 'omw where r u', 'hold on im coming', 'whats wrong??', 'where?? which room', 'im coming, keep talking', 'hide! im coming'],
+  whereother: ['idk, last i saw them in the {room}', 'no idea, i was in the {here}', 'they were with me a sec ago', 'i think they went to the {room}', 'havent seen them in a while', 'idk, ask them lol', 'they went upstairs i think'],
+  split: ['ok ill take the {room}', 'no lets stay together', 'fine, ill do the {here}', 'bad idea but ok', 'ok who goes where', 'i\'ll check the {room} then', 'splitting up never works in movies lol'],
+  praise: ['thanks lol', 'ty', 'i know im good', 'team effort', 'ty ty', 'finally someone noticed lol', 'ok thanks {name}'],
+  reassured: ['ok thanks', 'yeah ok', 'thanks lol', 'ok good', 'ok cool', 'thank god lol'],
+  suggest: ['yeah lets', 'idk, what do u think', 'sure lets try it', 'maybe, ur call', 'lets do it', 'ok but you first lol', 'fine, lead the way', 'yeah why not'],
   creepy: ["it's quiet in here. i like it.", 'your voice sounds different', "i've been here before", 'we found something', 'we are coming', "why would i leave", 'the lights are nicer down here', 'i can hear all of you', 'stay a little longer'],
 };
 MP._bank = BANK;
 function fill(t, id) {
   const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
-  const others = living().filter(p => p.id !== id);
+  const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
   const nick = p2 => nickFor(id, p2);
-  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id)).replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => pick(NOTES)).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
+  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id)).replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => pick(NOTES)).replace(/\{self\}/g, self).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
 }
 function bankLine(cat, id) { const so = styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
@@ -10201,7 +10225,52 @@ function nickFor(id, other) {
   const n = other.name.toLowerCase(), words = {}; for (const t of MP.hist[id] || []) for (const w of t.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []) if (w.length >= 2 && w.slice(0, 2) === n.slice(0, 2)) words[w] = (words[w] || 0) + 1;
   const best = Object.entries(words).sort((a, b) => b[1] - a[1])[0]; return best ? best[0] : n;
 }
-const pickCat = () => { const r = Math.random(); return r < .3 ? 'casual' : r < .45 ? 'dumb' : r < .62 ? 'helpful' : r < .72 ? 'scare' : 'social'; };
+// who they were, from what they typed and did: only traits they actually showed count
+function traitsOf(id) {
+  const H = (MP.hist[id] || []).map(t => t.toLowerCase()), n = H.length, c = re => H.filter(t => re.test(t)).length;
+  const others = MP.roster.filter(p => p.id !== id).map(p => p.name.toLowerCase().slice(0, 3)).filter(Boolean);
+  const T = {
+    scared: c(/scar|nope|creepy|wtf|help|\brun\b|omg|aa+h?|afraid|what was that|terrif|leave|i hate|freak/),
+    brave: c(/not scared|lets go in|easy|ill go first|i'?ll go|come on|its fine|its just a|nothing here|chill/),
+    joker: c(/\b(lol|lmao|haha|xd|lmfao|rofl)\b|😂|🤣|joke|imagine|bruh/),
+    leader: c(/^(go|follow me|come|lets|this way|everyone|split|stay|wait here|check|take the|you take|ill do)\b|follow me|go to the|everyone (to|go)/),
+    follower: c(/where (do|should) (we|i)|what (do|should) (we|i) do|which way|what now|wait for me|wait up|tell me what/),
+    helpful: c(/code|answer|it says|note says|i found|found a|try the|check the|the key|it'?s on|its in the/) + Math.min(3, (MP.reads[id] || []).length),
+    rude: c(/stupid|idiot|noob|ur slow|so slow|shut up|stfu|trash|ur bad|useless|loser|skill issue|hurry up/),
+    kind: c(/u ok|you ok|are you ok|sorry|thanks|\bty\b|nice one|good job|careful|we got this|dont worry|take ur time/),
+    names: H.filter(t => others.some(o => o.length >= 2 && t.includes(o))).length,
+    explorer: 0,
+  };
+  const rooms = new Set(); for (const q of (MP.track[id] || [])) { const r = X().roomAt(q[0], q[1]); if (r) rooms.add(r); } T.explorer = Math.max(0, rooms.size - 4) + Math.min(3, (MP.reads[id] || []).length);
+  const on = {}; for (const k in T) on[k] = T[k] >= (k === 'explorer' ? 4 : 2) && (k === 'explorer' || T[k] / Math.max(1, n) >= .08); // shown at least twice, and not drowned out
+  if (on.scared && on.brave) { if (T.scared >= T.brave) on.brave = false; else on.scared = false; }
+  if (on.rude && on.kind) { if (T.rude >= T.kind) on.kind = false; else on.rude = false; }
+  if (on.leader && on.follower) { if (T.leader >= T.follower) on.follower = false; else on.leader = false; }
+  return { n: T, on };
+}
+// what they say unprompted, weighted by who they were
+function pickCat(id) {
+  const P = id ? traitsOf(id).on : {}, w = { casual: .3, dumb: .15, helpful: .17, scare: .1, social: .28 };
+  if (P.scared) { w.scare *= 2.5; w.scaredy = .25; } if (P.brave) { w.scare *= .3; w.brave = .22; }
+  if (P.joker) w.jokey = .22; if (P.leader) { w.lead = .3; w.dumb *= .4; } if (P.follower) { w.follower = .25; w.dumb *= 1.6; }
+  if (P.helpful) w.helpful *= 2.2; if (P.rude) w.tease = .2; if (P.kind) w.kind = .2; if (P.explorer) w.explore = .18; if (P.names) w.social *= 1.5; else w.social *= .6;
+  let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) if ((r -= w[k]) <= 0) return k; return 'casual';
+}
+// a reply bent toward who they were (only where they showed it)
+function persona(k, id) {
+  const P = traitsOf(id).on;
+  if (k === 'scaredq') return P.scared ? 'scaredyes' : P.brave ? 'braveno' : k;
+  if (k === 'insult') return P.rude ? 'teaseback' : k;
+  if (k === 'followme' && P.leader && Math.random() < .35) return 'lead';
+  if ((k === 'maybe' || k === 'vague') && P.follower && Math.random() < .3) return 'follower';
+  if (k === 'comfort' && P.kind) return Math.random() < .5 ? 'kind' : k;
+  if (k === 'joke' && P.joker) return 'jokey';
+  if (k === 'split' && P.scared) return 'scaredy';
+  if (k === 'suggest' && P.leader && Math.random() < .5) return 'lead';
+  if (k === 'praise' && P.rude && Math.random() < .4) return 'teaseback';
+  return k;
+}
+MP._traits = { traitsOf, pickCat, persona, say: (id, cat) => inStyle(bankLine(cat || pickCat(id), id), styleOf(MP.hist[id] || [])), reply: (id, msg) => { const k = intentOf(msg, nameOf(id).toLowerCase()); const k2 = k && persona(k, id); return k2 && BANK[k2] ? inStyle(fill(fresh(k2), id), styleOf(MP.hist[id] || [])) : null; } };
 // how fast and how often each real player types
 MP.typ = {};
 function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (cps > .3 && cps < 25) T.cps = T.cps ? T.cps * .7 + cps * .3 : cps; if (T.until || ghostOf(id)) return; T.n++; T.times.push(Date.now()); }
@@ -10231,7 +10300,21 @@ function norm(text) {
 }
 // what they meant, in priority order; null when nothing fits
 const INTENTS = [
-  ['denyclone', /\b(clone|copy|fake|impost[oe]r|pos+es+e?d|killed|took|lured)\b/], // the word itself means the answer is no
+  ['alive', /\b(she|her|it|ysolde) (got|get|took|take|has|grabbed|caught) you\b|\b(dead|ghost|died|die|alive|human|spirit|zombie|undead)\b/],
+  ['affirmreal', /^(are|r) you (you|really you|for real)\b|\bis (this|that|it) (really )?(you|me)\b|\bwho are you\b|\bwho is this\b|\b(actually|really|even) you\b|\breal name\b|only .{1,12} would know/],
+  ['sus', /\b(sus|suspicious|not yourself|wrong with you|how (you|bob) types?|the way you type)\b|\b(seem|seems|sound|sounds|acting|being|look|looks|typing|talking) (so |really |kinda |a bit )?(off|different|weird|strange|odd)\b|\b(weird|odd|off|different) today\b/],
+  ['backoff', /\bstop (following|chasing|copying|staring)|\bgo away\b|\bleave me alone\b|\bget away\b|\bback off\b|\bstay away\b/],
+  ['helpyou', /\b(help me|help!|save me|im stuck|i am stuck|its got me|she is here|shes here|she is coming|its coming)\b|^help\b/],
+  ['whereother', /\bwhere (is|did|are|r) (?!you\b)(?!we\b)(?!i\b)(\w+)/],
+  ['split', /\b(split up|separate|divide up|go different ways|split)\b/],
+  ['praise', /\b(nice job|good job|well done|gg|nice work|good work|great job|ur good at|you are good at|nice one|clutch|smart)\b/],
+  ['reassured', /^(it is ok|it is fine|its ok|its fine|ok good|all good|no worries|dont worry|np|no problem)\b/],
+  ['suggest', /^(should|shall|can|could) we\b|^lets\b|^we should\b|\bwanna (go|check|try)\b/],
+  ['denyclone', /\b(clone|copy|fake|impost[oe]r|pos+es+e?d|killed|took|lured|kill|killing|pretending)\b/], // the word itself
+  ['notlying', /\b(lying|liar|lie|lies|capping|cap)\b/],
+  ['leadwhy', /\b(lead|led|leading|brought|bring|bringing|took|taking|dragged) (us|me)\b|\bwhy (did|do|are) you (want|keep)? ?(going|taking|bringing|leading|going) (us|me)?/],
+  ['trustme', /\b(trust|believe)\b/],
+  ['dotest', /\b(blink|jump|crouch|spin|dance|wave|nod|say|type|spell|tell us)\b.*\b(if|twice|times|to prove|so we know|now)\b|\bif (you are|your|ur|youre) (ok|real|you|the real)\b|\b(blink|jump|crouch|spin) (twice|three|3|2)\b/],
   ['affirmreal', /\b(really you|is (it|that) you|are you real|you real|are you really|prove (it|that|you are|your|ur)|real one\b|real (bob|you)|(you are|your) not\b|not (really )?you\b|not the real)/],
   ['denyclone', /\b(are|is) (you|it) (the |a |her )?(clone|copy|fake|real|pos+es+e?d|ysolde|her|it|imposter|impostor)\b|\b(clone|copy|impost[oe]r|pos+es+e?d)\b|\bnot (really )?you\b|\bprove it\b|\b(is (it|that)|it is) really you\b|\b(you are|your) not\b|\b(a|the|so|you are|your|is) fake\b|\bnot the real\b|\bfake\b/],
   ['denyclone', /\b(you (killed|took|lured|got) |was it you|did you (kill|take|lure|do it)|you are (her|it|evil|a ghost|dead|not human|the monster))/],
@@ -10244,7 +10327,7 @@ const INTENTS = [
   ['waitok', /\b(wait|stop|stay|hold on|freeze|do not move|stay there|stand still)\b/],
   ['followme', /\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry)\b/],
   ['dodge', /\b(fav|favou?rite|birthday|how old|who are you|what is my|first pet|remember when|what is our|which of us|is that (really )?you|what did i say|whats my|my name)\b/],
-  ['where', /\b(where are you|where is you|which room|where you at|location|where)\b/],
+  ['where', /\b(where are you|where is you|which room|what room|room are you|where you at|location|where)\b/],
   ['ok', /\b(are you ok|you ok|you good|are you alright|you alright|you there|you alive|everything ok)\b/],
   ['doing', /\b(what are you doing|what you doing|doing what|whatcha|what about you)\b/],
   ['helpful', /\b(found anything|find anything|got anything|any clues|found something|anything new|any ideas|what now|what next|what do we do)\b/],
@@ -10265,23 +10348,23 @@ function intentOf(raw, selfName) {
   if (/;-?[\)pd]|😉|😏/iu.test(em)) return 'wink';
   if (/(^|\s)(:-?[\/\\|s]|-_-|\._\.|😐|😑|🙄)(\s|$)/u.test(em)) return 'meh';
   if (/(^|\s)(:-?[\)d]|=\)|\^_?\^|😊|🙂|😀|😄)(\s|$)/u.test(em) && em.replace(/\s/g, '').length < 6) return 'happy';
-  const t = norm(raw); if (selfName && new RegExp('\\bnot (really |the real )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal';
+  const t = norm(raw); if (selfName && new RegExp('\\bnot (really |the real )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal'; if (selfName && new RegExp('\\b(are you|is (this|that|it)( really| actually)?|you are|you really|are you (even|really|actually)|prove (you are|your|ur|youre)) (the real )?(even )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal';
   for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(t) : m.test(t)) return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k;
-  const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || bare.startsWith(selfName))))) return 'called';
+  const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || (bare.startsWith(selfName) && bare.length <= selfName.length + 3))))) return 'called';
   if (/\?\s*$/.test(t)) return 'vague';
   return null;
 }
 // never the same reply twice in a row from one category (remembers the last few)
 const usedR = {};
 function fresh(cat) { const L = BANK[cat] || BANK.vague, U = usedR[cat] || (usedR[cat] = []); const c = L.filter(x => !U.includes(x)); const w = pick(c.length ? c : L); U.push(w); while (U.length > Math.min(6, L.length - 1)) U.shift(); return w; }
-MP._reply = { norm, intentOf, fresh };
+MP._reply = { norm, intentOf, fresh, fill: (t, id) => fill(t, id) };
 function replyCat(t) { const k = intentOf(t); return k && BANK[k] ? k : null; }
 // the clone answers the one person it follows, and only them
 function copyHeard(from, text) {
   if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase(), t = norm(text);
   if (Math.random() > (t.includes(n.slice(0, 3)) || living().length <= 2 ? .85 : .35)) return;
   const c = intentOf(text, n); if (!c || ['note', 'solve'].includes(c)) return;
-  const w = c === 'laughs' ? bankLine('laughs', CP.orig) : fill(fresh(BANK[c] ? c : 'vague'), CP.orig);
+  const c2 = persona(c, CP.orig), w = c === 'laughs' ? bankLine('laughs', CP.orig) : fill(fresh(BANK[c2] ? c2 : 'vague'), CP.orig);
   speak(CP.orig, w, { copy: true, only: CP.target });
 }
 function bodyHeard(from, text) {
@@ -10297,7 +10380,7 @@ function bodyHeard(from, text) {
   if (k === 'waitok') { PS.waitUntil = Date.now() + rnd(30, 60) * 1000; return bodySay(fill(fresh('waitok'), PS.id)); }
   if (PS.waitUntil && (k === 'followme' || /\b(come|ok|go|lets go|follow|move)\b/.test(t))) { PS.waitUntil = 0; return bodySay(fill(fresh(k === 'followme' ? 'followme' : 'go'), PS.id)); }
   if (k === 'helpful') return bodySay(bankLine('helpful', PS.id));
-  if (k) return bodySay(fill(fresh(k), PS.id));
+  if (k) return bodySay(fill(fresh(persona(k, PS.id)), PS.id));
   if (Math.random() < .7) bodySay(fill(fresh('vague'), PS.id));
 }
 // she only knows the notes that player read before she wore them
