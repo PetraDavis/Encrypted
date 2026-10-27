@@ -9084,7 +9084,7 @@ function hostHandle(from, m) {
     const text = String(m.text || '').slice(0, 200); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
+    learnFrom(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; HC.push(ctxTags(from)); } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -9682,7 +9682,7 @@ $('mp_cont').onclick = () => hostStart(true);
 $('mp_back').onclick = () => closePanel(false);
 $('mp').addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(false); });
 // ---------- ghosts ----------
-MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
+MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.histCtx = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
 function ghostOf(id) { return MP.ghosts.includes(id); }
 function becomeGhost() {
   MP.ghost = true; H.ghost = true; const x = X();
@@ -9748,8 +9748,8 @@ function grammarOf(T, raw) {
   // their own misspellings (2+ times): an unknown word one edit from a known one
   const SH = new Set(SHORT.map(x => x[1]).concat(SLANG, [...ABBR], 'dont im cant wont didnt thats whats ive youre theres isnt doesnt lets ill hes shes wasnt arent couldnt shouldnt wouldnt gonna wanna gotta lemme ya yea yeah nah'.split(' ')));
   const cnt = {}; for (const w of words) if (w.length > 2 && !K.has(w) && !SH.has(w) && !K.has(w.replace(/([a-z])\1+/g, '$1'))) cnt[w] = (cnt[w] || 0) + 1;
-  G.miss = {}; let typoN = 0; const pre = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
-  for (const w in cnt) { let k = null, kb = -1; for (const kw of K) if (kw.length > 2 && ed1(w, kw)) { const sc = pre(w, kw) * 2 - Math.abs(w.length - kw.length) + (kw.length >= w.length ? 1 : 0); if (sc > kb) { kb = sc; k = kw; } } if (!k) continue; if (cnt[w] >= 2) G.miss[k] = w; else typoN += cnt[w]; }
+  G.miss = {}; G.once = {}; let typoN = 0; const pre = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
+  for (const w in cnt) { let k = null, kb = -1; for (const kw of K) if (kw.length > 2 && ed1(w, kw)) { const sc = pre(w, kw) * 2 - Math.abs(w.length - kw.length) + (kw.length >= w.length ? 1 : 0); if (sc > kb) { kb = sc; k = kw; } } if (!k) continue; if (cnt[w] >= 2) G.miss[k] = w; else { typoN += cnt[w]; G.once[k] = w; } }
   G.typoR = Math.min(.4, typoN / N); G.fixR = (raw || []).filter(t => /^\*\w/.test(t.trim())).length / Math.max(1, typoN);
   // no capitals at all (even "i")
   G.noCaps = T.every(t => t === t.toLowerCase()) && has(/\bi\b/) + has(/\bim\b/) > 0 ? 1 : T.every(t => t === t.toLowerCase()) ? .5 : 0;
@@ -9814,7 +9814,7 @@ function styleOf(texts) {
   const tags = [], solo = [], seen = {};
   for (const t of T) { const ws = new Set((t.toLowerCase().match(/[a-z]+/g) || [])); for (const w of ws) seen[w] = (seen[w] || 0) + 1; }
   for (const w in seen) {
-    if (seen[w] < 2 || (!SLANG.includes(w) && (w.length > 5 || COMMON.has(w)))) continue;
+    if (seen[w] < 2 || NOECHO.test(w) || (!SLANG.includes(w) && (w.length > 5 || COMMON.has(w)))) continue;
     const re = new RegExp('(^|[^a-z])' + w + '([^a-z]|$)', 'i'), hits = T.filter(t => re.test(t));
     const alone = hits.filter(t => t.trim().toLowerCase().replace(/[^a-z\s]/g, '').trim() === w), inl = hits.filter(t => !alone.includes(t));
     if (!SLANG.includes(w) && hits.length / T.length < .3 && alone.length < 2) continue;
@@ -9828,6 +9828,7 @@ function styleOf(texts) {
   return { wpm, G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
 }
 function inStyle(base, st) {
+  if (base[0] === '\u0001') return base.slice(1); // their own words, exactly as typed
   const so = (st.solo || []).find(x => x.w === base.trim().toLowerCase()); if (so) return so.form; // a standalone reaction, exactly how they type it
   const keep = emosIn(base).map(m => m.e); let t = stripEmos(base.trim()) || base.trim(); // quoted lines keep their faces intact
   let face = keep.length ? keep[keep.length - 1] : null, facePos = 'end';
@@ -9857,7 +9858,7 @@ function inStyle(base, st) {
   return t;
 }
 MP._style = (texts, base) => inStyle(base, styleOf(texts));
-MP._styleOf = styleOf; MP._gen = (texts, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
+MP._styleOf = styleOf; MP._gen = (texts, cat, ctxs) => { const k = '__t' + Math.random(); MP.hist[k] = texts; if (ctxs) MP.histCtx[k] = ctxs; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
 function copySay(base, sched) { if (!CP.on) return; speak(CP.orig, base, { copy: true, sched, only: CP.target }); }
 const cpPub = () => toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } });
 MP.copyStart = (orig, target) => {
@@ -10160,12 +10161,12 @@ const BANK = {
   offended: ['bro what 😭', 'excuse me??', 'wow ok', 'im not the clone', 'why would u say that', 'ok thats rude', 'what?? im not the clone', 'bro', 'seriously?', 'u good?'],
   accuse: ['{name} is the one acting weird tho', 'ask {name}, theyve been quiet', 'what about {name}', 'honestly {name} has been weird', '{name} was gone for ages', '{name} has been quiet for ages', 'why is {name} always alone', '{name} went off by themselves earlier', 'has anyone checked on {name}', '{name} was acting weird in the {room}'],
   mic: ['my mic broke', 'mic stopped working', 'my mic died', 'cant use voice anymore, mic broke', 'mic is broken sorry'],
-  affirmreal: ['wdym im {self}??', 'uh i am {self} lol', 'im literally {self}', 'its really me, {self}', 'how?? its {self} i swear', 'im the real {self}', 'its me {self}, the real one', 'i am {self} wtf', 'of course im {self}', 'im real, its {self}', 'bro im {self}', 'obviously im the real {self}', 'its {self}, the actual me', 'im {self}?? who else would i be'],
+  affirmreal: ['wdym im {self}??', 'uh im {self} lol', 'im literally {self}', 'its really me, {self}', 'how?? its {self} i swear', 'im the real {self}', 'its me {self}, the real one', 'im {self} wtf', 'of course im {self}', 'im real, its {self}', 'bro im {self}', 'obviously im the real {self}', 'its {self}, the actual me', 'im {self}?? who else would i be'],
   alive: ['im not dead lol, its {self}, im right here', 'im alive?? its {self}', 'still alive, still {self}', 'im not a ghost lol, im {self}', 'its {self}, im fine, im alive', 'alive and still {self} lol', 'im human lol, its {self}', 'still here, still {self}', 'i didnt die lol, its {self}', 'nothing got me, its {self}'],
   sus: ['im just tired lol, im still {self}', 'wdym, im {self}, same as always', 'im acting normal?? its {self}', 'this place is getting to me, still {self} tho', 'bro im {self}, im just scared', 'im {self}, lag is making me weird', 'its {self}, im fine, just creeped out', 'i always type like this, im {self}', 'im fine, just tired', 'wdym weird, im normal', 'im just quiet, im {self}'],
   denyclone: ['no im not the clone?? its {self}', 'wait what, im not the clone, its {self}', 'bro im not the clone, its {self}', 'why would i be the clone, im {self}', 'im {self} lol, are YOU the clone?', 'im not the clone, im {self}', 'no, its {self}, not the clone', 'im not the copy lol, its {self}', 'im the real {self}, not the clone', 'its {self}, definitely not the clone', 'im {self}, check {name} instead', 'torch me if u want, its {self}', 'its {self}, the real one', 'its {self}, not the clone, promise', 'why would u think that, its {self}', 'im {self}, not the clone lol', 'i didnt do anything, im {self}', 'it wasnt me, im the real {self}'],
   scaredq: ['yeah kinda ngl', 'a little', 'im fine its just a game lol', 'not really', 'yeah this place is creepy', 'not scared just nervous lol', 'the {here} freaks me out', 'a bit yeah', 'im ok as long as we stay together', 'i was earlier in the {scared}', 'nah im good', 'only of the {room}', 'kinda yeah', 'it keeps getting worse lol', 'only when the lights go out'],
-  insult: ['wow ok', 'rude', 'ok calm down', 'says you', 'lol ok', 'u done?', 'bro chill', 'that was mean', 'ur the noob', 'ok pro', 'relax lol', 'whatever'],
+  insult: ['{L}', 'wow ok', 'rude', 'ok calm down', 'says you', 'lol ok', 'u done?', 'bro chill', 'that was mean', 'ur the noob', 'ok pro', 'relax lol', 'whatever'],
   joke: ['lol', 'thats actually funny', 'haha ok', 'lmao stop', 'not funny', 'ok that one got me', 'lol why', 'ur so weird', 'bro 😭', 'hahaha', 'lol ok that was dumb', 'why did i laugh at that', 'ur not funny lol', 'ok ok good one'],
   yes: ['yeah', 'yes', 'yep', 'i think so', 'yeah why', 'ye', 'sure', 'yes obviously', 'mhm', 'pretty sure yeah'],
   no: ['no', 'nope', 'nah', 'i dont think so', 'no why', 'not yet', 'no lol', 'nah not really'],
@@ -10193,7 +10194,7 @@ const BANK = {
   explore: ['whats in the {room}', 'lets look around more', 'i wanna see the {room}', 'there has to be more rooms', 'did anyone check upstairs', 'i\'m gonna look around', 'what\'s behind this door'],
   scaredyes: ['yeah im terrified', 'ya im so scared', 'yes this place is awful', 'yeah i wanna leave', 'so scared rn', 'yes dont leave me'],
   braveno: ['nah its fine', 'not really lol', 'no, its just a house', 'nope, im good', 'scared? nah', 'no lol u?'],
-  teaseback: ['ur worse lol', 'cry about it', 'skill issue', 'ok and', 'lol ur one to talk', 'whatever noob'],
+  teaseback: ['{L}', 'ur worse lol', 'cry about it', 'skill issue', 'ok and', 'lol ur one to talk', 'whatever noob'],
   notlying: ['im not lying, im {self}', 'why would i lie, its {self}', 'im telling the truth, its {self}', 'i swear im not lying, its {self}', 'no cap, its {self}', 'im not lying, ask anyone, its {self}', 'what would i even lie about, im {self}', 'im being honest, its {self}', 'why would {self} lie about that', 'im not lying lol, its me {self}', 'swear on everything, its {self}'],
   leadwhy: ['i thought there was something here', 'i didnt mean to lead u anywhere', 'i was just exploring', 'i thought this was the way out', 'i saw something here, i swear', 'idk i got lost too', 'i thought the {item} was here', 'sorry i thought it was this way'],
   trustme: ['u can trust me, its {self}', 'why wouldnt u trust me, its {self}', 'ok dont then, im still {self}', 'i get it but its really me, {self}', 'trust me pls, im {self}', 'bro its {self}, u know me', 'fair but im still {self}', 'u trusted {self} five minutes ago lol', 'what did i do? its {self}'],
@@ -10202,7 +10203,7 @@ const BANK = {
   helpyou: ['where are u?? coming', 'what happened', 'omw where r u', 'hold on im coming', 'whats wrong??', 'where?? which room', 'im coming, keep talking', 'hide! im coming'],
   whereother: ['idk, last i saw them in the {room}', 'no idea, i was in the {here}', 'they were with me a sec ago', 'i think they went to the {room}', 'havent seen them in a while', 'idk, ask them lol', 'they went upstairs i think'],
   split: ['ok ill take the {room}', 'no lets stay together', 'fine, ill do the {here}', 'bad idea but ok', 'ok who goes where', 'i\'ll check the {room} then', 'splitting up never works in movies'],
-  praise: ['thanks lol', 'ty', 'i know im good', 'team effort', 'ty ty', 'finally someone noticed lol', 'ok thanks {name}'],
+  praise: ['{W}', 'thanks lol', 'ty', 'i know im good', 'team effort', 'ty ty', 'finally someone noticed lol', 'ok thanks {name}'],
   reassured: ['ok thanks', 'yeah ok', 'thanks lol', 'ok good', 'ok cool', 'thank god lol'],
   suggest: ['yeah lets', 'idk, what do u think', 'sure lets try it', 'maybe, ur call', 'lets do it', 'ok but you first lol', 'fine, lead the way', 'yeah why not'],
   whome: ['who me?', 'me?', 'r u talking to me?', 'wait me?', 'me??', 'u mean me?', 'talking to me?', 'wait who', 'huh, me?'],
@@ -10217,7 +10218,7 @@ const BANK = {
   plan: ['idk, the {room}?', 'just following u lol', 'anywhere but here', 'looking for a way out', 'the {room} i think', 'wherever the next clue is'],
   directions: ['i think its through the {room}', 'idk, try upstairs', 'back past the {room}', 'follow the hallway', 'i forgot lol', 'near the {room} i think', 'no clue, i got lost earlier'],
   lostq: ['me too lol', 'where r u, ill come', 'whats the room name', 'same', 'stay there ill find u', 'just follow the hallway'],
-  foundit: ['nice, where', 'omg what is it', 'ok what does it open', 'nice one', 'where was it', 'yesss', 'what does it do'],
+  foundit: ['{W}', 'nice, where', 'omg what is it', 'ok what does it open', 'nice one', 'where was it', 'yesss', 'what does it do'],
   take: ['ok give', 'u keep it', 'why me lol', 'ok got it', 'fine', 'sure ill hold it'],
   warned: ['ok i wont', 'why whats in there', 'ok ok', 'too late lol', 'fine', 'why??'],
   hand: ['my torch lol', 'just my torch', 'nothing', 'a torch??', 'what do u mean', 'just my hands lol'],
@@ -10235,13 +10236,39 @@ MP._bank = BANK;
 function fill(t, id) {
   const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
   const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
-  const nick = p2 => nickFor(id, p2);
-  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id)).replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => pick(NOTES)).replace(/\{spam\}/g, () => spamOf(id)).replace(/\{self\}/g, self).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
+  const H0 = MP.hist[id] || [], cntW = re => H0.filter(t => re.test(t)).length, addr = ['twin', 'bestie', 'bro', 'gang'].find(w => cntW(new RegExp('(^|\\s)' + w + '(\\s|$)', 'i')) >= 2);
+  const nick = p2 => addr && Math.random() < .35 ? addr : nickFor(id, p2);
+  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id)).replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => pick(NOTES)).replace(/\{spam\}/g, () => spamOf(id)).replace(/\{W\}/g, () => cntW(/^w( |$)/i) >= 2 ? 'W' : pick(['nice', 'yesss', 'lets go'])).replace(/\{L\}/g, () => cntW(/^l( |$)|\bthe l\b/i) >= 2 ? 'L' : pick(['lol no', 'nope', 'ur the noob'])).replace(/\{self\}/g, self).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
 }
-function bankLine(cat, id) { const so = styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
+// the situation each of their lines was said in, so the clone says the same thing when the same thing happens again
+MP.histCtx = {}; MP.lastChat = null; MP.ownUsed = {};
+function whereIs(id) { return PS.on && id === PS.id ? [PS.x, PS.z, 0, 0, PS.floor || 1] : CP.on && id === CP.orig ? [CP.x, CP.z, 0, 0, CP.floor || 1] : posOf(id); }
+function ctxTags(id, o = {}) { if (MP._ctxNow) return MP._ctxNow; const T = new Set(), now = Date.now(); let Y = null; try { Y = X().Y; } catch (e) {}
+  if (Y && (Y.state === 'hunt' || Y.state === 'warn')) T.add('danger');
+  const q = whereIs(id); if (q) { let best = 99; for (const p of living()) { if (p.id === id || (PS.on && p.id === PS.id) || (CP.on && p.id === CP.orig)) continue; const o2 = posOf(p.id); if (!o2) continue; best = Math.min(best, o2[4] === q[4] ? Math.hypot(o2[0] - q[0], o2[1] - q[1]) : 99); } if (best < 5) T.add('near'); else if (best > 10) T.add('far'); }
+  const said = o.self != null ? o.self : (MP.hist[id] || []).length; if (said < 2) T.add('greet');
+  const L = MP.lastChat; if (L && L.from !== id && now - L.at < 10000) { let k = null; try { k = intentOf(L.text, (nameOf(id) || '').toLowerCase()); } catch (e) {} T.add('reply'); if (k) T.add('r:' + k); if (/^(insult|joke|teaseback|sus|accuse)$/.test(k || '') || /\b(lol|haha|watch this|im gonna|jk)\b/i.test(L.text)) T.add('odd'); if (/\b(run|help|aa+h*|what was that|omg|she.?s here|its here|hide)\b/i.test(L.text)) T.add('scare'); }
+  if (o.reply) { T.add('reply'); T.add('r:' + o.reply); }
+  if (!T.has('danger') && !T.has('scare') && !T.has('greet') && !T.has('reply')) T.add('idle');
+  return T; }
+const KEYT = t => t === 'danger' || t === 'scare' || t === 'greet' || t === 'odd' || t === 'idle' || t.startsWith('r:');
+function ownLine(id, o = {}) { const H = MP.hist[id] || [], C0 = MP.histCtx[id] || []; if (H.length < 8) return null;
+  const now = Date.now(), U = MP.ownUsed[id] || (MP.ownUsed[id] = {}), C = o.tags || ctxTags(id, { self: o.self != null ? o.self : (PS.on && id === PS.id ? (PS.lastSaid ? 9 : 0) : CP.on && id === CP.orig ? (CP.lastSaid ? 9 : 0) : 9), reply: o.reply }), freq = {};
+  for (const t of H) { const k = t.trim(); freq[k] = (freq[k] || 0) + 1; }
+  const S = {}; H.forEach((t, i) => { const k = t.trim(), T = C0[i]; if (!T || !k || k.length > 60 || NOECHO.test(k) || KEEP_RE.test(k) || /^\*/.test(k) || now - (U[k] || -1e9) < 300000) return;
+    const T2 = T instanceof Set ? T : new Set(T); let m = 0; for (const g of T2) if (KEYT(g) && C.has(g)) m += g === 'idle' ? .3 : g.startsWith('r:') ? 2 : 1; if (!m) return;
+    if ((T2.has('danger') || T2.has('scare')) && !C.has('danger') && !C.has('scare')) return; // urgent lines only when it is urgent again
+    if ((T2.has('far') && C.has('near')) || (T2.has('near') && C.has('far'))) m *= .3; if (T2.has('greet') && !C.has('greet')) return;
+    S[k] = (S[k] || 0) + m * Math.sqrt(freq[k]); });
+  const E = Object.entries(S); if (!E.length) return null; const tot = E.reduce((a, e) => a + e[1], 0);
+  if (Math.random() > Math.min(.85, .35 + tot * .12)) return null;
+  let r = Math.random() * tot, w = E[0][0]; for (const [k, v] of E) if ((r -= v) <= 0) { w = k; break; }
+  U[w] = now; return '\u0001' + w; }
+function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; const so = styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
 function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let t = fill(pick(Ls.length ? Ls : L0), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
-function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && /\s/.test(t.trim()) && t.length < 70 && !KEEP_RE.test(t)); return h.length ? (stripEmos(pick(h)) || 'this place is weird').toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
+const NOECHO = /\b(gya+t+|thicc|thick|smash|freaky|mommy|daddy|zaddy|sexy|hot girl|rizz me)\b/i;
+function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && /\s/.test(t.trim()) && !NOECHO.test(t) && t.length < 70 && !KEEP_RE.test(t)); return h.length ? (stripEmos(pick(h)) || 'this place is weird').toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
 function scaredRoom(id) { const h = MP.hist[id] || [], r = MP.histRoom[id] || [], x = X(); for (let i = h.length - 1; i >= 0; i--) if (/scar|nope|wtf|what was that|aaa|omg|help|run|creepy|jump/i.test(h[i]) && r[i] && x.ROOMS[r[i]]) return x.ROOMS[r[i]].name.toLowerCase(); return pick(ROOM_LIST); }
 // how that player addressed the others: a short form of the name they actually typed
 function nickFor(id, other) {
@@ -10329,13 +10356,23 @@ function chatStop(id) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, fi
 function chatPerMin(id) { const T = MP.typ[id], end = T && T.until || Date.now(), win = Math.max(3 * 60000, end - Math.min(MP.t0 || end, T ? T.first : end)); return (T ? T.n : 0) / (win / 60000); }
 function chatGap(id) { const r = chatPerMin(id), per = r > 0 ? 60000 / r : 15 * 60000; return Math.max(8000, Math.min(15 * 60000, per * rnd(.6, 1.5))); }
 function typeDelay(id, text) { const T = MP.typ[id], cps = T && T.cps ? T.cps : 3.2; return (text.length / cps) * 1000 * rnd(.85, 1.2) + rnd(400, 1500); }
-const swapTypo = w => { if (w.length < 4) return null; const i = Math.floor(rnd(1, w.length - 2)); return w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2); };
+// slips: only the misspellings this player really made, at their real rate (none seen = none made); never on a name or a nickname
+function nameForms(id) { const H = MP.hist[id] || [], F = new Map(); for (const p of MP.roster || []) { const n = p.name; if (!n) continue; const lo = n.toLowerCase(); let nk = ''; try { nk = p.id !== id ? nickFor(id, p) : ''; } catch (e) {} for (const f of new Set([lo, String(nk || '').toLowerCase()])) { if (f.length < 2 || (f !== lo && COMMON.has(f))) continue; const re = new RegExp('(^|[^\\p{L}])(' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}])', 'iu'), seen = {}; for (const t of H) { const m = t.match(re); if (m && m[2] !== m[2].toUpperCase()) seen[m[2]] = (seen[m[2]] || 0) + 1; } const best = Object.entries(seen).sort((x, y) => y[1] - x[1])[0]; F.set(f, best ? best[0] : f === lo ? n : f); } } return F; }
+function typoStep(id, text) {
+  const G0 = styleOf(MP.hist[id] || []).G, F = nameForms(id);
+  if (F.size && text !== text.toUpperCase()) for (const [f, form] of F) text = text.replace(new RegExp('(^|[^\\p{L}])' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'giu'), (m, a) => a + form); // names keep the case they type them in
+  if (!G0 || !G0.typoR || !G0.once || Math.random() >= G0.typoR) return [text, null];
+  const ws = text.split(' '), C = ws.map((w, i) => [i, w.toLowerCase().replace(/[^a-z]/g, '')]).filter(([, w]) => G0.once[w] && !F.has(w)); if (!C.length) return [text, null];
+  const [wi, w] = pick(C), orig = ws[wi]; let t2 = G0.once[w]; if (orig === orig.toUpperCase()) t2 = t2.toUpperCase(); ws[wi] = orig.replace(new RegExp(w, 'i'), t2);
+  return [ws.join(' '), Math.random() < Math.min(1, G0.fixR) ? '*' + orig.replace(/[^\p{L}']/gu, '') : null];
+}
+MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const r = typoStep(k, text); delete MP.hist[k]; return r; };
+MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
 function speak(id, base, o = {}) {
   let text = inStyle(base, styleOf(MP.hist[id] || []));
-  if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base);
+  if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
   if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
-  const G0 = styleOf(MP.hist[id] || []).G, tR = G0 ? Math.max(.02, G0.typoR) : .08, fR = G0 ? Math.min(1, G0.fixR) : 1;
-  let fix = null; if (!o.exact && Math.random() < tR) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { if (Math.random() < fR) fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
+  let fix = null; if (!o.exact) [text, fix] = typoStep(id, text);
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
   const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy) CP.lastSaid = Date.now(); else MP.saidAt[id] = Date.now(); if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
@@ -10359,7 +10396,13 @@ function fixWord(w) { if (VOCAB.has(w) || w.length < 3 || /\d/.test(w)) return w
 const SLANGP = [[/\bion\b/g, 'i do not'], [/\btryna\b/g, 'trying to'], [/\bfinna\b/g, 'going to'], [/\bbouta\b|\babt to\b/g, 'about to'], [/\b(dippin|dipping|dip out|dippin out)\b/g, 'leaving'], [/\bim (out|dippin|dipping|dip)\b( fr)?/g, 'im leaving'], [/\bpull up\b/g, 'come here'], [/^slide\b/g, 'come'],
   [/\b(hella|mad|lowkey|highkey|deadass|lowk|kinda|literally|actually|straight up)\b ?/g, ''], [/\b(trippin|tripping|buggin|bugging|wildin|wilding)\b/g, 'being weird'], [/\b(tweaking|tweakin|shook|spooked out)\b/g, 'scared'], [/\b(capping|cappin)\b/g, 'lying'], [/\bthats cap\b/g, 'that is a lie'],
   [/\b(this|that) (aint|is not) it\b/g, 'this is bad'], [/\bits giving\b/g, 'it is'], [/\bgot jumped\b/g, 'got scared'], [/\bhmu\b/g, 'tell me'], [/\bwym\b/g, 'what do you mean'], [/\bwdym\b/g, 'what do you mean'], [/^w (\w+)$/g, 'nice one $1'], [/^l (\w+)$/g, 'you are bad $1'], [/^(ratio|l)$/g, 'you are bad'],
-  [/\b(u|you) (straight|alr|alright|good)\b/g, 'you ok'], [/^(bet bet|say less)$/g, 'bet']];
+  [/\b(u|you) (straight|alr|alright|good)\b/g, 'you ok'], [/^(bet bet|say less)$/g, 'bet'],
+  [/^(twin|twinion|bro|bruh|gang|chat|bestie|homie|dude)[ ,]+/g, ''], [/[ ,]+(twin|twinion|gang|chat|bestie|homie)$/g, ''], [/\bgya+t+\b/g, 'lol'],
+  [/^w$|\b(a|huge|massive|big|another|such a|thats a|that is a) w\b|^w\b(?= )/g, 'nice one'], [/\b(you are|your|ur|u) (an? )?l\b|\btake the l\b|^l$/g, 'you are bad'], [/\b(an|huge|massive|big|such an|another) l\b/g, 'this is bad'],
+  [/\b(u|you|ur|you are|your) (are )?(fire|goated|him|her|that guy)\b/g, 'nice one'], [/\b(thats|that is|so|its|is) fire\b|^fire$/g, 'nice one'], [/\b(is|so|thats|that is|its|this is) peak\b|^peak$/g, 'periodt'],
+  [/\b(ur|you are|your|u) (so |kinda |actually )?mid\b/g, 'you are bad'], [/\bmid at\b/g, 'bad at'], [/^mid$/g, 'so mid'], [/\b(bussin|slaps|a banger|banger|goes hard)\b/g, 'so good'], [/^valid$/g, 'periodt'],
+  [/\b(your|ur) aura\b.*/g, 'nice one'], [/\bno rizz\b/g, 'you are bad'], [/\b(ur|you are|your|u) (so )?(glazing|delulu)\b/g, 'you are dumb'], [/\bglazing\b/g, 'lol'], [/\bdelulu\b/g, 'dumb'],
+  [/\b(crash ?out|crashing out)\b/g, 'freaking out'], [/^is this real$/g, 'periodt'], [/\bwe (so|are so|are) cooked\b/g, 'we are doomed']];
 function norm(text, fz) {
   let t = String(text).toLowerCase().replace(/[’`]/g, "'").replace(/'/g, '').replace(/([a-z])\1{2,}/g, '$1$1').replace(/[^\p{L}\p{N}\s?!]/gu, ' ');
   for (const [re, w] of SLANGP) t = t.replace(re, w); t = t.replace(/\s+/g, ' ').trim();
@@ -10393,6 +10436,8 @@ const INTENTS = [
   ['yes', /^(for real|on god)( for real| fr)?$/],
   ['hideq', /^(sh+|shush|be quiet|quiet|stay quiet|do not make a sound|keep quiet)\b|^(quick |quickly |just )?(hide|get in|get under|duck|crouch|get down|in here)\b|\b(go |get |quick )?hide (now|quick|in|under|behind)\b|\bget in the (closet|wardrobe|cupboard|bed)\b/],
   ['go', /\b(i am|im) (heading|going|off|gonna go|going to go) (to|up|down|into|in|upstairs|downstairs|back)\b/],
+  ['happy', /\b(so good|so fun)\b/],
+  ['calm', /\b(freaking out|so mad|raging|tilted)\b/],
   ['meh', /^(periodt|period|facts|true|so true|real|too real)$|\bthis is (bad|mid|trash|not it)\b|^bruh+$|\b(cooked|doomed|we are done|its over|it is over|boring|bored|so mid|this is mid|i hate this game|this game (sucks|is bad|is trash))\b/],
   ['personal', t => /\b(real life|irl)\b/.test(t) || (!!pTopic(t) && (/\b(you|your|we|us)\b/.test(t) || /^(fav|favourite|age|birthday|last name|full name|surname|siblings|pets?|school|grade)\b/.test(t)))],
   ['hearq', /^(wh?at|wtf) (was|is) that\b|\b(hear|heard|hearing) (that|this|it|something|the|those)\b|\b(you|u) hear\b|\b(noise|sound|footsteps|scream|bang)\b/],
@@ -10527,10 +10572,10 @@ function addressee(from, text, self, pos, lastSaid, asked) {
   const M = mentioned(from, text); if (M.has(self)) return aboutThem(from, text, self) ? 'other' : 'me'; if (M.size) return 'other';
   const T = toks(text); for (const [i, w] of T.entries()) { const c = nameCands(w, from, T.length, i === 0); if (c.length > 1 && c.some(e => e[0] === self) && !nickOf(w, from)) return 'unsure'; } // a short name that could be it or someone else
   const t = norm(text);
-  if (/\b(guys|everyone|everybody|yall|you all|all of you|team|people|you two|you both|both of you|you 2|you three)\b/.test(t)) return 'group';
+  if (/\b(guys|everyone|everybody|yall|you all|all of you|team|people|you two|you both|both of you|you 2|you three|gang|chat|squad)\b/.test(t)) return 'group';
   const L = living().filter(p => p.id !== from); if (L.length <= 1) return 'me';
   const now = Date.now(); if (now - (lastSaid || 0) < 12000 && !L.some(p => p.id !== self && now - (MP.saidAt[p.id] || 0) < now - lastSaid)) return 'me'; // it spoke last
-  if (/\b(you|your|you are)\b/.test(t)) { const q = posOf(from); if (q && pos) { const d = p => p[2] === q[4] ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 99; const mine = d(pos), best = Math.min(99, ...L.filter(p => p.id !== self).map(p => posOf(p.id)).filter(Boolean).map(o => d([o[0], o[1], o[4]]))); if (mine < 6 && mine < best - 1) return 'me'; if (mine < 6) return 'unsure'; } }
+  if (/\b(you|your|you are)\b/.test(t) || /^(twin|twinion|bro|bruh|bestie|homie|dude)\b/.test(t)) { const q = posOf(from); if (q && pos) { const d = p => p[2] === q[4] ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 99; const mine = d(pos), best = Math.min(99, ...L.filter(p => p.id !== self).map(p => posOf(p.id)).filter(Boolean).map(o => d([o[0], o[1], o[4]]))); if (mine < 6 && mine < best - 1) return 'me'; if (mine < 6) return 'unsure'; } }
   return 'group';
 }
 MP.saidAt = {};
@@ -10582,7 +10627,7 @@ const POPEN = {
   sarcastic: ['wow great time for small talk', 'oh sure lets do 20 questions in the haunted house', 'yeah thats the priority rn', 'amazing timing as always', 'ah yes, the perfect moment', 'sure, totally normal thing to ask rn'],
   dramatic: ['u FORGOT?? im hurt', 'wow. after everything we been through', 'u dont know {topic}?? i cant believe this', 'this is the worst day of my life and u ask THAT', 'omg u forgot {topic}?? betrayal'],
   chill: ['eh why', 'lol random', 'u know it lol', 'eh ill tell u later', 'why u asking lol', 'idk bro, does it matter rn'],
-  tryhard: ['bro we are on a timer', 'focus, we can still speedrun this', 'ask me after we beat it', 'not now we are so close', 'u wanna win or chat'],
+  tryhard: ['bro were on a timer', 'focus, we can still speedrun this', 'ask me after we beat it', 'not now were so close', 'u wanna win or chat'],
   shy: ['um why', 'oh uh', 'idk', 'why do u ask', 'um later maybe', '...why'],
   cautious: ['why do u need to know that', 'idk if i should say that in here', 'thats kinda personal', 'why r u asking that', 'later, not here'],
   nerdy: ['why, is that a clue lol', 'u think its connected to the notes?', 'wait is that part of the code or smth', 'lol this isnt the lore', 'ask me after we figure out what happened to her'],
@@ -10611,13 +10656,13 @@ const PFU = {
   practical: { yes: ['ok well its not important rn, the code is', 'u forgot? ok, doesnt matter rn', 'then it can wait till after'], no: ['so u know. can we do the puzzle now', 'then why ask lol', 'ok so its a test. r u trolling?'], insist: ['after. we need the code first', 'not now, focus', 'r u testing me? cause its kinda obvious'], why: ['cause it doesnt help us get out', 'because its not useful rn', 'cause we have like 3 puzzles left'], reason: ['ok but focus', 'fair, but later', 'ok, can we check the next room'], ok: ['ok. code?', 'k, lets go', 'ok'], laugh: ['lol ok focus', 'lol'], guess: ['not saying, focus', 'doesnt matter rn'], again: ['u asked that already. r u trolling?', 'same answer, can we move on'], close: ['ok, back to the puzzle', 'moving on'] },
   chaotic: { yes: ['{spam}', 'U FORGOT {spam}', 'then im not telling {spam}'], no: ['then why ask {spam}', '{spam} ok', 'ok {spam}'], insist: ['NO {spam}', 'NOPE', 'no {spam}', 'not telling {spam}'], why: ['BECAUSE {spam}', 'cause {spam}', 'idk {spam}'], reason: ['{spam}', 'ok {spam}'], ok: ['OK', '{spam}', 'k'], laugh: ['{spam}', '{spam}'], guess: ['WRONG {spam}', 'no {spam}', '{spam} no'], again: ['STILL NO {spam}', 'u asked already {spam}'], close: ['{spam} ok im done', 'ok ok stop {spam}'] },
   sarcastic: { yes: ['wow great, u forgot', 'amazing, love that for u', 'cool cool, great friend'], no: ['oh so u just wanted to waste time, cool', 'great so why ask', 'nice'], insist: ['sure, right after we die', 'yeah let me get right on that', 'nope'], why: ['gee i wonder', 'because haunted house maybe?', 'oh idk, the ghost?'], reason: ['wow fascinating', 'cool story', 'riveting'], ok: ['great', 'wonderful', 'cool'], laugh: ['so funny', 'hilarious'], guess: ['wow so close /s', 'sure lets go with that'], again: ['oh u asked already, shocking', 'same as 2 min ago'], close: ['great chat, can we go now', 'loved this, moving on'] },
-  dramatic: { yes: ['wow. WOW. i will never recover', 'i cant believe this', 'my heart is broken'], no: ['oh thank god', 'then why would u scare me like that', 'ok i was about to cry'], insist: ['i cannot speak about it rn', 'not while we are about to DIE', 'NO. maybe later. if we survive'], why: ['because we might literally die in here', 'because im emotionally not ok', 'because this is the worst day ever'], reason: ['omg', 'u always do this', 'wow ok'], ok: ['FINE', 'ok. ok.', 'sure'], laugh: ['this is not a laughing matter', 'how can u laugh at a time like this'], guess: ['how dare u', 'NOT EVEN CLOSE'], again: ['AGAIN??', 'u asked me that already!!'], close: ['im done, im so done', 'i need a minute'] },
+  dramatic: { yes: ['wow. WOW. i will never recover', 'i cant believe this', 'my heart is broken'], no: ['oh thank god', 'then why would u scare me like that', 'ok i was about to cry'], insist: ['i cant even talk about it rn', 'not while were about to DIE', 'NO. maybe later. if we survive'], why: ['because we might literally die in here', 'because im emotionally not ok', 'because this is the worst day ever'], reason: ['omg', 'u always do this', 'wow ok'], ok: ['FINE', 'ok. ok.', 'sure'], laugh: ['this isnt funny', 'how can u laugh at a time like this'], guess: ['how dare u', 'NOT EVEN CLOSE'], again: ['AGAIN??', 'u asked me that already!!'], close: ['im done, im so done', 'i need a minute'] },
   chill: { yes: ['eh its fine', 'lol its whatever', 'ill tell u later'], no: ['ok cool', 'then u know lol', 'nice'], insist: ['later bro', 'chill lol, later', 'ok after this'], why: ['eh doesnt matter rn', 'cause its whatever lol', 'just later'], reason: ['fair', 'ok lol', 'cool'], ok: ['ok', 'cool', 'sure'], laugh: ['lol', 'ha'], guess: ['maybe lol', 'idk sure'], again: ['u asked that lol', 'same answer lol'], close: ['ok lets keep going', 'anyway'] },
-  tryhard: { yes: ['ok whatever, we are wasting time', 'cool now focus', 'doesnt matter, we have a run to finish'], no: ['then lets move', 'so why ask, we are on a timer', 'k focus'], insist: ['after we beat it', 'not now, we are so close', 'we can talk after the run'], why: ['cause we are losing time', 'because im trying to win', 'cause focus'], reason: ['k but after', 'not now'], ok: ['k go', 'ok move', 'go go'], laugh: ['focus lol', 'lol go'], guess: ['who cares, go', 'focus'], again: ['bro we are wasting time', 'u asked already, go'], close: ['go go go', 'ok MOVE'] },
+  tryhard: { yes: ['ok whatever, were wasting time', 'cool now focus', 'doesnt matter, we have a run to finish'], no: ['then lets move', 'so why ask, were on a timer', 'k focus'], insist: ['after we beat it', 'not now, were so close', 'we can talk after the run'], why: ['cause were losing time', 'because im trying to win', 'cause focus'], reason: ['k but after', 'not now'], ok: ['k go', 'ok move', 'go go'], laugh: ['focus lol', 'lol go'], guess: ['who cares, go', 'focus'], again: ['bro were wasting time', 'u asked already, go'], close: ['go go go', 'ok MOVE'] },
   shy: { yes: ['oh', 'um ok', 'its ok'], no: ['oh ok', 'ok', 'um'], insist: ['um later', 'i dont really wanna say', 'maybe later'], why: ['idk', 'just', 'um its personal'], reason: ['oh ok', 'ok'], ok: ['ok', 'mhm'], laugh: ['lol', 'heh'], guess: ['um maybe', 'idk'], again: ['u asked that', 'um'], close: ['can we keep going', 'ok'] },
-  cautious: { yes: ['then ill tell u when we are out', 'ok well not in here', 'its fine, later'], no: ['then u dont need it', 'ok good', 'ok'], insist: ['not in here', 'later when its safe', 'i dont wanna say it in here'], why: ['cause this house is weird', 'what if something is listening', 'idk feels wrong in here'], reason: ['ok but careful', 'ok, later'], ok: ['ok', 'ok careful'], laugh: ['lol shh', 'shh'], guess: ['not saying', 'later'], again: ['u asked that already, later', 'not in here'], close: ['lets just be careful ok', 'keep ur voice down lol'] },
+  cautious: { yes: ['then ill tell u when were out', 'ok well not in here', 'its fine, later'], no: ['then u dont need it', 'ok good', 'ok'], insist: ['not in here', 'later when its safe', 'i dont wanna say it in here'], why: ['cause this house is weird', 'what if something is listening', 'idk feels wrong in here'], reason: ['ok but careful', 'ok, later'], ok: ['ok', 'ok careful'], laugh: ['lol ok but shh', 'lol quiet tho'], guess: ['not saying', 'later'], again: ['u asked that already, later', 'not in here'], close: ['lets just be careful ok', 'keep ur voice down lol'] },
   nerdy: { yes: ['ok but what about the notes, that matters more', 'u forgot? ok whatever, check the diary', 'lol ok but ysolde tho'], no: ['then u know. did u read the diary yet', 'ok, anyway the notes are weird', 'ok so why ask'], insist: ['after we find out what happened here', 'later, the lore first', 'only if u read the notes with me'], why: ['cause this place is way more interesting', 'cause the notes matter more rn', 'cause we need to figure out what happened'], reason: ['ok, but read the notes too', 'lol ok'], ok: ['ok. did u read the last note', 'ok'], laugh: ['lol', 'lol ok'], guess: ['maybe, idk', 'not telling lol'], again: ['u asked already, u should read the notes instead', 'same answer'], close: ['ok back to the notes', 'anyway, the diary'] },
-  hyper: { no: ['oh ok cool!!', 'ok yay'], reason: ['omg ok', 'haha ok!!'], guess: ['nope!! haha', 'close!!'], again: ['u asked already lol!!', 'haha same answer'], close: ['ok ok lets keep going!!', 'omg ok what next'], yes: ['omg lol ok', 'wait really!! lol', 'haha ok ok'], insist: ['after!! we are so close', 'ok ok later i promise!!'], why: ['cause this is so fun rn', 'cause later!!'], ok: ['yay ok', 'ok!!'], laugh: ['HAHA', 'lmao!!'] },
+  hyper: { no: ['oh ok cool!!', 'ok yay'], reason: ['omg ok', 'haha ok!!'], guess: ['nope!! haha', 'close!!'], again: ['u asked already lol!!', 'haha same answer'], close: ['ok ok lets keep going!!', 'omg ok what next'], yes: ['omg lol ok', 'wait really!! lol', 'haha ok ok'], insist: ['after!! were so close', 'ok ok later i promise!!'], why: ['cause this is so fun rn', 'cause later!!'], ok: ['yay ok', 'ok!!'], laugh: ['HAHA', 'lmao!!'] },
   grumpy: { insist: ['no', 'not now', 'stop asking'], again: ['ugh u asked already', 'stop'], reason: ['ok whatever', 'sure'], guess: ['no', 'wrong'], laugh: ['not funny', 'ugh'], close: ['im done talking', 'can we go'], ok: ['finally', 'ok'], yes: ['great', 'ok so u forgot, whatever'], no: ['then why ask', 'ugh ok'], why: ['cause i dont want to', 'just cause'] },
   clingy: { reason: ['ok just stay close', 'ok but dont go anywhere'], laugh: ['lol stay close tho', 'lol dont leave'], guess: ['maybe, just stay with me', 'idk, dont go'], again: ['u asked already, dont leave tho', 'same, just stay'], close: ['ok just stay with me', 'ok dont go far'], no: ['ok just stay with me', 'ok good, stay close'], yes: ['its ok just dont leave', 'ill tell u if u stay close'], why: ['cause i dont want u to leave lol', 'cause u might run off'], ok: ['ok dont go far', 'k stay here'], insist: ['only if u dont leave me', 'later, promise, just stay'] },
   showoff: { reason: ['lol ok', 'nice try'], ok: ['ok, i still know urs', 'k'], laugh: ['lol i know', 'lol ur funny'], again: ['u asked already, i remember everything', 'same answer, i dont forget'], close: ['ok moving on, i got this', 'anyway, i solved the last one'], yes: ['lol u forgot, i would never', 'i remember urs tho'], no: ['ok so u remember, nice', 'nice, finally'], insist: ['nah figure it out like i did', 'not telling, u can work it out'], why: ['cause i like knowing stuff u dont lol', 'cause its funnier'], guess: ['nope, i win lol', 'close but no'] },
@@ -10640,7 +10685,7 @@ const PDENY = {
   sarcastic: ['yeah totally, im the ghost /s. its {self}', 'wow great, accuse {self}', 'sure im the clone. its {self} obviously', 'amazing. still {self} tho'],
   dramatic: ['after EVERYTHING?? its me, {self}!!', 'i cant believe u think im not {self}', 'wow. its {self}. im hurt'],
   chill: ['lol no, its {self}', 'nah its just {self}', 'bro its {self}, relax'],
-  tryhard: ['its {self}, focus', 'its {self}, stop wasting time', 'bro its {self}, we are on a timer'],
+  tryhard: ['its {self}, focus', 'its {self}, stop wasting time', 'bro its {self}, were on a timer'],
   shy: ['um its {self}', 'its me... {self}', 'no im {self}'],
   cautious: ['no im {self}, but watch everyone', 'its {self}, but careful, someone might be', 'im {self}, check the others'],
   nerdy: ['im {self}, but the clone thing is in the notes, read them', 'its {self}. did the diary say clones talk weird?', 'im {self} lol. we should look up how she does it'],
@@ -10671,7 +10716,7 @@ const UTR = {
   sarcastic: ['wow great, another dark room', 'love this for us', 'oh cool, a creepy hallway, my favourite', 'amazing, the lights again', 'yeah this is fine', 'totally not haunted'],
   dramatic: ['im literally gonna die in here', 'this is the worst day of my life', 'NOOO why is it so dark', 'i cant do this', 'if i die tell my mom i love her'],
   chill: ['eh its fine', 'lol ok', 'no rush', 'this house is kinda cool tbh', 'vibing', 'whatever we got this'],
-  tryhard: ['we are so slow', 'ok go go go', 'we could speedrun this', 'come on we are wasting time', 'next room, quick', 'ok i got this one'],
+  tryhard: ['were so slow', 'ok go go go', 'we could speedrun this', 'come on were wasting time', 'next room, quick', 'ok i got this one'],
   shy: ['um', 'ok', 'oh', 'sorry', 'mhm', 'um guys'],
   cautious: ['careful', 'dont touch that yet', 'slowly guys', 'lets not split up', 'check before u open it', 'wait, is it safe'],
   nerdy: ['wait what happened to ivy tho', 'the diary said something about the {room}', 'i think the family hid something', 'has anyone read all the notes', 'the lore in this is crazy', 'who even is ysolde'],
@@ -10691,7 +10736,8 @@ const UTR = {
 };
 // their own laugh / keysmash / caps spam, exactly as they typed it
 const SPAM_RX = /^(?:[bmw]?[ua]?h?(?:ha|ah|he|hah|ja|hs){3,}[hj]*[!]*|[asdfghjkl;]{6,}|l+o+l+(?:o+l+)+|lm+a+o+[o]{2,})$/i, SPAM_RE = { test: t => SPAM_RX.test(t) || /^[A-Z][A-Z!? ]{5,}$/.test(t) };
-function spamOf(id) { const S = (MP.hist[id] || []).map(t => String(t).trim()).filter(t => SPAM_RE.test(t)); return S.length ? pick(S) : pick(['hahahahahahahahh', 'BWAHAHAHAHAH', 'HAHAHAHAHA', 'asdfghjkl', 'LMAOOOO', 'hahahahahah']); }
+// their laughs, keysmash and screams, never whole shouted sentences
+function spamOf(id) { const S = (MP.hist[id] || []).map(t => String(t).trim()).filter(t => SPAM_RX.test(t) || /^[A-Z]*(A{3,}|H{3,}|(HA){2,}|(AH){2,})[A-Z!]*$/.test(t)); return S.length ? pick(S) : pick(['hahahahahahahahh', 'BWAHAHAHAHAH', 'HAHAHAHAHA', 'asdfghjkl', 'LMAOOOO', 'hahahahahah']); }
 for (const t in UTR) BANK['u_' + t] = UTR[t]; for (const t in PDENY) BANK['pd_' + t] = PDENY[t];
 // how a reply to its own line reads: yes, no, push, why...
 const FKW = new Set('why yes no nah please pls ok ya yea yeah sure huh what so oh ye yup nope bruh wow fine'.split(' '));
@@ -10727,6 +10773,7 @@ const REPH = ['i said {last}', '{last}', '{last} lol', 'nvm', 'i said {last}, u 
 function ctxReply(self, from, text, k) {
   const c = convOf(self, from), now = Date.now(), t = norm(text); convNote(c, 'them', text, k);
   if (k && ACCUSE.includes(k)) { c.pend = null; return null; } // accusations always get the full denial, never a bare yes/no
+  { const own = ownLine(self, { reply: k || 'vague' }); if (own) { c.pend = null; return { k: 'own', line: own }; } } // what they themselves said when someone said this kind of thing
   const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, mix = tmix(self), tr = pickT(mix); let f = followKind(t, text); if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
   const out = (key, line, pend) => { if (pend !== undefined) { c.pend = pend; c.keep = 1; } return { k: key, line }; };
   const P = pTopic(t);
