@@ -9690,7 +9690,7 @@ function becomeGhost() {
   x.toast('You are a ghost now. You can drift through the house and watch the others. You cannot touch anything. Only other ghosts can hear you. Once, you can write one word in the dust: press G.', 8000);
   if (PS.on && PS.id === MP.me) MP.povUntil = Date.now() + 22000;
 }
-function makeGhost(id) { if (ghostOf(id)) return; MP.ghosts.push(id); toAll({ t: 'ghosts', ids: MP.ghosts }); if (V.open) voteCheck(); }
+function makeGhost(id) { if (ghostOf(id)) return; chatStop(id); MP.ghosts.push(id); toAll({ t: 'ghosts', ids: MP.ghosts }); if (V.open) voteCheck(); }
 function killMe(how) {
   if (MP.ghost) return; const x = X(), fd = $('fade');
   x.S.ui = true; x.unlock();
@@ -9856,13 +9856,13 @@ function inStyle(base, st) {
 }
 MP._style = (texts, base) => inStyle(base, styleOf(texts));
 MP._styleOf = styleOf; MP._gen = (texts, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
-function copySay(base) { if (!CP.on) return; speak(CP.orig, base, { copy: true }); }
+function copySay(base, sched) { if (!CP.on) return; speak(CP.orig, base, { copy: true, sched }); }
 const cpPub = () => toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } });
 MP.copyStart = (orig, target) => {
   const L = living(); if (CP.on || L.length < 2) return false;
   const o = L.find(p => p.id === orig) || pick(L), tg = L.find(p => p.id === target && p.id !== o.id) || pick(L.filter(p => p.id !== o.id));
   const q = posOf(tg.id); if (!q) return false;
-  Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + rnd(20, 40) * 1000, last: null });
+  Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + chatGap(o.id) * rnd(.3, 1), last: null });
   if (window.__ENC.blocked(CP.x, CP.z)) { CP.x = q[0]; CP.z = q[1]; }
   CP.hab = habitsOf(o.id); CP.pitch = CP.hab.pitchM; CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
   MP.copyN = (MP.copyN || 0) + 1; CP.success = false; MP.copyDone = MP.copyN >= 2; cpPub(); return { orig: o.id, target: tg.id };
@@ -9930,7 +9930,7 @@ function habitStep(o, H, M, dt, moving) {
   if (idle && !(H.seg && (H.seg.idle.length || H.seg.move.length))) { if (Math.random() < dt * .8) M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn * rnd(.5, 1.5); o.yaw += M.look * dt; }
   return { speed: (M.runOn ? 4.0 : M.crouch ? 1.2 : 2.4), paused: !!M.pauseUntil };
 }
-MP._hab = { habitsOf, habitStep, lookStep };
+MP._hab = { habitsOf, habitStep, lookStep }; MP._chat = { chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id) };
 function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
@@ -9945,7 +9945,7 @@ function copyTick(dt) {
     CP.yaw = o[2]; CP.eye = o[3]; CP.last = o.slice(); CP.trail = []; return;
   }
   CP.last = o.slice(); CP.eye = 1.65;
-  if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .4 ? 'lure' : pick(['casual', 'social', 'helpful', 'dumb']), CP.orig)); }
+  if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(bankLine(Math.random() < .4 ? 'lure' : pick(['casual', 'social', 'helpful', 'dumb']), CP.orig), 1); }
   if (CP.phase === 'follow') {
     const tr = CP.trail, lp = tr[tr.length - 1]; if (!lp || Math.hypot(tq[0] - lp[0], tq[1] - lp[1]) > .25 || tq[4] !== lp[4]) tr.push(tq.slice());
     const Hb = CP.hab || (CP.hab = habitsOf(CP.orig)), M = CP.mv || (CP.mv = { pauseUntil: 0, runUntil: 0, crouchUntil: 0, look: 0, idleT: 0 });
@@ -10028,7 +10028,8 @@ const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor
 MP.track = {};
 function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); if (t.length > 3000) t.splice(0, t.length - 3000); }
 function possess(id, q) {
-  Object.assign(PS, { hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(20, 40) * 1000 });
+  chatStop(id);
+  Object.assign(PS, { hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + chatGap(id) * rnd(.3, 1) });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(pick(BANK.mic)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
@@ -10050,8 +10051,8 @@ function possTick(dt) {
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
   if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
   if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1 && !E.blocked(PS.x + m.dx, PS.z + m.dz)) { PS.x += m.dx; PS.z += m.dz; } PS.yaw = m.yaw; } return; }
-  if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(); const line = bankLine(cat, PS.id); bodySay(line); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
-  if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
+  if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(); const line = bankLine(cat, PS.id); bodySay(line, { sched: 1 }); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
+  if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; if (now > PS.nextSay - 60000) bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
   if (PS.waitUntil) { if (now < PS.waitUntil) return; PS.waitUntil = 0; }
   if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
   if (PS.mode === 'replay') {
@@ -10074,7 +10075,7 @@ function possTick(dt) {
   if (now > G.until) { PS.goal = null; PS.mode = 'replay'; return; }
   if (PS.pass) { if (walkObj(PS, PS.pass[0], PS.pass[1], 4.0 * dt) < .1) PS.pass = null; return; }
   const here = x.roomAt(PS.x, PS.z);
-  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { bodySay(bankLine('note', PS.id)); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
+  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
   const d = here && x.firstDoor(here, G.room);
   if (!d) { PS.goal = null; PS.mode = 'replay'; return; }
   if (walkObj(PS, d.x, d.z, 4.0 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); PS.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
@@ -10127,8 +10128,11 @@ function nickFor(id, other) {
 const pickCat = () => { const r = Math.random(); return r < .3 ? 'casual' : r < .45 ? 'dumb' : r < .62 ? 'helpful' : r < .72 ? 'scare' : 'social'; };
 // how fast and how often each real player types
 MP.typ = {};
-function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (cps > .3 && cps < 25) T.cps = T.cps ? T.cps * .7 + cps * .3 : cps; T.n++; T.times.push(Date.now()); }
-function chatGap(id) { const T = MP.typ[id]; const per = T && T.n > 1 ? (Date.now() - T.first) / T.n : 120000; return Math.max(20000, Math.min(300000, per * rnd(.7, 1.4))); }
+function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (cps > .3 && cps < 25) T.cps = T.cps ? T.cps * .7 + cps * .3 : cps; if (T.until || ghostOf(id)) return; T.n++; T.times.push(Date.now()); }
+// how often they really talked while alive: their messages per minute of play (stops counting once they are a ghost or worn)
+function chatStop(id) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (!T.until) T.until = Date.now(); }
+function chatPerMin(id) { const T = MP.typ[id], end = T && T.until || Date.now(), win = Math.max(3 * 60000, end - Math.min(MP.t0 || end, T ? T.first : end)); return (T ? T.n : 0) / (win / 60000); }
+function chatGap(id) { const r = chatPerMin(id), per = r > 0 ? 60000 / r : 15 * 60000; return Math.max(8000, Math.min(15 * 60000, per * rnd(.6, 1.5))); }
 function typeDelay(id, text) { const T = MP.typ[id], cps = T && T.cps ? T.cps : 3.2; return (text.length / cps) * 1000 * rnd(.85, 1.2) + rnd(400, 1500); }
 const swapTypo = w => { if (w.length < 4) return null; const i = Math.floor(rnd(1, w.length - 2)); return w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2); };
 function speak(id, base, o = {}) {
@@ -10138,7 +10142,7 @@ function speak(id, base, o = {}) {
   let fix = null; if (!o.exact && Math.random() < tR) { const ws = text.split(' '), wi = ws.findIndex(w => w.length > 3 && /^[a-z]+$/i.test(w)); if (wi >= 0) { const t2 = swapTypo(ws[wi]); if (t2) { if (Math.random() < fR) fix = '*' + ws[wi]; ws[wi] = t2; text = ws.join(' '); } } }
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
-  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) PS.lastSaid = Date.now(); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
+  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
   setTimeout(send, o.delay != null ? o.delay : typeDelay(id, text));
 }
 // someone talks to the worn body
