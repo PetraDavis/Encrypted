@@ -10242,6 +10242,26 @@ const BANK = {
   creepy: ["it's quiet in here. i like it.", 'your voice sounds different', "i've been here before", 'we found something', 'we are coming', "why would i leave", 'the lights are nicer down here', 'i can hear all of you', 'stay a little longer'],
 };
 MP._bank = BANK;
+// replies to a few intents, bent by manner: TREPLY[intent][manner] (plain = everyone else)
+const TREPLY = {
+  wtf: { plain: ['what', 'what happened', 'what?? whats wrong', 'huh what', 'wait what is it', 'what?? did u see something', 'what is it??', 'whats going on', 'what did i miss'],
+    scared: ['WHAT', 'what?? what is it', 'dont say that, what happened', 'what?? is she here', 'omg what'], chill: ['what lol', 'huh?', 'what happened lol'], rude: ['what now', 'what lol, use ur words', 'what did u do'],
+    joker: ['what lol', 'what did u break', 'lol what happened'], kind: ['what happened? u ok?', 'whats wrong? u ok?'], grumpy: ['what now', 'ugh what'], worrier: ['what?? is it bad', 'what happened?? is it her'], shy: ['um what', 'what happened?'] },
+  mock: { plain: ['and ur not?', 'says u', 'ok and?', 'wow ok', 'rude lol', 'takes one to know one', 'ur one to talk', 'what did i even do', 'hey i try ok'],
+    rude: ['says u lol', 'and ur not? lol', 'cope', 'at least im not u', 'ok and? still better than u'], kind: ['hey lol i try', 'aw thanks i guess?', 'lol ok fair'], shy: ['oh. ok', 'um thanks?'],
+    sarcastic: ['thanks, i know', 'wow thanks, means a lot', 'i know, im amazing'], chill: ['lol ok', 'i know lol', 'eh fair'], dramatic: ['wow. WOW', 'im hurt', 'after everything??'], joker: ['i know, its a gift', 'thank u thank u', 'lol i know'], showoff: ['i know', 'more special than u', 'jealous?'] },
+  imscared: { plain: ['same honestly', 'me too ngl', 'its ok were together', 'same lol, stay close', 'ya this place is creepy', 'its ok, its just a game', 'same, lets stick together'],
+    scared: ['me too', 'SAME', 'same im shaking', 'dont say that ur making it worse', 'me too, can we leave', 'ok same, dont leave me'], kind: ['its ok, im right here', 'aw its ok, stay with me', 'we got this, dont worry', 'its ok, ill stay with u', 'hey its ok, its just a game'],
+    rude: ['lol ur fine', 'scaredy cat lol', 'bro its a game', 'ur fine, its literally pixels'], joker: ['same lol, im hiding behind u', 'lol same, ur my shield now', 'same, if she comes ur going first lol'],
+    chill: ['eh its fine, just stick with me', 'relax its just a game', 'its ok, nothing happened yet', 'ur good lol, stay with me'], tryhard: ['be scared later, we gotta finish', 'no time, stay with me and move', 'its fine, just follow me'],
+    leader: ['stay behind me', 'its ok, just follow me', 'stick with me, we got this'], clingy: ['me too, dont go anywhere', 'same, stay close pls', 'ok just dont leave me'], dramatic: ['SAME im literally dying', 'me too, this is the worst', 'same i cant do this'],
+    worrier: ['me too, what if she finds us', 'same, i have a bad feeling', 'me too, should we leave'], sarcastic: ['wow who could have guessed, a scary house', 'same, love that for us'], shy: ['me too', 'um same'], cautious: ['me too, lets go slow', 'same, stay close and dont touch anything'],
+    hyper: ['me too!! stay close', 'omg same'], grumpy: ['same, this game sucks', 'ugh same'], prankster: ['boo. jk jk, me too', 'same lol'], polite: ['me too, sorry', 'its ok, we can stay together'], emoji: ['same 😭', 'me too 😨'], oneword: ['same', 'same lol'] },
+  whereitem: { plain: ['no idea', 'havent seen it', 'idk, maybe the {room}?', 'didnt see it anywhere', 'i think i saw something in the {room}', 'no clue, did u check the {room}', 'idk i was looking too', 'not sure, maybe upstairs'],
+    practical: ['havent found it yet, check the {room}', 'not yet, we havent searched the {room}', 'idk, the note might say'], chill: ['no idea lol', 'idk, its somewhere'], rude: ['how would i know', 'idk, look for it'], scared: ['idk and im not going looking', 'idk, somewhere dark probably'],
+    joker: ['in my pocket lol jk', 'idk, ask the ghost lol'], nerdy: ['the diary mentioned the {room}', 'idk, maybe check the notes'], shy: ['um idk', 'sorry idk'], backseat: ['did u check the {room}? go there', 'look in the {room}'], grumpy: ['no idea', 'ugh, somewhere'] },
+};
+for (const k in TREPLY) for (const t in TREPLY[k]) BANK[t === 'plain' ? k : k + '_' + t] = TREPLY[k][t];
 function fill(t, id) {
   const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
   const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
@@ -10256,7 +10276,7 @@ function ctxTags(id, o = {}) { if (MP._ctxNow) return MP._ctxNow; const T = new 
   if (Y && (Y.state === 'hunt' || Y.state === 'warn')) T.add('danger');
   const q = whereIs(id); if (q) { let best = 99; for (const p of living()) { if (p.id === id || (PS.on && p.id === PS.id) || (CP.on && p.id === CP.orig)) continue; const o2 = posOf(p.id); if (!o2) continue; best = Math.min(best, o2[4] === q[4] ? Math.hypot(o2[0] - q[0], o2[1] - q[1]) : 99); } if (best < 5) T.add('near'); else if (best > 10) T.add('far'); }
   const said = o.self != null ? o.self : (MP.hist[id] || []).length; if (said < 2) T.add('greet');
-  const L = MP.lastChat; if (L && L.from !== id && now - L.at < 10000) { let k = null; try { k = intentOf(L.text, (nameOf(id) || '').toLowerCase()); } catch (e) {} T.add('reply'); if (k) T.add('r:' + k); if (/^(insult|joke|teaseback|sus|accuse)$/.test(k || '') || /\b(lol|haha|watch this|im gonna|jk)\b/i.test(L.text)) T.add('odd'); if (/\b(run|help|aa+h*|what was that|omg|she.?s here|its here|hide)\b/i.test(L.text)) T.add('scare'); }
+  const L = MP.lastChat; if (L && L.from !== id && now - L.at < 10000) { let k = null; try { k = intentOf(L.text, (nameOf(id) || '').toLowerCase()); } catch (e) {} T.add('reply'); if (k) T.add('r:' + k); if (/^(insult|joke|teaseback|mock|sus|accuse)$/.test(k || '') || /\b(lol|haha|watch this|im gonna|jk)\b/i.test(L.text)) T.add('odd'); if (/\b(run|help|aa+h*|what was that|omg|she.?s here|its here|hide)\b/i.test(L.text)) T.add('scare'); }
   if (o.reply) { T.add('reply'); T.add('r:' + o.reply); }
   if (now - (MP.scareT[id] || 0) < 12000) T.add('scare');
   if (now - (MP.roomT[id] || 0) < 8000) T.add('room');
@@ -10363,6 +10383,7 @@ function pickCat(id) {
 // a reply bent toward who they were (only where they showed it)
 function persona(k, id) {
   const P = traitsOf(id).on;
+  if (TREPLY[k]) { const t = pickT(tmix(id)); return BANK[k + '_' + t] ? k + '_' + t : k; }
   if ((k === 'denyclone' || k === 'affirmreal') && Math.random() < .6) { const t = pickT(tmix(id)); if (BANK['pd_' + t]) return 'pd_' + t; }
   if (k === 'scaredq') return P.scared ? 'scaredyes' : P.brave ? 'braveno' : k;
   if (k === 'insult') return P.rude ? 'teaseback' : k;
@@ -10427,7 +10448,7 @@ const SLANGP = [[/\bion\b/g, 'i do not'], [/\btryna\b/g, 'trying to'], [/\bfinna
   [/\b(this|that) (aint|is not) it\b/g, 'this is bad'], [/\bits giving\b/g, 'it is'], [/\bgot jumped\b/g, 'got scared'], [/\bhmu\b/g, 'tell me'], [/\bwym\b/g, 'what do you mean'], [/\bwdym\b/g, 'what do you mean'], [/^w (\w+)$/g, 'nice one $1'], [/^l (\w+)$/g, 'you are bad $1'], [/^(ratio|l)$/g, 'you are bad'],
   [/\b(u|you) (straight|alr|alright|good)\b/g, 'you ok'], [/^(bet bet|say less)$/g, 'bet'],
   [/^no cap\b ?(?=\w)|(?<=\w) no cap$/g, ''], [/^(ayo+|bffr|icl|nah bro|nah bruh|no bro)\b ?(?=\w)(?!(what|huh|wtf)$)/g, ''], [/^(fr|for real) tho\b ?(?=\w)/g, ''], [/^(fr|for real) tho$/g, 'real'], [/^(nah|no) (bro+|bruh+|fam|dude|gng)$/g, 'bruh'], [/^bffr$/g, 'bruh'],
-  [/^(ayo+|yo+) (what|huh|wtf)$|^(bro+|bruh+) huh$|^(bro+|bruh+)$|.*\b(thats|that is|its) (so |actually )?(crazy|wild|insane)$/g, 'bruh'], [/^(bro+|bruh+|ayo+) (wtf|what the \w+)\b.*/g, 'that is creepy'], [/^(ok|okay|yo|so|thats|that was) w\b/g, 'nice one'], [/^wtf$/g, 'bruh'],
+  [/^(ayo+|yo+) (what|huh|wtf)$|^(bro+|bruh+) huh$|^(bro+|bruh+)$|.*\b(thats|that is|its) (so |actually )?(crazy|wild|insane)$/g, 'bruh'], [/^(bro+|bruh+|dude|yo+|bruv) (wtf|wth|what the (hell|heck|frick|fuck))( bro+| dude)?\s*[?!]*$/g, 'wtfalarm'], [/^(bro+|bruh+|ayo+|yo+|dude) (wtf|what the \w+) (was|is) (that|this)\b/g, 'what was that'], [/^(bro+|bruh+|ayo+) (wtf|what the \w+)\b.*/g, 'that is creepy'], [/^(ok|okay|yo|so|thats|that was) w\b/g, 'nice one'], [/^wtf$/g, 'bruh'],
   [/^sh+e+sh+$/g, 'nice one'], [/^sh+e+sh+ /g, 'nice one '], [/\bts\b/g, 'this'], [/\b(ur|you|u|you are|youre) (so )?pmo\b/g, 'you are so annoying'], [/^(ts|this|that|it|this game|this house) (is )?(so )?pmo$|\bpmo\b/g, 'i hate this game'],
   [/.*\b(gotta|got to|have to|need to|lets|time to) lock in\b.*|^lock (in|tf in)\b.*/g, 'real'], [/\b(its|it is|we are|were|its actually) (so )?over\b/g, 'its over'], [/\b(we are|were|we) (so )?back\b/g, 'so good'],
   [/\b(ur|u|you are|youre|you) (so |lowkey |actually )?chopped\b/g, 'you are bad'], [/\b(is|so|looks) chopped\b/g, 'so mid'], [/^ok(ay)? unc$|\b(an?|such an|ur|you are|youre) unc\b/g, 'lol'],
@@ -10446,6 +10467,8 @@ function norm(text, fz) {
 }
 // what they meant, in priority order; null when nothing fits
 const INTENTS = [
+  ['wtf', /^wtfalarm$|^(wtf|wth|what the (hell|heck|frick))( is (happening|going on|this|wrong with this))?$/],
+  ['imscared', t => !/\?/.test(t) && !/\b(you|your|of you)\b/.test(t) && (/^(ok |ngl |tbh |honestly |guys |um |ok i |yeah )*(i am|i|im) (so |really |very |a bit |a little |getting |actually |kinda |lowkey |genuinely |fr )*(scared|terrified|spooked|afraid|freaked out|nervous|shaking|creeped out)\b/.test(t) || /^(so |very |really |a bit |kinda |getting )*(scared|terrified|spooked)( ngl| fr| tbh| rn| now| honestly| not gonna lie)*$/.test(t) || /\b(this|it|that|the house|this house|this place|this game) is (scaring|freaking) me( out)?\b|^i (do not|dont) like (this|it here)\b|^i want to (go home|leave)\b/.test(t) || /^(this|that|it|this place|this house|this game) is (so |really |actually )?(creepy|scary|terrifying|freaky)$/.test(t))],
   ['scaredq', /\b(got|get|getting|so) (scared|spooked)\b|\b(it is|its|this is|so) (so )?haunted\b|\b(we|i|we are|i am|im|were) (are )?(going to|gonna|about to|will) (die|get caught|get got)\b|\b(she|it) (is )?(about to|going to) get (us|me)\b|\bwe are (so )?dead\b/],
   ['dark', /\b(torch|flashlight|light|lights|battery|batteries|lamp|phone light)\b.{0,14}\b(died|dead|out|off|broke|broken|dying|flickering|not working|stopped)\b/],
   ['alive', /\b(she|her|it|ysolde) (got|get|took|take|has|grabbed|caught) you\b|\b(dead(?! end)|ghost|died|die|alive|human|spirit|zombie|undead)\b/],
@@ -10480,6 +10503,7 @@ const INTENTS = [
   ['ignored', /\banswer me\b|\bhelloo+\b|^\?+ hel+o+\b|\bearth to\b|\bhello+\b.*\?|\brespond\b|\bignoring me\b|\bwhy (are|r) you (quiet|silent)\b|\bsay something\b/],
   ['plan', /\bwhere (are|r) we going\b|\bwhats the plan\b|\bwhat is the plan\b|\bwhere to now\b|\bwhere (do|should) we go\b/],
   ['directions', /\bwhich room (has|is|had)\b|\bwhere (can|do) (i|we) find\b|\bwhich way\b|\bhow do (we|i) get to\b|\bway to the\b|\bwhere is the (attic|cellar|kitchen|library|study|exit|basement|stairs|door|office)\b/],
+  ['whereitem', /\bwhere (is|are|did (you|we|they|i) (put|leave|see|find)|could|would|might) (the|my|our|that|this|a|an|your|those|these) (?!(attic|cellar|kitchen|library|study|exit|basement|stairs|staircase|door|office|hallway|hall|foyer|bedroom|bathroom|nursery|lounge|dining|garden|room|way|ghost|clone|monster|others|rest)\b)\w+/],
   ['lostq', /\b(i am|im) (so |really )?(lost|stuck|confused)\b|\bi do not know where (to go|we are|i am|to)\b/],
   ['foundit', /\b(i found|i got|found (a|the)|look what i)\b/],
   ['take', /\b(take (the|this|it|that)|here take|hold (this|the))\b/],
@@ -10528,7 +10552,8 @@ function intentOf0(raw, selfName, fz) {
   if (/\block (in|tf in)\b/i.test(raw)) return 'lockin';
   if (/\b(it'?s|it is|we'?re|we are|were) (so |actually )?over\b|^\s*so over\s*$/i.test(raw)) return 'over';
   // "special": sincere with hearts/kind words, a dig with 💀/lol/sarcasm, otherwise ask
-  if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
+  if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return /\b(ur|you|youre|you're|u)\b/i.test(raw) ? 'mock' : 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
+  if (/\b(ur|you'?re|you are|u r|u are)( so| really| such an?| very)? (smart|genius|brave|helpful|talented|useful|quick|fast|clever|cool|brilliant|amazing|funny)\b/i.test(raw) && (/💀|🙄|😒|\b(wow|sure|oh yeah|yeah right|totally)\b|\/s\b/iu.test(raw) || (!/\bfunny\b/i.test(raw) && /😭|\b(lo+l|lmf?ao)\b/iu.test(raw)))) return 'mock';
   if (/^\s*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw)) return 'laughs';
   const em = String(raw); // text faces, read before punctuation is folded away
   if (/>:-?[\(\[\/]|:-?@|😠|😡|🤬|>:-?\|/.test(em)) return 'calm';
