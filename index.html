@@ -10224,6 +10224,7 @@ const BANK = {
   imat: ['ok coming', 'k omw', 'which one', 'ok stay there', 'wait for me', 'ok im coming', 'coming dont move', 'ok whats there'],
   stayme: ['im not going anywhere', 'im right here', 'i wont leave u', 'ok ok im staying', 'im here dw', 'not leaving, promise', 'stick with me then'],
   sawher: ['WHERE', 'which way did she go', 'dont move', 'omg did she see u', 'hide hide', 'ok im not moving', 'which room??', 'wait where??'],
+  bareyn: ['?', 'what', 'huh?', 'yeah what?', 'ok...?', 'what lol', 'wdym', 'what about it', 'uh ok?', 'ok and?'],
   hideq: ['ok ok', 'where??', 'hiding', 'going going', 'which one??', 'theres no room lol', 'ok move over', 'k im hiding', 'is she coming??', 'ok shh'],
   personal: ['old enough lol', 'why do u wanna know', 'lol random', 'focus on the game', 'idk, why', 'ask me later lol', 'thats random'],
   request: ['ill try', 'i cant lol', 'how', 'ok one sec', 'where is it', 'idk if i can', 'ok wait'],
@@ -10354,18 +10355,25 @@ function fixWord(w) { if (VOCAB.has(w) || w.length < 3 || /\d/.test(w)) return w
   const c1 = w.replace(/(.)\1+/g, '$1'); if (c1 !== w && (VOCAB.has(c1) || COMMONW.has(c1) || RSLANG[c1])) return RSLANG[c1] || c1; // stoppp, hurryyy
   if (w.length < 4) { for (const v of VOCAB) if (v.length === w.length && dl1(w, v) && w[0] === v[0]) { const d = [...w].findIndex((ch, i) => ch !== v[i]); if (w[d] === v[d + 1] && w[d + 1] === v[d]) return v; } return w; }
   let best = null; for (const v of VOCAB) if (dl1(w, v) && (w[0] === v[0] || (w[0] === v[1] && w[1] === v[0]))) { if (best) return w; best = v; } return best || w; } // only when one word fits
+// slang phrases folded to plain words before anything else (finna, tryna, ion, dippin, W/L, im weak...)
+const SLANGP = [[/\bion\b/g, 'i do not'], [/\btryna\b/g, 'trying to'], [/\bfinna\b/g, 'going to'], [/\bbouta\b|\babt to\b/g, 'about to'], [/\b(dippin|dipping|dip out|dippin out)\b/g, 'leaving'], [/\bim (out|dippin|dipping|dip)\b( fr)?/g, 'im leaving'], [/\bpull up\b/g, 'come here'], [/^slide\b/g, 'come'],
+  [/\b(hella|mad|lowkey|highkey|deadass|lowk|kinda|literally|actually|straight up)\b ?/g, ''], [/\b(trippin|tripping|buggin|bugging|wildin|wilding)\b/g, 'being weird'], [/\b(tweaking|tweakin|shook|spooked out)\b/g, 'scared'], [/\b(capping|cappin)\b/g, 'lying'], [/\bthats cap\b/g, 'that is a lie'],
+  [/\b(this|that) (aint|is not) it\b/g, 'this is bad'], [/\bits giving\b/g, 'it is'], [/\bgot jumped\b/g, 'got scared'], [/\bhmu\b/g, 'tell me'], [/\bwym\b/g, 'what do you mean'], [/\bwdym\b/g, 'what do you mean'], [/^w (\w+)$/g, 'nice one $1'], [/^l (\w+)$/g, 'you are bad $1'], [/^(ratio|l)$/g, 'you are bad'],
+  [/\b(u|you) (straight|alr|alright|good)\b/g, 'you ok'], [/^(bet bet|say less)$/g, 'bet']];
 function norm(text, fz) {
   let t = String(text).toLowerCase().replace(/[’`]/g, "'").replace(/'/g, '').replace(/([a-z])\1{2,}/g, '$1$1').replace(/[^\p{L}\p{N}\s?!]/gu, ' ');
+  for (const [re, w] of SLANGP) t = t.replace(re, w); t = t.replace(/\s+/g, ' ').trim();
   const names = new Set((MP.roster || []).map(p => String(p.name).toLowerCase()));
   t = t.split(/\s+/).map(w => { const q = w.replace(/[?!]+$/, ''), tail = w.slice(q.length); let v = RSLANG[q]; if (v === undefined && /(.)\1/.test(q)) v = RSLANG[q.replace(/(.)\1/g, '$1')]; if (fz && v === undefined && !names.has(q) && !COMMONW.has(q)) { const f = fixWord(q); if (f !== q) v = f; } return (v !== undefined ? v : q) + tail; }).join(' ').replace(/\s+/g, ' ').trim();
   return t;
 }
 // what they meant, in priority order; null when nothing fits
 const INTENTS = [
+  ['scaredq', /\b(got|get|getting|so) (scared|spooked)\b|\b(it is|its|this is|so) (so )?haunted\b|\b(we|i|we are|i am|im|were) (are )?(going to|gonna|about to|will) (die|get caught|get got)\b|\b(she|it) (is )?(about to|going to) get (us|me)\b|\bwe are (so )?dead\b/],
   ['dark', /\b(torch|flashlight|light|lights|battery|batteries|lamp|phone light)\b.{0,14}\b(died|dead|out|off|broke|broken|dying|flickering|not working|stopped)\b/],
   ['alive', /\b(she|her|it|ysolde) (got|get|took|take|has|grabbed|caught) you\b|\b(dead(?! end)|ghost|died|die|alive|human|spirit|zombie|undead)\b/],
   ['affirmreal', /\b(swear|promise) (it is|you are|your|that is)\b|^(are|r) you (you|really you|for real)\b|\bis (this|that|it) (really )?(you|me)\b|\bwho are you\b|\bwho is this\b|\b(actually|really|even) you\b|\b(are )?you (even |really |actually |for )?real\b|\breal name\b|only .{1,12} would know|\bonly (the real )?\w+ (would )?knows?\b/],
-  ['sus', /\b(sus|suspicious|not yourself|wrong with you|how (you|bob) types?|the way you type)\b|\b(seem|seems|sound|sounds|acting|being|look|looks|typing|talking|walking|moving|running|standing|jumping) (so |really |kinda |a bit |super |hella |mad )?(off|different|weird|strange|odd|funny|wrong|creepy)\b|\b(weird|odd|off|different|quiet|silent) today\b|\b(kinda|so|really|very|too) quiet\b|\b(typing|talking|walking|acting|moving|texting) like (that|this|a bot|an? (robot|npc|ai))\b|\b(you are|your|you) (a |an )?(bot|robot|npc|ai)\b|\byou (literally |really |actually |seriously )?(do not|can not|cant) (even )?(know|remember)\b|\bhow do you not (know|remember)\b/],
+  ['sus', /\b(sus|suspicious|not yourself|wrong with you|how (you|bob) types?|the way you type)\b|\b(seem|seems|sound|sounds|acting|being|look|looks|typing|talking|walking|moving|running|standing|jumping) (so |really |kinda |a bit |super |hella |mad )?(off|different|weird|strange|odd|funny|wrong|creepy)\b|\b(weird|odd|off|different|quiet|silent) today\b|\b(you are|your) (so |really |too |very )?(quiet|silent)\b|\b(kinda|so|really|very|too) quiet\b|\b(typing|talking|walking|acting|moving|texting) like (that|this|a bot|an? (robot|npc|ai))\b|\b(you are|your|you) (a |an )?(bot|robot|npc|ai)\b|\byou (literally |really |actually |seriously )?(do not|can not|cant) (even )?(know|remember)\b|\bhow do you not (know|remember)\b/],
   ['stayme', /\b(do not|pls do not|please do not) (leave|go|ditch|abandon)( me)?\b|\bstay with me\b|\bdo not go\b/],
   ['sawher', /\b(she|it|something|someone|the ghost|ysolde|that thing) (just )?(walked|went|ran|moved|passed|came|crawled|walking|running) (past|by|in|out|behind|through|into|around)\b/],
   ['notlying', /\b(be honest|tell the truth|tell me the truth|swear (on|to god)|pinky promise)\b/],
@@ -10374,9 +10382,9 @@ const INTENTS = [
   ['whereother', /\bwhere (is|did|are|r) (?!you\b)(?!we\b)(?!i\b)(?!the\b)(?!that\b)(?!it\b)(?!this\b)(\w+)/],
   ['whereother', /\bwho is (in|with|upstairs|downstairs|by|near) \w+/],
   ['split', /\b(split up|separate|divide up|go different ways|split)\b/],
-  ['praise', /\b(nice job|good job|well done|gg|nice work|good work|great job|ur good at|you are good at|nice one|clutch|smart|goated|slay|slayed|ate|dub|the goat|legend|carried|carrying|big brain|genius|king|queen)\b/],
+  ['praise', /\b(nice job|good job|well done|gg|nice work|good work|great job|ur good at|you are good at|nice one|clutch|smart|goated|slay|slayed|ate|dub|nice one|the goat|legend|carried|carrying|big brain|genius|king|queen)\b/],
   ['reassured', /^(it is ok|it is fine|its ok|its fine|ok good|all good|no worries|dont worry|np|no problem)\b/],
-  ['suggest', /\bwho (goes|should go|is going) first\b|^(should|shall|can|could) we\b|^lets\b|^we should\b|\bwanna (go|check|try|play|hang|call|do)\b|\b(want to|wanna) \w+ after this\b/],
+  ['suggest', /^(you |are you )?(trying to|want to|wanna) (go|check|try|look|see|do|play|split|head)\b|\bwho (goes|should go|is going) first\b|^(should|shall|can|could) we\b|^lets\b|^we should\b|\bwanna (go|check|try|play|hang|call|do)\b|\b(want to|wanna) \w+ after this\b/],
   ['denyclone', /\b(clone|copy|fake|impost[oe]r|pos+es+e?d|killed|took|lured|kill|killing|pretending)\b/], // the word itself
   ['afkq', /\b(sleeping|asleep|napping|not (even )?moving|stopped moving|afk|frozen|are you stuck|you stuck|lagging|you there\?|just standing|standing (there|still|around)|why (are|r) you (just )?(standing|sitting|staring at the wall))\b/],
   ['scaredme', /\b(you|u) (scared|spooked|got|startled) me\b|^boo+\b/],
@@ -10385,7 +10393,7 @@ const INTENTS = [
   ['yes', /^(for real|on god)( for real| fr)?$/],
   ['hideq', /^(sh+|shush|be quiet|quiet|stay quiet|do not make a sound|keep quiet)\b|^(quick |quickly |just )?(hide|get in|get under|duck|crouch|get down|in here)\b|\b(go |get |quick )?hide (now|quick|in|under|behind)\b|\bget in the (closet|wardrobe|cupboard|bed)\b/],
   ['go', /\b(i am|im) (heading|going|off|gonna go|going to go) (to|up|down|into|in|upstairs|downstairs|back)\b/],
-  ['meh', /^bruh+$|\b(cooked|doomed|we are done|its over|it is over|boring|bored|so mid|this is mid|i hate this game|this game (sucks|is bad|is trash))\b/],
+  ['meh', /^(periodt|period|facts|true|so true|real|too real)$|\bthis is (bad|mid|trash|not it)\b|^bruh+$|\b(cooked|doomed|we are done|its over|it is over|boring|bored|so mid|this is mid|i hate this game|this game (sucks|is bad|is trash))\b/],
   ['personal', t => /\b(real life|irl)\b/.test(t) || (!!pTopic(t) && (/\b(you|your|we|us)\b/.test(t) || /^(fav|favourite|age|birthday|last name|full name|surname|siblings|pets?|school|grade)\b/.test(t)))],
   ['hearq', /^(wh?at|wtf) (was|is) that\b|\b(hear|heard|hearing) (that|this|it|something|the|those)\b|\b(you|u) hear\b|\b(noise|sound|footsteps|scream|bang)\b/],
   ['dark', /\blights? (went|are|is|just went) (out|off)|\bits (so )?dark\b|\bcant see\b|\bpower (went|is) (out|off)\b/],
@@ -10393,7 +10401,7 @@ const INTENTS = [
   ['ignored', /\banswer me\b|\bhelloo+\b|^\?+ hel+o+\b|\bearth to\b|\bhello+\b.*\?|\brespond\b|\bignoring me\b|\bwhy (are|r) you (quiet|silent)\b|\bsay something\b/],
   ['plan', /\bwhere (are|r) we going\b|\bwhats the plan\b|\bwhat is the plan\b|\bwhere to now\b|\bwhere (do|should) we go\b/],
   ['directions', /\bwhich room (has|is|had)\b|\bwhere (can|do) (i|we) find\b|\bwhich way\b|\bhow do (we|i) get to\b|\bway to the\b|\bwhere is the (attic|cellar|kitchen|library|study|exit|basement|stairs|door|office)\b/],
-  ['lostq', /\b(i am|im) (so |really )?(lost|stuck|confused)\b/],
+  ['lostq', /\b(i am|im) (so |really )?(lost|stuck|confused)\b|\bi do not know where (to go|we are|i am|to)\b/],
   ['foundit', /\b(i found|i got|found (a|the)|look what i)\b/],
   ['take', /\b(take (the|this|it|that)|here take|hold (this|the))\b/],
   ['warned', /\b(do not|dont) (go|open|touch|look|go in)\b|\b(not that way|wrong way|other way|not there|not in there|not that door)\b/],
@@ -10406,17 +10414,17 @@ const INTENTS = [
   ['dotest', /\b(blink|jump|crouch|spin|dance|wave|nod|say|type|spell|tell us)\b.*\b(if|twice|times|to prove|so we know|now)\b|\bif (you are|your|ur|youre) (ok|real|you|the real)\b|\b(blink|jump|crouch|spin) (twice|three|3|2)\b/],
   ['affirmreal', /\b(really you|is (it|that) you|are you real|you real|are you really|prove (it|that|you are|your|ur)|real one\b|real (bob|you)|(you are|your) not\b|not (really )?you\b|not the real)/],
   ['denyclone', /\b(are|is) (you|it) (the |a |her )?(clone|copy|fake|real|pos+es+e?d|ysolde|her|it|imposter|impostor)\b|\b(clone|copy|impost[oe]r|pos+es+e?d)\b|\bnot (really )?you\b|\bprove it\b|\b(is (it|that)|it is) really you\b|\b(you are|your) not\b|\b(a|the|so|you are|your|is) fake\b|\bnot the real\b|\bfake\b/],
-  ['denyclone', /\b(you (killed|took|lured|got) |was it you|did you (kill|take|lure|do it)|you are (her|it|evil|a ghost|dead|not human|the monster))/],
+  ['denyclone', /\b(you (killed|took|lured) |you got (him|her|them|me|us|\w+ killed)\b|was it you|did you (kill|take|lure|do it)|you are (her|it|evil|a ghost|dead|not human|the monster))/],
   ['note', /^(can you |could you |pls |please |just |go |ok )?read (it|that|this)( out| aloud| out loud| to me)?\b|\bwhat does it say\b/],
   ['note', t => /\b(note|letter|diary|log|page|card|journal|paper|sheet|writing|book)\b/.test(t) && /\b(what|say|said|says|read|mean|remember|about)\b/.test(t)],
   ['solve', /\bwhat does (the|this|that) \w+ (mean|do)\b|\b(solve|decode|figure (it|this) out|what does (it|this) say|what is the (code|answer)|whats the (code|answer)|do you know the (code|answer))\b/],
   ['code', /\b(code|password|combination|pin|digits|numbers|keypad)\b/],
   ['scaredq', /\b(shaking|trembling|heart is (racing|pounding)|jump ?scare|jumpscared|almost cried|crying)\b|\b(scar(e|ed|y|d)?y*|afraid|terrified|spooked|freaked|creepy|frightened|nervous)\b/],
-  ['insult', /\b(stupid|idiot|dumb|noob|trash|shut up|loser|useless|annoying|you suck|bad at|cringe|weirdo|clown|the worst|so slow|slowpoke|hate you)\b|\b(you are|your|you) (so |really |actually |literally |kinda )?(bad|terrible|awful|garbage|horrible|slow)\b(?! (at|to))/],
+  ['insult', /\b(stupid|idiot|dumb|noob|trash|shut up|loser|useless|annoying|you suck|bad at|cringe|weirdo|clown|the worst|so slow|slowpoke|hate you)\b|\b(you are|your|you) (so |really |actually |literally |kinda )?(bad|being weird|terrible|awful|garbage|horrible|slow)\b(?! (at|to))/],
   ['comeback', /\b(come back|get back here|where are you going|dont leave|turn around|come here back)\b/],
   ['slowdown', /\b(slow down|too fast|slow up|you are fast|ur fast|not so fast)\b/],
   ['waitok', /\b(wait|wait me|wait up|hold up|stop|stay|hold on|freeze|do not move|stay there|stand still)\b/],
-  ['followme', /\bmeet (me|us) (in|at|by|upstairs|downstairs)\b|\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry|come (look|see)|stay close|stick close)\b/],
+  ['followme', /^come (to|in|into|upstairs|downstairs|over)\b|\bmeet (me|us) (in|at|by|upstairs|downstairs)\b|\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry|come (look|see)|stay close|stick close)\b/],
   ['dodge', /\b(who are you|what is my|first pet|remember when|what is our|which of us|is that (really )?you|what did i say|whats my|my name)\b/],
   ['where', /\b(where are you|where is you|which room|what room|room are you|where you at|location|what floor|which floor|where)\b/],
   ['ok', /\b(are you ok|you ok|you good|are you alright|you alright|you there|you alive|everything ok|still (with us|there|here|alive|ok|good))\b/],
@@ -10424,17 +10432,19 @@ const INTENTS = [
   ['helpful', /\b(found anything|find anything|got anything|any clues|found something|anything new|any ideas|what now|what next|what do we do|we need (the|a|to find)|need (the|a) key|locked|will not open|wont open|can not open|jammed|stuck shut|how do (i|we) (open|get|unlock|use|solve|fix|get past))\b/],
   ['thanks', /\b(thanks|thank you|cheers|appreciate)\b/],
   ['sorry', /\bmy b\b|\b(sorry|my bad|oops|apologi[sz]e)\b/],
-  ['bye', /\b(bye+|got to go|leaving|i am out|good night|gn|cya|see ya|logging off|night|nite|gnight|im off|rage quit|ragequit|gonna quit|about to quit|i quit)\b/],
+  ['bye', /\b(bye+|got to go|leaving|i am out|good night|gn|cya|see ya|logging off|night|nite|gnight|im off|im leaving|leaving|rage quit|ragequit|gonna quit|about to quit|i quit)\b/],
   ['joke', /\b(joke|funny|knock knock|pun)\b/],
   ['laughs', /\b(lo+l+|lmf?ao+|b?w?a?(ha){2,}h?|[asdfghjkl]{6,}|(he){2,}h?|xd|rofl|kek)\b/],
   ['greet', /^(hi|hey|hello|yo|sup|howdy|hiya|heyo|morning|evening)\b/],
-  ['request', /^(can|could|will|would) you\b|^(pls|please) /],
+  ['request', /^tell me when\b|^(can|could|will|would) you\b|^(pls|please) /],
+  ['bareyn', /^(yes|no|yup|yep|nah|nope|maybe|what do you mean|mhm)\??$/],
   ['yesno', /^(is|are|do|does|did|can|could|should|will|would|have|has|was|were|you|want)\b/],
 ];
 // fuzzy reading only when the plain one found nothing
 function intentOf(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
 function intentOf0(raw, selfName, fz) {
   if (/[😂🤣💀😭]/u.test(raw) && !/[a-z]{3}/i.test(raw)) return 'laughs';
+  if (/^\s*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw)) return 'laughs';
   const em = String(raw); // text faces, read before punctuation is folded away
   if (/>:-?[\(\[\/]|:-?@|😠|😡|🤬|>:-?\|/.test(em)) return 'calm';
   if (/[:;=]'?-?[\(\[]|:'-?\(|\bd:|😢|😞|😔|🥺|☹/u.test(em)) return 'comfort';
@@ -10804,12 +10814,19 @@ function bodyHide() {
   hs.sort((a, b) => Math.hypot(a.x - PS.x, a.z - PS.z) - Math.hypot(b.x - PS.x, b.z - PS.z));
   PS.hide = { x: hs[0].x, z: hs[0].z, room: hs[0].room, until: Date.now() + rnd(25, 40) * 1000 }; PS.pass = null;
 }
+// no open way through: go to our side of the door toward them (or the door of this room nearest them), face it and wait, never through the wall
+function waitAtDoor(o, here, room, tx, tz, step) {
+  const x = X(), D = window.__ENC.DOORS.filter(q => q.a === here || q.b === here); if (!D.length) return null;
+  const direct = D.find(q => q.a === room || q.b === room), dd = direct || D.slice().sort((p, q) => Math.hypot(p.x - tx, p.z - tz) - Math.hypot(q.x - tx, q.z - tz))[0];
+  const R = x.ROOMS[here], cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2, sx = dd.axis === 'x' ? dd.x + Math.sign(cx - dd.x) * .9 : dd.x, sz = dd.axis === 'x' ? dd.z : dd.z + Math.sign(cz - dd.z) * .9;
+  const l = walkObj(o, sx, sz, step); if (l < .15) o.yaw = Math.atan2(-(dd.x - o.x), -(dd.z - o.z)); return null;
+}
 function navTo(o, tx, tz, room, step) {
   const x = X();
   if (o.pass) { if (walkObj(o, o.pass[0], o.pass[1], step) < .1) o.pass = null; return null; }
   const here = x.roomAt(o.x, o.z);
   if (!here || here === room) return walkObj(o, tx, tz, step);
-  const d = x.firstDoor(here, room); if (!d) return walkObj(o, tx, tz, step);
+  const d = x.firstDoor(here, room); if (!d) return waitAtDoor(o, here, room, tx, tz, step);
   if (walkObj(o, d.x, d.z, step) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); o.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
   return null;
 }
