@@ -10218,6 +10218,9 @@ const BANK = {
   take: ['ok give', 'u keep it', 'why me lol', 'ok got it', 'fine', 'sure ill hold it'],
   warned: ['ok i wont', 'why whats in there', 'ok ok', 'too late lol', 'fine', 'why??'],
   hand: ['my torch lol', 'just my torch', 'nothing', 'a torch??', 'what do u mean', 'just my hands lol'],
+  imat: ['ok coming', 'k omw', 'which one', 'ok stay there', 'wait for me', 'ok im coming', 'coming dont move', 'ok whats there'],
+  stayme: ['im not going anywhere', 'im right here', 'i wont leave u', 'ok ok im staying', 'im here dw', 'not leaving, promise', 'stick with me then'],
+  sawher: ['WHERE', 'which way did she go', 'dont move', 'omg did she see u', 'hide hide', 'ok im not moving', 'which room??', 'wait where??'],
   hideq: ['ok ok', 'where??', 'hiding', 'going going', 'which one??', 'theres no room lol', 'ok move over', 'k im hiding', 'is she coming??', 'ok shh'],
   personal: ['old enough lol', 'why do u wanna know', 'lol random', 'focus on the game', 'idk, why', 'ask me later lol', 'thats random'],
   request: ['ill try', 'i cant lol', 'how', 'ok one sec', 'where is it', 'idk if i can', 'ok wait'],
@@ -10310,7 +10313,7 @@ function speak(id, base, o = {}) {
 }
 // someone talks to the worn body
 // ---------- understanding what a player said to it: slang, typos and no-grammar folded to plain words first ----------
-const RSLANG = { u: 'you', ya: 'you', yu: 'you', yuo: 'you', r: 'are', ur: 'your', youre: 'you are', ure: 'you are', wat: 'what', wut: 'what', wht: 'what', waht: 'what', wher: 'where', whr: 'where', were: 'where', wear: 'where', wre: 'where', y: 'why', pls: 'please', plz: 'please', thx: 'thanks', ty: 'thanks', tysm: 'thanks', thnx: 'thanks', teh: 'the', da: 'the', im: 'i am', iam: 'i am', ok: 'ok', k: 'ok', kk: 'ok', okay: 'ok', okey: 'ok', omw: 'coming', cmon: 'come on', c: 'see', dont: 'do not', didnt: 'did not', cant: 'can not', wont: 'will not', isnt: 'is not', arent: 'are not', whats: 'what is', wheres: 'where is', whos: 'who is', hows: 'how is', its: 'it is', thats: 'that is', ppl: 'people', sry: 'sorry', srry: 'sorry', soz: 'sorry', mb: 'my bad', rn: 'right now', idk: 'i do not know', ik: 'i know', wyd: 'what are you doing', wbu: 'what about you', hbu: 'what about you', bc: 'because', cuz: 'because', smth: 'something', sth: 'something', stfu: 'shut up', noob: 'noob', n00b: 'noob', gtg: 'got to go', g2g: 'got to go', brb: 'be right back', cood: 'code', cdoe: 'code', scard: 'scared', scarred: 'scared', clon: 'clone', colne: 'clone', fllow: 'follow', folow: 'follow', follw: 'follow', hlep: 'help', ys: 'yes', ye: 'yes', yea: 'yes', yeah: 'yes', yep: 'yes', yup: 'yes', nah: 'no', nope: 'no', heya: 'hey', hii: 'hi', helo: 'hello', hallo: 'hello', wassup: 'sup', wsp: 'sup', cmere: 'come here', comere: 'come here', cmhere: 'come here', ya: 'you', yah: 'yes', yas: 'yes', yuh: 'yes', ofc: 'of course', bday: 'birthday', fav: 'favourite', fave: 'favourite' };
+const RSLANG = { u: 'you', ya: 'you', yu: 'you', yuo: 'you', r: 'are', ur: 'your', youre: 'you are', ure: 'you are', wat: 'what', wut: 'what', wht: 'what', waht: 'what', wher: 'where', whr: 'where', were: 'where', wear: 'where', wre: 'where', y: 'why', pls: 'please', plz: 'please', thx: 'thanks', ty: 'thanks', tysm: 'thanks', thnx: 'thanks', teh: 'the', da: 'the', im: 'i am', iam: 'i am', ok: 'ok', k: 'ok', kk: 'ok', okay: 'ok', okey: 'ok', omw: 'coming', cmon: 'come on', c: 'see', dont: 'do not', didnt: 'did not', cant: 'can not', wont: 'will not', isnt: 'is not', arent: 'are not', whats: 'what is', wheres: 'where is', whos: 'who is', hows: 'how is', its: 'it is', thats: 'that is', ppl: 'people', sry: 'sorry', srry: 'sorry', soz: 'sorry', mb: 'my bad', rn: 'right now', idk: 'i do not know', ik: 'i know', wyd: 'what are you doing', wbu: 'what about you', hbu: 'what about you', bc: 'because', cuz: 'because', smth: 'something', sth: 'something', stfu: 'shut up', noob: 'noob', n00b: 'noob', gtg: 'got to go', g2g: 'got to go', brb: 'be right back', cood: 'code', cdoe: 'code', scard: 'scared', scarred: 'scared', clon: 'clone', colne: 'clone', fllow: 'follow', folow: 'follow', follw: 'follow', hlep: 'help', ys: 'yes', ye: 'yes', yea: 'yes', yeah: 'yes', yep: 'yes', yup: 'yes', nah: 'no', nope: 'no', heya: 'hey', hii: 'hi', helo: 'hello', hallo: 'hello', wassup: 'sup', wsp: 'sup', cmere: 'come here', whered: 'where did', wheredd: 'where did', yh: 'yes', yeh: 'yes', ayo: 'yo', ay: 'yo', comere: 'come here', cmhere: 'come here', ya: 'you', yah: 'yes', yas: 'yes', yuh: 'yes', ofc: 'of course', bday: 'birthday', fav: 'favourite', fave: 'favourite' };
 function norm(text) {
   let t = String(text).toLowerCase().replace(/[’`]/g, "'").replace(/'/g, '').replace(/([a-z])\1{2,}/g, '$1$1').replace(/[^\p{L}\p{N}\s?!]/gu, ' ');
   t = t.split(/\s+/).map(w => { const q = w.replace(/[?!]+$/, ''), tail = w.slice(q.length); let v = RSLANG[q]; if (v === undefined && /(.)\1/.test(q)) v = RSLANG[q.replace(/(.)\1/g, '$1')]; return (v !== undefined ? v : q) + tail; }).join(' ').replace(/\s+/g, ' ').trim();
@@ -10320,8 +10323,11 @@ function norm(text) {
 const INTENTS = [
   ['dark', /\b(torch|flashlight|light|lights|battery|batteries|lamp|phone light)\b.{0,14}\b(died|dead|out|off|broke|broken|dying|flickering|not working|stopped)\b/],
   ['alive', /\b(she|her|it|ysolde) (got|get|took|take|has|grabbed|caught) you\b|\b(dead|ghost|died|die|alive|human|spirit|zombie|undead)\b/],
-  ['affirmreal', /^(are|r) you (you|really you|for real)\b|\bis (this|that|it) (really )?(you|me)\b|\bwho are you\b|\bwho is this\b|\b(actually|really|even) you\b|\b(are )?you (even |really |actually |for )?real\b|\breal name\b|only .{1,12} would know|\bonly (the real )?\w+ (would )?knows?\b/],
-  ['sus', /\b(sus|suspicious|not yourself|wrong with you|how (you|bob) types?|the way you type)\b|\b(seem|seems|sound|sounds|acting|being|look|looks|typing|talking) (so |really |kinda |a bit )?(off|different|weird|strange|odd)\b|\b(weird|odd|off|different|quiet|silent) today\b|\b(kinda|so|really|very|too) quiet\b|\byou (literally |really |actually |seriously )?(do not|can not|cant) (even )?(know|remember)\b|\bhow do you not (know|remember)\b/],
+  ['affirmreal', /\b(swear|promise) (it is|you are|your|that is)\b|^(are|r) you (you|really you|for real)\b|\bis (this|that|it) (really )?(you|me)\b|\bwho are you\b|\bwho is this\b|\b(actually|really|even) you\b|\b(are )?you (even |really |actually |for )?real\b|\breal name\b|only .{1,12} would know|\bonly (the real )?\w+ (would )?knows?\b/],
+  ['sus', /\b(sus|suspicious|not yourself|wrong with you|how (you|bob) types?|the way you type)\b|\b(seem|seems|sound|sounds|acting|being|look|looks|typing|talking|walking|moving|running|standing|jumping) (so |really |kinda |a bit |super |hella |mad )?(off|different|weird|strange|odd|funny|wrong|creepy)\b|\b(weird|odd|off|different|quiet|silent) today\b|\b(kinda|so|really|very|too) quiet\b|\b(typing|talking|walking|acting|moving|texting) like (that|this)\b|\byou (literally |really |actually |seriously )?(do not|can not|cant) (even )?(know|remember)\b|\bhow do you not (know|remember)\b/],
+  ['stayme', /\b(do not|pls do not|please do not) (leave|go|ditch|abandon)( me)?\b|\bstay with me\b|\bdo not go\b/],
+  ['sawher', /\b(she|it|something|someone|the ghost|ysolde|that thing) (just )?(walked|went|ran|moved|passed|came|crawled|walking|running) (past|by|in|out|behind|through|into|around)\b/],
+  ['notlying', /\b(be honest|tell the truth|tell me the truth|swear (on|to god)|pinky promise)\b/],
   ['backoff', /\bstop (following|chasing|copying|staring)|\bgo away\b|\bleave me alone\b|\bget away\b|\bback off\b|\bstay away\b/],
   ['helpyou', /\b(help me|help!|save me|im stuck|i am stuck|its got me|she is here|shes here|she is coming|its coming)\b|\b(she|shes|it|its|something|he|hes)( is)? (coming|here|behind (you|me|us)|chasing|right there)\b|^run+\b|\brun+$|^help\b/],
   ['whereother', /\bwhere (is|did|are|r) (?!you\b)(?!we\b)(?!i\b)(?!the\b)(?!that\b)(?!it\b)(?!this\b)(\w+)/],
@@ -10329,11 +10335,12 @@ const INTENTS = [
   ['split', /\b(split up|separate|divide up|go different ways|split)\b/],
   ['praise', /\b(nice job|good job|well done|gg|nice work|good work|great job|ur good at|you are good at|nice one|clutch|smart|goated|the goat|legend|carried|carrying|big brain|genius|king|queen)\b/],
   ['reassured', /^(it is ok|it is fine|its ok|its fine|ok good|all good|no worries|dont worry|np|no problem)\b/],
-  ['suggest', /^(should|shall|can|could) we\b|^lets\b|^we should\b|\bwanna (go|check|try)\b/],
+  ['suggest', /^(should|shall|can|could) we\b|^lets\b|^we should\b|\bwanna (go|check|try|play|hang|call|do)\b|\b(want to|wanna) \w+ after this\b/],
   ['denyclone', /\b(clone|copy|fake|impost[oe]r|pos+es+e?d|killed|took|lured|kill|killing|pretending)\b/], // the word itself
   ['afkq', /\b(not (even )?moving|stopped moving|afk|frozen|are you stuck|you stuck|lagging|you there\?|just standing|standing (there|still|around)|why (are|r) you (just )?(standing|sitting|staring at the wall))\b/],
   ['scaredme', /\b(you|u) (scared|spooked|got|startled) me\b|^boo+\b/],
-  ['hideq', /^(quick |quickly |just )?(hide|get in|get under|duck|crouch|get down|in here)\b|\b(go |get |quick )?hide (now|quick|in|under|behind)\b|\bget in the (closet|wardrobe|cupboard|bed)\b/],
+  ['imat', /^(i am|im|i is) (by|in|at|near|next to|on|under|upstairs|downstairs|back (in|at)|still (in|at|by))\b(?! (trouble|danger|love|pain))/],
+  ['hideq', /^(sh+|shush|be quiet|quiet|stay quiet|do not make a sound|keep quiet)\b|^(quick |quickly |just )?(hide|get in|get under|duck|crouch|get down|in here)\b|\b(go |get |quick )?hide (now|quick|in|under|behind)\b|\bget in the (closet|wardrobe|cupboard|bed)\b/],
   ['go', /\b(i am|im) (heading|going|off|gonna go|going to go) (to|up|down|into|in|upstairs|downstairs|back)\b/],
   ['meh', /\b(boring|bored|so mid|this is mid|i hate this game|this game (sucks|is bad|is trash))\b/],
   ['personal', t => /\b(real life|irl)\b/.test(t) || (!!pTopic(t) && (/\b(you|your|we|us)\b/.test(t) || /^(fav|favourite|age|birthday|last name|full name|surname|siblings|pets?|school|grade)\b/.test(t)))],
@@ -10346,7 +10353,7 @@ const INTENTS = [
   ['lostq', /\b(i am|im) (so |really )?(lost|stuck|confused)\b/],
   ['foundit', /\b(i found|i got|found (a|the)|look what i)\b/],
   ['take', /\b(take (the|this|it|that)|here take|hold (this|the))\b/],
-  ['warned', /\b(do not|dont) (go|open|touch|look|go in)\b/],
+  ['warned', /\b(do not|dont) (go|open|touch|look|go in)\b|\b(not that way|wrong way|other way|not there|not in there|not that door)\b/],
   ['hand', /\b(in (your|ur) hand|holding|what is that|whats that)\b/],
   ['love', /\b(miss you|best friend|love you|ily|like you|bestie)\b/],
   ['pls', /^(pls|please)$/],
@@ -10357,25 +10364,26 @@ const INTENTS = [
   ['affirmreal', /\b(really you|is (it|that) you|are you real|you real|are you really|prove (it|that|you are|your|ur)|real one\b|real (bob|you)|(you are|your) not\b|not (really )?you\b|not the real)/],
   ['denyclone', /\b(are|is) (you|it) (the |a |her )?(clone|copy|fake|real|pos+es+e?d|ysolde|her|it|imposter|impostor)\b|\b(clone|copy|impost[oe]r|pos+es+e?d)\b|\bnot (really )?you\b|\bprove it\b|\b(is (it|that)|it is) really you\b|\b(you are|your) not\b|\b(a|the|so|you are|your|is) fake\b|\bnot the real\b|\bfake\b/],
   ['denyclone', /\b(you (killed|took|lured|got) |was it you|did you (kill|take|lure|do it)|you are (her|it|evil|a ghost|dead|not human|the monster))/],
+  ['note', /^(can you |could you |pls |please |just |go |ok )?read (it|that|this)( out| aloud| out loud| to me)?\b|\bwhat does it say\b/],
   ['note', t => /\b(note|letter|diary|log|page|card|journal|paper|sheet|writing|book)\b/.test(t) && /\b(what|say|said|says|read|mean|remember|about)\b/.test(t)],
   ['solve', /\bwhat does (the|this|that) \w+ (mean|do)\b|\b(solve|decode|figure (it|this) out|what does (it|this) say|what is the (code|answer)|whats the (code|answer)|do you know the (code|answer))\b/],
   ['code', /\b(code|password|combination|pin|digits|numbers|keypad)\b/],
-  ['scaredq', /\b(scar(e|ed|y|d)?y*|afraid|terrified|spooked|freaked|creepy|frightened|nervous)\b/],
+  ['scaredq', /\b(shaking|trembling|heart is (racing|pounding)|jump ?scare|jumpscared|almost cried|crying)\b|\b(scar(e|ed|y|d)?y*|afraid|terrified|spooked|freaked|creepy|frightened|nervous)\b/],
   ['insult', /\b(stupid|idiot|dumb|noob|trash|shut up|loser|useless|annoying|you suck|bad at|cringe|weirdo|clown|the worst|so slow|slowpoke|hate you)\b|\b(you are|your|you) (so |really |actually |literally |kinda )?(bad|terrible|awful|garbage|horrible|slow)\b(?! (at|to))/],
   ['comeback', /\b(come back|get back here|where are you going|dont leave|turn around|come here back)\b/],
   ['slowdown', /\b(slow down|too fast|slow up|you are fast|ur fast|not so fast)\b/],
   ['waitok', /\b(wait|wait me|wait up|hold up|stop|stay|hold on|freeze|do not move|stay there|stand still)\b/],
-  ['followme', /\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry|come (look|see)|stay close|stick close)\b/],
+  ['followme', /\bmeet (me|us) (in|at|by|upstairs|downstairs)\b|\b(follow me|come with me|come here|over here|this way|come on|lets go|get over here|come to me|hurry|come (look|see)|stay close|stick close)\b/],
   ['dodge', /\b(who are you|what is my|first pet|remember when|what is our|which of us|is that (really )?you|what did i say|whats my|my name)\b/],
   ['where', /\b(where are you|where is you|which room|what room|room are you|where you at|location|what floor|which floor|where)\b/],
   ['ok', /\b(are you ok|you ok|you good|are you alright|you alright|you there|you alive|everything ok)\b/],
   ['doing', /\b(what are you doing|what you doing|doing what|whatcha|what about you)\b/],
-  ['helpful', /\b(found anything|find anything|got anything|any clues|found something|anything new|any ideas|what now|what next|what do we do|we need (the|a|to find)|need (the|a) key)\b/],
+  ['helpful', /\b(found anything|find anything|got anything|any clues|found something|anything new|any ideas|what now|what next|what do we do|we need (the|a|to find)|need (the|a) key|locked|will not open|wont open|can not open|jammed|stuck shut|how do (i|we) (open|get|unlock|use|solve|fix|get past))\b/],
   ['thanks', /\b(thanks|thank you|cheers|appreciate)\b/],
-  ['sorry', /\b(sorry|my bad|oops|apologi[sz]e)\b/],
+  ['sorry', /\bmy b\b|\b(sorry|my bad|oops|apologi[sz]e)\b/],
   ['bye', /\b(bye+|got to go|leaving|i am out|good night|gn|cya|see ya|logging off|night|nite|gnight|im off)\b/],
   ['joke', /\b(joke|funny|knock knock|pun)\b/],
-  ['laughs', /\b(lo+l+|lmf?ao+|(ha){2,}h?|(he){2,}h?|xd|rofl|kek)\b/],
+  ['laughs', /\b(lo+l+|lmf?ao+|b?w?a?(ha){2,}h?|(he){2,}h?|xd|rofl|kek)\b/],
   ['greet', /^(hi|hey|hello|yo|sup|howdy|hiya|heyo|morning|evening)\b/],
   ['request', /^(can|could|will|would) you\b|^(pls|please) /],
   ['yesno', /^(is|are|do|does|did|can|could|should|will|would|have|has|was|were|you|want)\b/],
@@ -10470,7 +10478,7 @@ const convOf = (self, from) => CONV[self + '|' + from] || (CONV[self + '|' + fro
 function convNote(c, who, text, k) {
   c.log.push({ who, text, k, at: Date.now() }); while (c.log.length > 12) c.log.shift();
   if (who !== 'me') return; if (c.keep) { c.keep = 0; return; }
-  c.pend = /\?\s*$/.test(text) || /^(did|do|does|are|is|should|shall|can|could|wanna|want|have|will|would|r|u ok|you ok|anyone)\b/i.test(text) ? { type: 'asked', line: text, at: Date.now(), n: 0 } : null; // it asked them something: their yes/no answers that
+  c.pend = /\?\s*$/.test(text) || /^(did|do|does|are|is|should|shall|can|could|wanna|want|have|will|would|r|u ok|you ok|anyone|where|what|who|which|how|why|when)\b/i.test(text) ? { type: 'asked', line: text, at: Date.now(), n: 0 } : null; // it asked them something: their yes/no answers that
 }
 const lastMine = c => { for (let i = c.log.length - 1; i >= 0; i--) if (c.log[i].who === 'me') return c.log[i]; return null; };
 // the basic things only the real player would know
@@ -10479,11 +10487,12 @@ const PTOPIC = [
   ['bday', /\bbirth ?day\b|\bbday\b|\bwhen (were )?you born\b|\bborn (on|in)\b/, 'my birthday'],
   ['name', /\b(full|last|middle|sur|second|real) ?name\b|\bwhat is (your|ur) name\b|\bwhat are you called\b/, 'my name'],
   ['home', /\bwhere (do )?(you )?live\b|\bwhere (are )?you from\b|\b(your|ur) (address|house|street|town|city|country|postcode)\b|\bwhat (country|city|town|street)\b/, 'where i live'],
+  ['looks', /\bhow tall\b|\b(your|ur) (height|weight|shoe size|eye colou?r|hair colou?r|hair|eyes)\b|\bwhat colou?r (is|are) (your|ur) \w+|\bwhat (does|is) (your|ur) (room|bedroom|house) (like|look)/, 'that'],
   ['school', /\bschool\b|\bwhat grade\b|\bwhat year are you\b|\b(your|ur) (teacher|class|grade)\b|\bhomework\b/, 'my school'],
   ['fav', /\bfav(ou?rite|e|s|ourite)?\b|\bwhat do you (like|love) (the )?most\b/, 'my favourite'],
-  ['pet', /\bpets?\b|\bpets? name\b|\b(your|ur) (dog|cat|hamster|fish|bunny|rabbit|puppy|kitten)\b|\bdo you have (a )?(dog|cat|hamster|fish)\b|\b(dogs|cats) name\b/, 'my pets'],
+  ['pet', /\bpets?\b|\bpets? name\b|\b(your|ur) (dog|cat|hamster|fish|bunny|rabbit|puppy|kitten)\b|\bdo you have (a )?(dog|cat|hamster|fish)\b|\b(still have|that|your|ur) (dog|cat|hamster|fish|bunny|rabbit|puppy|kitten|parrot|bird|snake|turtle|lizard|guinea pig)\b|\b(dogs|cats) name\b/, 'my pets'],
   ['family', /\b(got|have|any) (any )?(siblings|brothers|sisters|bros|sis)\b|\bsiblings\b|\b(your|ur|you have (a |any )?) ?(mom|mum|mother|dad|father|sister|brother|siblings?|parents|family|grandma|nan|cousin)s?\b/, 'my family'],
-  ['past', /\byesterday\b|\blast (night|week|weekend|time we)\b|\bwhat did we (do|play)\b|\bremember when we\b|\bwhat did (we|i) (do|say) (before|last|earlier|at)\b/, 'what we did'],
+  ['past', /\byesterday\b|\blast (night|week|weekend|time we)\b|\bwhat did we (do|play)\b|\bremember when we\b|\bwhat did (we|i) (do|say) (before|last|earlier|at)\b|\bwhat did you (get|do|have|eat|play) (for|on|at|last|over|this)\b|\bwhat did (we|you) (eat|have) (at|for)\b|\b(christmas|xmas|summer|holiday|vacation)\b/, 'what we did'],
   ['phone', /\b(your|ur) (phone|number|insta|snap|discord|username|tag|gamertag|email)\b|\bphone number\b/, 'my number'],
   ['games', /\b(what|which) (other )?games? (do )?you (play|like)\b|\b(your|ur) (main|rank|level)\b|\bhow long (have )?you (been )?play(ing|ed)\b|\bfirst time playing\b|\bplayed this before\b|\bwhen did you (start|get)\b/, 'my games'],
 ];
@@ -10505,18 +10514,23 @@ const PFU = {
   scared: { yes: ['can we just focus pls', 'ok whatever, can we go', 'i dont care rn, lets go'], no: ['then why are u asking', 'ok then lets go', 'ok can we move'], insist: ['NOT NOW', 'later!! theres something in here', 'no, focus pls', 'seriously not now'], why: ['because something is literally in here with us', 'because im scared??', 'because this house!!'], reason: ['ask me when were out', 'ok well im scared', 'not now pls'], ok: ['thank u', 'ok lets go', 'ok'], laugh: ['this isnt funny', 'stop laughing'], guess: ['i dont care rn', 'later!!'], again: ['u asked that already, NOT NOW', 'stop asking'], close: ['pls lets just go', 'can we leave now'] },
 };
 // how a reply to its own line reads: yes, no, push, why...
+const FKW = new Set('why yes no nah please pls ok ya yea yeah sure huh what so oh ye yup nope bruh wow fine'.split(' '));
 function followKind(t, raw) {
-  const s = t.replace(/[!.]+/g, '').trim().replace(/([yseoah])\1+\b/g, '$1'), r = String(raw).trim();
-  if (/^\?+$/.test(r) || /^(what|wat|wut|huh|wdym|what do you mean|wait what|eh|come again|say (that )?again|what did you say|say what|hm+|what you mean|sorry what|what lol|huh lol|u what|you what|what was|what was that|said what)\??$/.test(s.replace(/\?+$/, '')) && !/^hm+$/.test(s)) return 'what';
-  const rw = r.toLowerCase();
+  let s = t.replace(/[!.]+/g, '').trim().replace(/\b([a-z]*?)([yseoahw])\2+\b/g, (m, a, b) => FKW.has(a + b) ? a + b : m), r = String(raw).trim();
+  if (/^\?+$/.test(r) || /^(what|wat|wut|huh|wdym|what do you mean|wait what|eh|come again|say (that )?again|what did you say|say what|hm+|what you mean|sorry what|what lol|huh lol|u what|you what|what was|what was that|said what)\??$/.test(s.replace(/^(wdym|what do you mean|what you mean) \w+$/, 'wdym').replace(/\?+$/, '')) && !/^hm+$/.test(s)) return 'what';
+  const rw = r.toLowerCase().replace(/^(lowkey|highkey|honestly|bro|dude|um+|uh+|well|tbh|ngl|i mean|lol|lmao)[ ,]+/, '');
+  s = s.replace(/^(lowkey|highkey|honestly|bro|dude|um+|uh+|well|tbh|ngl|i mean|lol|lmao)[ ,]+/, '');
   if (/^(fine|ok|okay|k|whatever|wow)\b.*\b(do not|dont) tell\b|\b(forget it|keep (it|ur secrets?)|be like that|nvm|never ?mind)\b/.test(s + ' ' + rw)) return 'ok';
+  if (/^(because|cause|cuz|bc|since)\b/.test(s)) return 'reason';
+  if (/\bguess\b|^\d{1,4}\??$|\b(is it|it is|its|are you|you are) (\w+ ){0,2}\d+\b|\b(is it|it is|its|are you|you are) (?!serious|ok|kidding|joking|real|sure|scared|mad|fine)\w+ (right|yeah|yes|correct)\??$|^(is it|are you) (?!serious|ok|kidding|joking|real|sure|scared|mad|fine)\w+\?$/.test(s)) return 'guess';
   if (/^(why|why not|how come|but why|why tho|why though|whys that|why is that|why would|why wont you|why cant you|why do you care|why is it|y tho)\b/.test(s)) return 'why';
   if (/\b(just tell|tell me|say it|spill|i wanna know|i want to know|just say|just answer|answer (it|me|the question)|come on|tell us|pretty please|please|its not that hard|u have to|you have to)\b/.test(s)) return 'insist';
-  if (/^(ya+h?|ye+a*h*|yup|ys|yas|yuh)\b|\bi (forgot|forget|dunno|do not know)\b|^idk\b/.test(rw) || /^i do not know\b/.test(s)) return 'yes';
+  if (/^(ya+h?|ye+a*h*|yup|ys|yas|yuh|yh|yeh|absolutely(?! not)|definitely(?! not)|for sure|deffo|def|totally|100)\b|\bi (forgot|forget|dunno|do not know)\b|^idk\b/.test(rw) || /^i do not know\b/.test(s)) return 'yes';
   if (/^(yes|yeah|yep|mhm|kinda|sorta|i guess|maybe|i did|ya|i forgot|lol yes|kind of|a bit|i do not remember|honestly yes|ye|true|obviously|duh|of course|i think so|i guess so)\b/.test(s)) return 'yes';
-  if (/^(no|nah|i did not|not really|of course not|obviously not|nope|i do not(?! know)|never|i remember|no i did not|i know)\b/.test(s)) return 'no';
+  if (/^(nuh uh|nu uh|nop|nay|hell no|absolutely not|no way|definitely not|not at all|not really|nah)\b/.test(s)) return 'no';
+  if (/^(no|nah|i did not|not really|of course not|obviously not|nope|i do not(?! know)|never|i (do |actually )?remember|i do know|i know (it|that|ur|your)|no i did not|i know)\b/.test(s)) return 'no';
   if (/\b(curious|bored|wondering|no reason|just asking|random|just because|making conversation|small talk|getting to know|testing you|test|checking|for a (thing|project|quiz|reason|game|school)|for science|for reasons|asking for a friend|just want to know|wanted to know)\b/.test(s)) return 'reason';
-  if (/^(ok|fine|whatever|alright|k|sure|fair|right|oh|bet|cool|nvm|never mind|forget it)\b/.test(s)) return 'ok';
+  if (/^(ok|fine|whatever|alright|k|sure|fair|right|oh|bet|cool|nvm|never mind|forget it|wow ok|wow|rude|damn|dang)\b/.test(s)) return 'ok';
   if (/^(is it|are you|its|it is|you are|im guessing|i bet|bet its|so like|like)\b.*\d|^\d{1,4}\??$|^(is it|are you) \w+\??$/.test(s)) return 'guess';
   return null;
 }
@@ -10526,6 +10540,7 @@ const AANS = {
   yes: { hear: ['ok so its not just me', 'ok good im not crazy', 'from where??', 'ok what was it'], see: ['ok so im not crazy', 'what was it??', 'right??'], ok: ['ok good', 'good lol', 'ok cool'], go: ['ok lets go', 'ok come on', 'k'], me: ['oh ok what', 'ya what', 'ok what is it'], _: ['ok', 'ok good', 'oh ok', 'fr?', 'thought so', 'ok cool'] },
   no: { hear: ['weird, i swear i heard something', 'ok maybe im going crazy', 'nvm then'], see: ['nvm then', 'ok nvm', 'weird'], ok: ['what happened??', 'whats wrong', 'wait what happened'], go: ['ok fine', 'ok we stay then', 'fine'], me: ['oh ok', 'oh lol ok', 'k nvm'], _: ['oh', 'ok then', 'hm ok', 'oh ok nvm', 'k'] },
 };
+const PLACEANS = ['ok coming', 'omw', 'ok stay there', 'which part', 'k im coming', 'ok dont move', 'coming, wait there'];
 const REPH = ['i said {last}', '{last}', '{last} lol', 'nvm', 'i said {last}, u good?', 'like i said, {last}'];
 // the thread so far decides it: personal questions, follow-ups to them, "what?", answers to its own questions. null when the thread has nothing to say
 function ctxReply(self, from, text, k) {
@@ -10534,7 +10549,8 @@ function ctxReply(self, from, text, k) {
   const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, tr = ptrait(self); let f = followKind(t, text); if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
   const out = (key, line, pend) => { if (pend !== undefined) { c.pend = pend; c.keep = 1; } return { k: key, line }; };
   const P = pTopic(t);
-  if (p && p.type !== 'asked' && f === 'guess') { const B = PFU[p.type]; p.n++; return out('fu.guess', pick(B.guess), Object.assign(p, { at: now })); }
+  const fu = (p, f) => { const B = PFU[p.type] || PFU.plain; return pick(B[f] || PFU.plain[f] || PFU.plain.ok).replace(/\{topic\}/g, p.topic); };
+  if (p && p.type !== 'asked' && f === 'guess') { p.n++; return out('fu.guess', fu(p, 'guess'), Object.assign(p, { at: now })); }
   if (k === 'personal' || (P && /\b(you|your|we|us)\b/.test(t) && /\?|^(what|whats|where|when|how|which|do|did|have|are|is|who|tell)\b/.test(t))) {
     const top = P || { k: '_', topic: 'that' };
     if (c.asked[top.k] && now - c.asked[top.k] < 300000) return out('again', pick(PFU[tr].again), { type: tr, topic: top.topic, tk: top.k, at: now, n: 1 });
@@ -10543,12 +10559,13 @@ function ctxReply(self, from, text, k) {
   }
   const mine = lastMine(c);
   if (f === 'what' && mine && now - mine.at < 40000) { const last = mine.text.replace(/[?!.]+$/, ''); return out('rephrase', pick(REPH).replace('{last}', last), c.pend ? Object.assign({}, c.pend, { at: now }) : null); }
+  if (p && p.type === 'asked' && /\bwhere\b/i.test(p.line) && /\b(kitchen|library|attic|cellar|basement|hall|hallway|foyer|study|bedroom|bathroom|stairs|upstairs|downstairs|office|nursery|here|there|room|closet|lounge|dining)\b/.test(t)) return out('ans.place', pick(PLACEANS), null);
   if (!p || !f) return null;
   if (p.type === 'asked') { if (f !== 'yes' && f !== 'no') return null; const cls = (ASKCLS.find(([, re]) => re.test(p.line)) || ['_'])[0]; return out('ans.' + f, pick(AANS[f][cls]), null); }
-  const B = PFU[p.type]; if (++p.n > 3) return out('fu.close', pick(B.close), null);
-  return out('fu.' + f, pick(B[f] || B.ok).replace(/\{topic\}/g, p.topic), Object.assign(p, { at: now }));
+  if (++p.n > 3) return out('fu.close', fu(p, 'close'), null);
+  return out('fu.' + f, fu(p, f), Object.assign(p, { at: now }));
 }
-MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, POPEN, PFU, AANS, REPH };
+MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, POPEN, PFU, AANS, REPH, PLACEANS };
 // the clone answers the one person it follows, and only them
 function copyHeard(from, text) {
   if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase();
