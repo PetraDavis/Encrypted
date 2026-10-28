@@ -10266,7 +10266,7 @@ const BANK = {
   dark: ['turn ur torch on', 'i cant see anything either', 'omg', 'stay close', 'where r u, i cant see', 'my torch is on, follow it', 'ok this is bad'],
   staring: ['i wasnt staring lol', 'was just looking around', 'sorry zoned out', 'ur in my way lol', 'just thinking', 'lol ok'],
   ignored: ['sorry was reading', 'im here im here', 'sorry didnt see', 'what?? im here', 'sorry, what', 'my bad, what did u say'],
-  plan: ['idk, the {next}?', 'just following u lol', 'anywhere but here', 'looking for a way out', 'the {next} i think', 'wherever the next clue is'],
+  plan: ['idk, the {next}?', 'just following u lol', 'anywhere but here', 'looking for a way out', 'the {next} i think', 'wherever the next clue is', '{goal}', 'i think we gotta {goal}', '{goal} i think', 'uh {goal}?', 'we still need to {goal}'],
   directions: ['i think its through the {next}', 'back past the {next}', 'i forgot lol', 'near the {next} i think', 'no clue, i got lost earlier'],
   lostq: ['me too lol', 'where r u, ill come', 'whats the room name', 'same', 'stay there ill find u', 'just follow the hallway'],
   foundit: ['{W}', 'nice, where', 'omg what is it', 'ok what does it open', 'nice one', 'where was it', 'yesss', 'what does it do'],
@@ -10323,6 +10323,10 @@ function nextRooms(id) { try { const x = X(), q = whereIs(id), cr = q && x.roomA
 // things they could really have seen: the house's objects in rooms they were in (or only the one they stand in)
 function seenItems(id, hereOnly) { try { const x = X(), q = whereIs(id), cr = q && x.roomAt(q[0], q[1]), R = new Set(hereOnly ? [] : seenRooms(id)), out = new Set(); if (cr && x.ROOMS[cr]) R.add(x.ROOMS[cr].name.toLowerCase());
   for (const it of (x.IT || [])) { const r = it.p && x.roomAt(it.p.x, it.p.z); if (!r || !x.ROOMS[r] || !R.has(x.ROOMS[r].name.toLowerCase()) || (hereOnly && r !== cr)) continue; let lab = ''; try { lab = String(it.label()).toLowerCase(); } catch (e) {} const w = ITEMS.find(w => lab.includes(w) || it.id === w); if (w) out.add(w); } return [...out]; } catch (e) { return []; } }
+// what the game says to do next, said like a player would ("unlock the living room")
+function goalNow() { try { const el = document.getElementById('objt'); let g = (el && el.textContent || '').trim(); if (!g || /coming soon|explore freely/i.test(g)) return null;
+  g = g.replace(/\s*press j[^.]*\.?/i, '').split(/(?<=[.?!])\s/)[0].replace(/[.!]+$/, '').replace(/"/g, '').toLowerCase().trim(); if (!g) return null;
+  if (!/^(open|find|look|search|decode|unlock|take|read|check|play|go|climb|make|try|throw|get|use|enter|put|watch)\b/.test(g)) return null; return g.replace(/\bmildred'?s\b/g, 'the').replace(/\bivy'?s\b/g, 'ivys').replace(/\s+/g, ' '); } catch (e) { return null; } }
 function seenRooms(id) { const x = X(), R = new Set(); for (const q of (MP.track[id] || [])) { const r = x.roomAt(q[0], q[1]); if (r && x.ROOMS[r]) R.add(x.ROOMS[r].name.toLowerCase()); } for (const r of (MP.histRoom[id] || [])) if (r && x.ROOMS[r]) R.add(x.ROOMS[r].name.toLowerCase()); return [...R]; }
 // now and then a line carries a second manner of theirs too ("ugh fine LETS GO", "same honestly lol")
 function mixLine(t, id) { if (!t || t[0] === '\u0001' || !id || Math.random() >= .25 || !/[a-z]{2}/i.test(t)) return t; let top; try { top = tmix(id).filter(x => x[0] !== 'plain'); } catch (e) { return t; } if (top.length < 2) return t;
@@ -10333,6 +10337,7 @@ function mixLine(t, id) { if (!t || t[0] === '\u0001' || !id || Math.random() >=
   if (!O.length) return t; const out = pick(O)(), add = out.toLowerCase().replace(lo, '|'), grim = /\b(doomed|die|dying|dead|hate|cant|never|worst|sucks|scared|terrified|bad idea|no|nope|dont|stop)\b/.test(lo), harsh = /\b(noob|bozo|cope|trash|useless|shut up|diff|stay mad)\b/.test(lo), up = /\b(got this|yay|lets go|so good|nice|love|thanks|ty|same|me too|cool)\b|!!/.test(lo);
   if ((grim || harsh) && /we got this|lets go|^yes|<3|!!|^aw|u ok|stay close/.test(add)) return t; if (up && /doomed|great\.|i cant|^ugh/.test(add)) return t; return out; } // a second manner only where the moods agree
 function fill0(t, id) {
+  if (/\{goal\}/.test(t)) { const g = goalNow(); if (!g) return pick(['not sure', 'idk tbh', 'idk, just following u']); t = t.replace(/\{goal\}/g, g); }
   if (/\{next\}/.test(t)) { const R = nextRooms(id); if (!R.length) return pick(['not sure', 'idk tbh', 'no idea, havent been there', 'idk, just following u']); t = t.replace(/\{next\}/g, () => pick(R)); }
   if (/\{item\}/.test(t)) { const R = seenItems(id, /\{here\}/.test(t)); if (!R.length) return pick(['nothing yet', 'not really', 'havent found much', 'nope, u?']); t = t.replace(/\{item\}/g, () => pick(R)); }
   if (/\{been\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['nothing yet', 'not really', 'nope, u?', 'not yet', 'havent found much']); t = t.replace(/\{been\}/g, () => pick(R)); }
