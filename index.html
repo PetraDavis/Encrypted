@@ -9304,7 +9304,7 @@ function dustWord(m) {
 // ---------- chat ----------
 // ---------- chat filter: mild swearing stays (shit, hell, damn, crap, ass, piss, wtf); the f-word, b-word, c-word, slurs and sexual words become asterisks ----------
 // lists are stored encoded so the words are not sitting in the source in plain text
-const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1vdGhlcmYsZnVrLGZjayxmYWdnb3QsZGlsZG8sYmxvd2pvYixoYW5kam9iLGppenosY3Vtc2hvdCxwb3JuLHBodWNrLHBodWs='), W = d('ZnVxLGZ1ayxmayxma2luZyxma24sZmtpbixiaXRjaCxiaWF0Y2gsYjF0Y2gsbmlnZyxuaWdndWgsbmlnbGV0LGZhZyxmYWdzLGZhZ2d5LGR5a2UsdHJhbm55LHRyYW5uaWUscmV0YXJkLHJldGFyZGVkLHRhcmQsc3BpYyxjaGluayxraWtlLHdldGJhY2ssZ29vayxjb29uLHJhZ2hlYWQsYmVhbmVyLGhvbW8scXVlZXIsc2hlbWFsZSxkaWNrLGNvY2sscHVzc3ksY3VtLGN1bW1lZCxjdW1taW5nLHRpdHMsdGl0dHksdGl0dGllcyxib29iLGJvb2JzLGhvcm55LHNsdXQsd2hvcmUsaG9lLGhvZXMsc2V4LHNleHksc2V4dGluZyxudWRlcyxudWRlLG5ha2VkLHJhcGUscmFwaXN0LHBlbmlzLHZhZ2luYSxib25lcixvcmdhc20sbWFzdHVyYmF0ZSx0aG90LG1pbGYsZ3lhdHQsZ3lhdCxzbWFzaCx0aGljYyxjdW50LG5pZ2dlcixuaWdnYQ=='), SUF = ['', 's', 'es', 'ed', 'er', 'ers', 'ing', 'in', 'y', 'ies', 'z', 'head', 'heads', 'face', 'hole', 'holes', 'ass', 'off'];
+const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1vdGhlcmYsZnVrLGZjayxmYWdnb3QsZGlsZG8sYmxvd2pvYixoYW5kam9iLGppenosY3Vtc2hvdCxwb3JuLHBodWNrLHBodWs='), W = d('ZnVxLGZ1ayxmayxma2luZyxma24sZmtpbixiaXRjaCxiaWF0Y2gsYjF0Y2gsbmlnZyxuaWdndWgsbmlnbGV0LGZhZyxmYWdzLGZhZ2d5LGR5a2UsdHJhbm55LHRyYW5uaWUscmV0YXJkLHJldGFyZGVkLHRhcmQsc3BpYyxjaGluayxraWtlLHdldGJhY2ssZ29vayxjb29uLHJhZ2hlYWQsYmVhbmVyLGhvbW8scXVlZXIsc2hlbWFsZSxkaWNrLGNvY2sscHVzc3ksY3VtLGN1bW1lZCxjdW1taW5nLHRpdHMsdGl0dHksdGl0dGllcyxib29iLGJvb2JzLGhvcm55LHNsdXQsd2hvcmUsaG9lLGhvZXMsc2V4LHNleHksc2V4dGluZyxudWRlcyxudWRlLG5ha2VkLHJhcGUscmFwaXN0LHBlbmlzLHZhZ2luYSxib25lcixvcmdhc20sbWFzdHVyYmF0ZSx0aG90LG1pbGYsZ3lhdHQsZ3lhdCx0aGljYyxjdW50LG5pZ2dlcixuaWdnYQ=='), SUF = ['', 's', 'es', 'ed', 'er', 'ers', 'ing', 'in', 'y', 'ies', 'z', 'head', 'heads', 'face', 'hole', 'holes', 'ass', 'off'];
   const LEET = { '1': 'i', '!': 'i', '|': 'i', '3': 'e', '0': 'o', '@': 'a', '4': 'a', '$': 's', '5': 's', '7': 't', '+': 't', '9': 'g', '6': 'g', '8': 'b', '(': 'c', '<': 'c', 'v': 'v' };
   const lt = w => w.toLowerCase().replace(/[1!|30@4$57+968(<]/g, c => LEET[c] || c), c1 = w => w.replace(/(.)\1+/g, '$1');
   const CC = C.map(c1), WC = W.map(c1);
@@ -9314,12 +9314,22 @@ const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1v
     for (const w of W) for (const s of SUF) if (t === w + s) return true;
     if (rep) for (const w of WC) for (const s of SUF) if (k === w + c1(s)) return true; return false; };
   const mask = w => w[0] + '*'.repeat(Math.max(2, w.length - 1));
-  function clean(text) { let t = String(text || '');
+  let clean = function (text) { let t = String(text || '');
     t = t.replace(/(?:^|(?<=\s))((?:[a-z0-9@$!|+*][\s._\-*]){2,}[a-z0-9@$!|+*])(?=\s|$|[?.!,])/gi, m => { const j = m.replace(/[\s._\-]/g, ''); return bad(j.replace(/\*/g, 'u')) || bad(j.replace(/\*/g, 'i')) || bad(j.replace(/\*/g, 'a')) ? mask(j) : m; }); // f.u.c.k, f u c k
-    t = t.replace(/(^|\s)([a-z0-9@$!]{1,3}) ([a-z0-9@$!*]{1,4})(?=\s|$|[?.!,])/gi, (m, sp, a, b) => !bad(a) && !bad(b) && bad(a + b) ? sp + mask(a + b) : m); // fu ck
+    t = t.replace(/(^|\s)([a-z0-9@$!]{1,3}) ([a-z0-9@$!*]{1,4})(?=\s|$|[?.!,])/gi, (m, sp, a, b) => !bad(a) && !bad(b) && !/(.)\1/.test(a + b) && bad(a + b) ? sp + mask(a + b) : m); // fu ck
     return t.replace(/[^\s]+/g, tok => { const m = tok.match(/^([^a-z0-9@$!|(<]*)(.*?)([^a-z0-9@$+]*)$/i), core = m ? m[2] : tok; if (!core) return tok;
       if (/^wt[hf]$|^omf?g$|^stfu$|^lmf?ao$|^af$/i.test(core)) return tok; // abbreviations are fine
       const vs = [core, core.replace(/\*/g, 'u'), core.replace(/\*/g, 'i'), core.replace(/\*/g, 'a'), core.replace(/[^a-z0-9@$!|+]/gi, '')]; return vs.some(bad) ? m[1] + mask(core) + m[3] : tok; }); }
+  // words that are fine on their own but sexual aimed at a person ("bang her", "ride me", "smash or pass"); "heard a bang", "ride the lift", "come here", "this is hard" stay
+  const WHO = () => '(?:her|him|u|you|ya|me|them|ur (?:mom|mum|sister|bro|dad)|your (?:mom|mum|sister|brother|dad)|' + ((typeof MP !== 'undefined' && MP.roster) || []).map(p => String(p.name).toLowerCase().replace(/[^a-z0-9]/g, '')).filter(n => n.length > 1).join('|') + ')';
+  const CTX = () => { const P = WHO(); return [
+    new RegExp('\\b(bang|bangs|banged|banging|smash|smashed|smashing|rail|railed|railing|pipe|piped|lay|laid|ride|rides|rode|riding|blow|blew|suck|sucked|sucking|eat|ate|eating|pound|pounded|clap|clapped|top|topped|breed|bred) ' + P + '\\b(?! (a favou?r|up|back|out of|down|over there|a solid|first|later|at|in a|on the head|with (a|the|my|this)|so hard (in|on) the|to the|about|homework|now$))(?! (a|the|an)\\b)', 'gi'),
+    new RegExp('\\b(eat|ate|eating) ' + P + ' out\\b', 'gi'), /\bsmash (or|n|and) pass\b/gi, /\b(i'?d|id|would|wud) (smash|bang)\s*[.!]*$/gi, /\bdo (me|her|him)\b(?! (a favou?r|a solid|first|later|now|again))(?=\s*(rn|now|pls|please|daddy|hard|harder|$))/gi, /\b(would|wud|id|i'?d) (smash|bang|hit|tap|rail|clap) (that|it|her|him)\b/gi, /\bhit (it|that) from\b/gi, /\btap that\b/gi,
+    new RegExp('\\b(sleep|slept|sleeping|hook(ed|ing)? up|make out|making out|made out|hookup) with ' + P + '\\b', 'gi'), /\b(are you|r u|ru|u|you|im|i am|is (she|he))\b (a )?(top|bottom|bottoms|tops)\b\??$/gi, /\btop or bottom\b/gi,
+    /\b(i'?m|i am|im|got me|made me|makes me|making me|she is|shes|he is|hes|ur|you are|youre|u r) (so |rly |really |kinda |rn )*(wet|hard|horny)\b(?! (puzzle|level|game|mode|to|because|from the rain|outside|stuck|carried|carrying|trying|working|at))/gi,
+    new RegExp('\\b(come|cum|came|coming) (on|in|inside) ' + P + '\\b', 'gi'), new RegExp('\\bmake ' + P + ' (come|cum)\\b', 'gi'), /\b(suck|blow|lick) (my|ur|your|his|her) (\w+ )?(d\*+|c\*+|thing|stuff|balls|toes|feet)\b/gi]; };
+  const ctxClean = t => { let o = t; for (const re of CTX()) o = o.replace(re, m => m.split(' ').map((w, i) => i === 0 ? w[0] + '*'.repeat(Math.max(2, w.length - 1)) : w).join(' ')); return o; };
+  const clean0 = clean; clean = text => ctxClean(clean0(text));
   return { clean, bad, has: t => clean(t) !== String(t || '') };
 })();
 MP._prof = PROF; MP._chatLine = (f, t) => chatLine(f, t);
