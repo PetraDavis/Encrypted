@@ -10247,6 +10247,9 @@ const BANK = {
 MP._bank = BANK;
 // replies to a few intents, bent by manner: TREPLY[intent][manner] (plain = everyone else)
 const TREPLY = {
+  brb: { plain: ['k', 'ok hurry', 'kk', 'ok dont take long', 'k ill wait'], clingy: ['nooo dont leave me', 'ok hurry pls'], tryhard: ['hurry, were on a timer', 'k be quick'], momfriend: ['ok take ur time', 'ok, well wait'], lazy: ['k ill sit here'], deadpan: ['k.'] },
+  back: { plain: ['wb', 'welcome back', 'finally lol', 'wb, u missed nothing'], hyper: ['YAY ur back', 'wb!!'], rude: ['took u long enough', 'finally'], wholesome: ['yay wb!!', 'missed u'], deadpan: ['wb.'] },
+  lag: { plain: ['ur fine', 'same lol', 'ya u were frozen', 'np'], rude: ['get better wifi lol', 'skill issue'], gamer: ['ping diff', 'rip ur ping'], chill: ['all good'] },
   comfort: { kind: ['aw whats wrong?', 'hey its ok, im here', 'aww dont be sad', 'come here, its ok'], rude: ['bro dont cry lol', 'u good? lol'], joker: ['dont cry, ill protect u lol', 'aw whats wrong, want a joke?'], scared: ['me too honestly', 'same, i wanna leave'], chill: ['eh its ok', 'its fine, chill'], momfriend: ['aw come here, whats wrong?', 'its ok sweetie, stay with me'], wholesome: ['aww its ok <3', 'hey ur doing great'], deadpan: ['sad.', 'same.'], hypeman: ['nah we good, we got this', 'chin up, we cooking'], pessimist: ['yeah, same', 'its ok to be sad, were doomed anyway'] },
   hurt: { plain: ['sorry lol', 'my bad', 'jk jk', 'sorry, i was joking', 'ok sorry'], rude: ['lol relax', 'its true tho', 'ok sorry, kinda'], kind: ['sorry!! i didnt mean it', 'aw sorry'], deadpan: ['sorry.'], trashtalk: ['cope lol', 'stay mad'], sarcastic: ['oh no. anyway', 'sorry, i guess'] },
   notme: { plain: ['nope not me', 'no i never had it', 'not me lol', 'i didnt take it'], rude: ['why would i have it lol', 'not me, check urself'], shy: ['um no', 'not me sorry'] },
@@ -10514,6 +10517,13 @@ function norm(text, fz) {
 }
 // what they meant, in priority order; null when nothing fits
 const INTENTS = [
+  ['brb', /^(brb|afk|one sec|1 sec|sec|gimme a sec|give me a sec|hold on a sec|be right back|bathroom|my (mom|mum|dad) is calling( me)?|dinner|gotta eat)( brb| sorry| guys)?$/],
+  ['back', /^(back|im back|i am back|bk|re|okay im back|ok back|ok im back)$/],
+  ['thanks', /^(wb|welcome back)$/],
+  ['ack', /^(omw|coming|on my way|lmk|let me know|idc|i do not care|idk|i do not know|i dont know|ikr|i know right|ik|i know|true true)$/],
+  ['mic', /\b(is my mic|is my (audio|voice|sound) (on|working)|can (you|u) hear my (mic|voice))\b/],
+  ['tired', /^(i am|im) (so |really )?(hungry|starving|thirsty)$/],
+  ['lag', /^(lag+|so laggy|im lagging|i am lagging|my (wifi|internet|ping) is (bad|trash|dying)|(wifi|internet) is (bad|trash))( sorry| lol)?$/],
   ['hurt', /^(thats|that is|that was|ur|you are|your|so|wow) (so |really |kinda )?(mean|rude|harsh|cold)( bro| tho| lol)?$/],
   ['notme', /^i thought (you|u) (did|had it|have it|got it|took it)\b|^(didnt|did not) (you|u) (have|take|grab) it\b/],
   ['gone', /^(its|it is|they are|theyre|the \w+ is|the \w+ are) (just )?(gone|missing|not there)\b/],
@@ -10560,7 +10570,7 @@ const INTENTS = [
   ['whereitem', /\bwhere (is |are )?(my|the|our|your) \w+ at\b|\b(anyone|anybody|any1|you|did you|have you|has anyone) (seen|see|find|found)( where)? (the|my|a|our) (?!(attic|cellar|kitchen|library|study|exit|basement|stairs|staircase|door|office|hallway|hall|foyer|bedroom|bathroom|nursery|lounge|dining|garden|room|way|ghost|clone|monster|others|rest|light|lights)\b)\w+|\bwho (has|got|took|grabbed|picked up) (the|my|a|our) \w+|\b(can not|cannot|cant) find (the|my|our) (?!(attic|cellar|kitchen|library|study|exit|basement|stairs|staircase|door|office|hallway|hall|foyer|bedroom|bathroom|nursery|lounge|dining|garden|room|way|ghost|clone|monster|others|rest|light|lights)\b)\w+|\bwhere (the|my|our) \w+ (went|go|is)\b/],
   ['whereother', t => { const m = t.match(/\bwhat happened to (\w+)/); return !!m && (MP.roster || []).some(p => String(p.name).toLowerCase() === m[1]); }],
   ['lostq', /\b(i am|im) (so |really )?(lost|stuck|confused)\b|\bi do not know where (to go|we are|i am|to)\b/],
-  ['foundit', /\b(i found|i got|found (a|the)|look what i)\b/],
+  ['foundit', /\b(nvm |nevermind |never mind )?found it\b|\b(i found|i got|found (a|the)|look what i)\b/],
   ['take', /\b(take (the|this|it|that)|here take|hold (this|the))\b/],
   ['warned', /\b(do not|dont) (go|open|touch|look|go in)\b|\b(not that way|wrong way|other way|not there|not in there|not that door)\b/],
   ['hand', /\b(in (your|ur) hand|holding|what is that|whats that)\b/],
