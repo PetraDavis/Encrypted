@@ -10367,6 +10367,9 @@ function seenItems(id, hereOnly) { try { const x = X(), q = whereIs(id), cr = q 
 function goalNow() { try { const el = document.getElementById('objt'); let g = (el && el.textContent || '').trim(); if (!g || /coming soon|explore freely/i.test(g)) return null;
   g = g.replace(/\s*press j[^.]*\.?/i, '').split(/(?<=[.?!])\s/)[0].replace(/[.!]+$/, '').replace(/"/g, '').toLowerCase().trim(); if (!g) return null;
   if (!/^(open|find|look|search|decode|unlock|take|read|check|play|go|climb|make|try|throw|get|use|enter|put|watch)\b/.test(g)) return null; return g.replace(/\bmildred'?s\b/g, 'the').replace(/\bivy'?s\b/g, 'ivys').replace(/\s+/g, ' '); } catch (e) { return null; } }
+// asked the same thing a third time inside a minute and a half: people point back at what they said
+const REPQ = {}; const REPK = new Set(['where', 'areuok', 'ok', 'plan', 'scaredq', 'controls', 'whoq', 'foundq', 'affirmreal', 'denyclone', 'directions']);
+function repeatTell(self, from, k) { if (!k || !REPK.has(k)) return null; const key = self + '|' + from, now = Date.now(), R = REPQ[key]; if (!R || R.k !== k || now - R.at > 90000) { REPQ[key] = { k, n: 1, at: now }; return null; } R.n++; R.at = now; if (R.n < 3 || Math.random() < .35) return null; return pick(['i just told u lol', 'i said already', 'same answer lol', 'scroll up lol', 'still the same', 'i literally just said']); }
 let CHOICE = null, CTRL = null;
 const CTRLS = [[/crouch|duck|sneak/, 'c'], [/run|sprint/, 'shift'], [/flash ?light|torch|light/, 'f'], [/journal|notes?|clues?|read .* again/, 'j or tab'], [/jump/, 'space'], [/pick|grab|interact|open (the )?doors?|open stuff|use/, 'e'], [/talk|chat|type/, 't'], [/mic|voice/, 'm, or hold v'], [/move|walk/, 'wasd']];
 function noteName(id) { const R = (MP.reads[id] || []).map(r => String(r.title || '').toLowerCase().replace(/[^a-z' ]/g, '').trim()).filter(t => t && t.length < 40); if (!R.length) return pick(['the note', 'that note', 'the notes']); const t = pick(R); return /^(the|a|an|that|this|my|\w+'s?) /.test(t) ? t : 'the ' + t; } // only notes this player actually read
@@ -10376,7 +10379,7 @@ function mixLine(t, id) { if (!t || t[0] === '\u0001' || !id || Math.random() >=
   const lo = t.toLowerCase().trim(), own = t.split(' ').length, F = MIXF[pick(top)[0]]; if (!F || own > 9) return t; const O = [];
   if (F.yes && /^(ok|okay|lets|come on|go|yes|yeah|ya|sure|bet|fine|omw|coming|im coming|k)\b/.test(lo)) O.push(() => pick(F.yes) + ' ' + t);
   if (F.pre && F.pre.length && !/^(ugh|omg|um|lol|eh|aw|wow|bro|wait|hmm|careful|ok ok|what|huh)\b/.test(lo)) { const pr = F.pre.filter(x => !new RegExp('\\b' + x.replace(/[^a-z ]/g, '') + '\\b').test(lo) && (!/^aw/.test(x) || /\b(thank|thanks|ty|sorry|noo+|rip|love|miss|cute|sweet|ur fine|its ok|dont say|oh no|proud)\b/.test(lo)) && own >= 2); /* aw only where it is tender; no interjection on one-word answers */ if (pr.length) O.push(() => pick(pr) + ' ' + t); }
-  if (F.tail && F.tail.length && !/[?]$/.test(lo) && !/\b(lol|tho|i guess|fr|gg|ez|great|please|jk|ngl|noob|quick|stay close|we got this|im scared|i cant|i think|dont leave me|carefully)[.!]*$|[😭💀]$|<3$|!!$/u.test(lo)) O.push(() => { const tl = pick(F.tail.filter(x => !/ /.test(x) || (own >= 3 && !/^(lol|what|huh)\b/.test(lo)))) || ''; return !tl ? t : tl === '!!' ? t.replace(/[.!]*$/, '!!') : /^[a-z]+ [a-z]+/.test(tl) && !/^(i guess|i think)$/.test(tl) ? t.replace(/[.!]+$/, '') + ', ' + tl : t.replace(/[.!]+$/, '') + ' ' + tl; });
+  if (F.tail && F.tail.length && !/[?]$/.test(lo) && !/\b(lol|tho|i guess|fr|gg|ez|great|please|jk|ngl|noob|quick|stay close|we got this|im scared|i cant|i think|dont leave me|carefully)[.!]*$|[😭💀]$|<3$|!!$/u.test(lo)) O.push(() => { const tl = pick(F.tail.filter(x => (!/ /.test(x) || (own >= 3 && !/^(lol|what|huh)\b/.test(lo))) && (x !== '<3' || /\b(thank|thanks|ty|love|miss|sorry|ur fine|its ok|proud|best|we got this|stay close|together)\b/.test(lo)))) || ''; return !tl ? t : tl === '!!' ? t.replace(/[.!]*$/, '!!') : /^[a-z]+ [a-z]+/.test(tl) && !/^(i guess|i think)$/.test(tl) ? t.replace(/[.!]+$/, '') + ', ' + tl : t.replace(/[.!]+$/, '') + ' ' + tl; });
   if (!O.length) return t; const out = pick(O)(), add = out.toLowerCase().replace(lo, '|'), grim = /\b(doomed|die|dying|dead|hate|cant|never|worst|sucks|scared|terrified|bad idea|no|nope|dont|stop)\b/.test(lo), harsh = /\b(noob|bozo|cope|trash|useless|shut up|diff|stay mad)\b/.test(lo), up = /\b(got this|yay|lets go|so good|nice|love|thanks|ty|same|me too|cool)\b|!!/.test(lo);
   if ((grim || harsh) && /we got this|lets go|^yes|<3|!!|^aw|u ok|stay close/.test(add)) return t; if (up && /doomed|great\.|i cant|^ugh/.test(add)) return t; return out; } // a second manner only where the moods agree
 function fill0(t, id) {
@@ -11151,7 +11154,7 @@ MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, tmix,
 function copyHeard(from, text) {
   if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase();
   const to = addressee(from, text, CP.orig, [CP.x, CP.z, CP.floor], CP.lastSaid, CP.asked); if (to === 'unsure' && askWho(CP.orig, from, CP, w => speak(CP.orig, w, { copy: true, only: CP.target }))) return; if (to === 'other' || (to === 'group' && Math.random() > chatty(CP.orig))) return;
-  const c = intentOf(text, n); CONV_CUR = convOf(CP.orig, from); const cx = ctxReply(CP.orig, from, text, c); if (cx) { if (cx.line) speak(CP.orig, fill(cx.line, CP.orig), { copy: true, only: CP.target }); CONV_CUR = null; return; }
+  const c = intentOf(text, n); { const rt = repeatTell(CP.orig, from, c); if (rt) return speak(CP.orig, rt, { copy: true, only: CP.target }); } CONV_CUR = convOf(CP.orig, from); const cx = ctxReply(CP.orig, from, text, c); if (cx) { if (cx.line) speak(CP.orig, fill(cx.line, CP.orig), { copy: true, only: CP.target }); CONV_CUR = null; return; }
   try { copyAnswer(from, text, n, c); } finally { CONV_CUR = null; }
 }
 function copyAnswer(from, text, n, c) {
@@ -11166,7 +11169,7 @@ function bodyHeard(from, text) {
   const n = nameOf(PS.id).toLowerCase(), t = norm(text), to = addressee(from, text, PS.id, [PS.x, PS.z, PS.floor], PS.lastSaid, PS.asked);
   if (to === 'unsure' && askWho(PS.id, from, PS, w => bodySay(w))) return;
   if (to === 'other' || (to === 'group' && Math.random() > chatty(PS.id))) return;
-  const k = intentOf(text, n), now = Date.now();
+  const k = intentOf(text, n), now = Date.now(); { const rt = repeatTell(PS.id, from, k); if (rt) return bodySay(rt); }
   CONV_CUR = convOf(PS.id, from); try { const cx = ctxReply(PS.id, from, text, k); if (cx) return cx.line ? bodySay(fill(cx.line, PS.id)) : undefined; return bodyAnswer(from, text, n, t, k, now, to); } finally { CONV_CUR = null; }
 }
 function bodyAnswer(from, text, n, t, k, now, to) {
@@ -11201,7 +11204,7 @@ function solveFor(from) {
   const found = open.filter(k => { const pz = E.PUZ.find(q => q.id === k); return pz && pz.found && pz.found(); });
   let best = found[0] || null;
   if (!best) { let bd = 1e9; for (const d of E.DOORS) if (d.puzzle && !S.solved[d.puzzle] && open.includes(d.puzzle)) { const dd = Math.hypot(d.x - PS.x, d.z - PS.z); if (dd < bd) { bd = dd; best = d.puzzle; } } }
-  bodySay(pick(BANK.stall), { delay: rnd(700, 1600), exact: true });
+  bodySay(fresh('stall'), { delay: rnd(700, 1600), exact: true });
   if (!best) return bodySay(pick(['idk which one', 'what one', 'which puzzle', 'cant see it from here']), { delay: rnd(3000, 5000) });
   const ans = String(A[best][0]).toLowerCase(), J = solveJob('poss', best), wait = Math.max(4000, J.at - Date.now()); // as long as a person would take, a touch less
   bodySay(pick(['its ', 'i think its ', 'try ', '', 'pretty sure its ']) + ans, { delay: wait, exact: true }); J.said = 1;
