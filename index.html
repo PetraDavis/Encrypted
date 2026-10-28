@@ -9805,14 +9805,14 @@ function styleOf(texts) {
   const emo = {}; for (const t of T0) { const es = emosIn(t), rest = stripEmos(t); for (const { e, i } of es) { const k = e, o = emo[k] || (emo[k] = { e: k, n: 0, alone: 0, end: 0, start: 0 }); o.n++; if (!rest) o.alone++; else if (i + e.length >= t.trimEnd().length - 1) o.end++; else if (i === 0) o.start++; } }
   const EM = Object.values(emo).filter(o => o.n >= 2).map(o => ({ e: o.e, r: o.n / T0.length, aloneR: o.alone / T0.length, inR: (o.n - o.alone) / T0.length, pos: o.end >= o.start ? 'end' : 'start' }));
   const T = T0.map(stripEmos).filter(t => /[a-z]/i.test(t)); if (!T.length) T.push('ok');
-  const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/([!?]{2,}|\.\.\.|[.!?])$/); const k = m ? m[1] : ''; if (k.includes('?')) continue; ends[k] = (ends[k] || 0) + 1; }
+  const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/([!?]{2,}|\.\.\.|[.!?]|~+)$/); const k = m ? m[1] : ''; if (k.includes('?')) continue; ends[k] = (ends[k] || 0) + 1; }
   const ems = T.join(' ').match(/\p{Extended_Pictographic}/gu) || [], emoji = ems[0] || '', emRate = cnt(t => /\p{Extended_Pictographic}/u.test(t));
   const lm = T.join(' ').match(/\b(lmao+|lmfao|lol+|haha+|hehe+|xd|rofl)\b|😂|🤣|😭/gi), laugh = lm ? lm[lm.length - 1] : 'lol';
   // their own filler words, and where they put them
   // their own short words (wtf, omg, bruh, ngl, idk...): any short token they keep using, learned from what they typed only.
   // Each is tracked as used alone ("wtf") or inside a line ("wtf was that"), and where it sits (start / end).
   const tags = [], solo = [], seen = {};
-  for (const t of T) { const ws = new Set((t.toLowerCase().match(/[a-z]+/g) || [])); for (const w of ws) seen[w] = (seen[w] || 0) + 1; }
+  for (const t of T) { const ws = new Set((t.toLowerCase().replace(/[’`]/g, "'").match(/[a-z]+(?:'[a-z]+)*/g) || []).filter(w => !w.includes("'"))); for (const w of ws) seen[w] = (seen[w] || 0) + 1; }
   for (const w in seen) {
     if (seen[w] < 2 || NOECHO.test(w) || (!SLANG.includes(w) && (w.length > 5 || COMMON.has(w)))) continue;
     const re = new RegExp('(^|[^a-z])' + w + '([^a-z]|$)', 'i'), hits = T.filter(t => re.test(t));
@@ -9841,14 +9841,16 @@ function inStyle(base, st) {
   if (st.noPunct) t = t.replace(/[.,!?;:']/g, '').replace(/\s+/g, ' ').trim();
   else if (!st.apos && st.lower) t = t.replace(/(\w)'(\w)/g, '$1$2');
   else t = t.replace(/[.!?]+$/, '');
+  if (st.apos && !st.noPunct) t = t.replace(/\b(im|dont|cant|thats|wheres|didnt|wont|isnt|youre|ive|doesnt|whats|theres|lets go)\b/gi, w => ({ im: "i'm", dont: "don't", cant: "can't", thats: "that's", wheres: "where's", didnt: "didn't", wont: "won't", isnt: "isn't", youre: "you're", ive: "i've", doesnt: "doesn't", whats: "what's", theres: "there's" })[w.toLowerCase()] || w); // they write the apostrophes in
   if (!st.lol && st.caps !== undefined && !/lol|lmao|haha/i.test(st.laugh === 'lol' ? '' : st.laugh)) t = t.replace(/\s*\b(lol|lmao)\b\s*/gi, ' ').trim() || 'ok';
   if (st.lol && !/\b(lol|lmao)\b/i.test(t) && Math.random() < .5) t += ' ' + (/^(lo+l+|lmf?ao+)$/i.test(st.laugh || '') ? st.laugh : /^lmao/i.test(st.laugh) ? 'lmao' : 'lol');
   if (st.shout) t = t.toUpperCase();
   else if (st.lower) t = t.toLowerCase();
   else if (st.caps) { t = t.replace(/\bi\b/g, 'I').replace(/\bim\b/gi, "I'm").replace(/\bdont\b/g, "don't"); t = t[0].toUpperCase() + t.slice(1).replace(/([.!?] )([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
   const isQ = /^(did|does|do|who|whos|what|whats|wat|where|wheres|which|why|y|how|is|are|r|can|could|anyone|has|have|was|were|wait did|wait which|wait what|ok who|so who)\b/i.test(t) || /\?$/.test(base.trim());
-  if (!st.noPunct) t += isQ && st.q ? (st.G && st.G.qEnd ? st.G.qEnd : '?') : st.end;
+  if (!st.noPunct) t = t.replace(/[.!?~]+$/, '') + (isQ && st.q ? (st.G && st.G.qEnd ? st.G.qEnd : '?') : st.end);
   else if (st.G && isQ && st.G.qEnd && st.q) t += st.G.qEnd;
+  else if (/~/.test(st.end || '') && !isQ && !/~$/.test(t)) t += st.end;
   if (st.G && st.G.xEnd && !isQ && !/[!?]$/.test(t) && Math.random() < st.G.xR) t = t.replace(/[.]$/, '') + st.G.xEnd;
   if (st.G && st.G.noCaps === 1) t = t.toLowerCase();
   if (st.G && st.G.noSp && Math.random() < st.G.noSp) t = t.replace(/([,.!?]) (?=[a-z])/gi, '$1');
