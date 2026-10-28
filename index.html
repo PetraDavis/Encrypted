@@ -9867,6 +9867,10 @@ function styleOf(texts) {
   const wpm = T.reduce((a, t) => a + t.trim().split(/\s+/).length, 0) / T.length;
   return { dotR: (ends['.'] || 0) / Math.max(1, T.length), wpm, G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), qR: (() => { const QL = texts.slice(-60).map(stripEmos).filter(t => /\?[!?]*\s*$/.test(t) || /^(did|does|do|who|whos|what|whats|wat|where|wheres|which|why|how|is|are|r|can|could|anyone|has|have|was|were)\b/i.test(String(t).trim())); return QL.length >= 2 ? QL.filter(t => /\?[!?]*\s*$/.test(t)).length / QL.length : 1; })(), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
 }
+/* an emoji that fits the line: no party or thumbs-up on a scared one, no crying on good news */
+const EM_UP = /[🎉👍🥳😊😄😁😃🙂❤🥰✨👋😎🤩💪🙌😆]/u, EM_DOWN = /[😭😨😱😬😰😟😢😥😧😦🥺😳😩]/u;
+function emoFor(t, ems) { const neg = /\b(scar|help|leave|saw|someone|ghost|dark|run|hide|creep|nope|no+\b|why|what was|she|died|dead|alone|whisper|heard|footsteps|watching|behind|lost|stuck|cant|wont|locked|oops|sorry)/i.test(t), pos = /\b(found|yay|nice|got it|we did|finally|yes+|cute|cool|thanks|thx|ty|lets go|ez|solved|opened|bye)\b/i.test(t);
+  const ok = ems.filter(e => neg && !pos ? !EM_UP.test(e) : pos && !neg ? !EM_DOWN.test(e) : true); return pick(ok.length ? ok : ems); }
 function inStyle(base, st) {
   if (base[0] === '\u0001') return base.slice(1); // their own words, exactly as typed
   const so = (st.solo || []).find(x => x.w === base.trim().toLowerCase()); if (so) return so.form; // a standalone reaction, exactly how they type it
@@ -9897,7 +9901,7 @@ function inStyle(base, st) {
   if (st.G && st.G.noCaps === 1) t = t.toLowerCase();
   if (st.G && st.G.noSp && Math.random() < st.G.noSp) t = t.replace(/([,.!?]) (?=[a-z])/gi, '$1');
   if (st.G && st.G.dbl && Math.random() < st.G.dbl) { const sp = [...t.matchAll(/ /g)]; if (sp.length) { const k = sp[Math.floor(Math.random() * sp.length)].index; t = t.slice(0, k) + '  ' + t.slice(k + 1); } }
-  if (st.ems && st.ems.length && !/\p{Extended_Pictographic}\s*$/u.test(t) && Math.random() < Math.max(st.emRate, st.emRate > .5 ? .9 : 0)) t += ' ' + pick(st.ems);
+  if (st.ems && st.ems.length && !/\p{Extended_Pictographic}\s*$/u.test(t) && Math.random() < Math.max(st.emRate, st.emRate > .5 ? .9 : 0)) t += ' ' + emoFor(t, st.ems);
   if (face) t = facePos === 'start' ? face + ' ' + t : t.replace(/[.]$/, '') + ' ' + face; // faces go on after case and punctuation, exactly as typed
   return t;
 }
@@ -10455,15 +10459,17 @@ function varyOwn(k, H) { if (Math.random() > .35) return k; const all = ' ' + H.
   return V.length ? V[Math.floor(Math.random() * V.length)](k) : k; }
 function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; let CT = null; try { CT = ctxTags(id); } catch (e) {} const so = CT && (CT.has('greet') || CT.has('danger')) ? [] : styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
-function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; return lenFit(id, Ls.length ? Ls : L0); }
+function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let LL = Ls.length ? Ls : L0; if (/emoji/.test(cat)) { const HJ = (MP.hist[id] || []).join(' '), E = LL.filter(x => [...x.matchAll(/\p{Extended_Pictographic}/gu)].every(m => HJ.includes(m[0]))); LL = E.length ? E : BANK.casual || LL; } /* only emoji they really use */
+  return lenFit(id, LL); }
 /* line length like theirs: of a few candidates, favour the ones as long as the lines they really typed */
-function lenFit(id, L) { return lenPick(() => fill(pick(L), id), id, 6); }
+function lenFit(id, L) { return lenPick(() => fill(pick(L), id), id, 6) || lenPick(() => fill(pick(BANK.casual || BANK.vague), id), id, 6) || fill(pick(L), id); }
 function lenPick(gen, id, k) { const H = (MP.hist[id] || []).map(t => String(t).trim().split(/\s+/).length); if (H.length < 4) return gen(); const c = [];
   const st = styleOf(MP.hist[id] || []), HT = (MP.hist[id] || []).map(t => String(t).toLowerCase()), isQ = t => /\?\s*\W*$/.test(t) || /^(what|where|who|why|how|did|does|do|is|are|can|could|should|was|were|anyone|any1)\b/i.test(t.trim()), qr = HT.filter(isQ).length / HT.length;
   const V = {}; for (const t of HT) for (const w of t.split(/[^\p{L}\p{N}']+/u)) if (w) V[w] = (V[w] || 0) + 1;
   /* asks as often as they asked, and in words they use */
   const fitQ = t => isQ(String(t).replace(/^\u0001/, '')) ? (qr + .02) / .4 : (1.02 - qr) / .6, fitV = t => { const ws = String(t).toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(w => w.length > 1); return ws.length ? .4 + 1.6 * ws.filter(w => V[w]).length / ws.length : 1; };
-  for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } c.push([t, (H.filter(h => Math.abs(h - n) <= (n > 4 ? 1 : 0)).length + .2) * fitQ(t) * fitV(t), n]); }
+  for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } const RS = (MP.recentSaid || {})[id] || [], said = RS.includes(String(t).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); c.push([t, (H.filter(h => Math.abs(h - n) <= (n > 4 ? 1 : 0)).length + .2) * Math.pow(fitQ(t), 1.6) * fitV(t) * (said ? .12 : 1), n, said]); }
+  if (c.every(x => x[3])) return null; /* everything here was said just now: try another kind of line */
   /* a short typer's turn to say something short, and nothing here is short: one of their own short lines instead */
   const want = pick(H); if (want <= 2 && !c.some(x => x[2] <= want + 1)) { const sh = (MP.hist[id] || []).filter(t => String(t).trim().split(/\s+/).length <= 2 && !NOECHO.test(t) && !KEEP_RE.test(t) && !/\?$/.test(t)); if (sh.length) return '\u0001' + pick(sh); }
   let r = Math.random() * c.reduce((a, x) => a + x[1], 0); for (const x of c) if ((r -= x[1]) <= 0) return x[0]; return c[0][0]; }
@@ -10593,6 +10599,7 @@ MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = text
 MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
 function speak(id, base, o = {}) {
   let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) text = roomWords(id, text);
+  if (o.body || o.copy) { const RS = MP.recentSaid || (MP.recentSaid = {}), a = RS[id] || (RS[id] = []); a.push(String(base).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); if (a.length > 15) a.shift(); }
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
   if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
   let fix = null; if (!o.exact) [text, fix] = typoStep(id, text); text = PROF.clean(text); if (fix) fix = PROF.clean(fix);
