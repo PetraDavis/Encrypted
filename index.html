@@ -10025,6 +10025,8 @@ function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
   const o = posOf(CP.orig), tq = posOf(CP.target);
   if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > 6 * 60000) return copyEnd(false);
+  /* time to lure: checked first, so standing together (mirror) or idling beside the target cannot hold it off until the copy times out */
+  if (CP.phase === 'follow' && now > CP.lureAt && tq[4] === 1 && CP.floor === 1) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 150000; toAll({ t: 'void', on: true }); setTimeout(() => copySay('i found this room'), 2500); setTimeout(() => copySay('come look'), 11000); CP.pass = null; }
   // everyone in one room with it: it moves as the original moves
   const L = living(), rooms = L.map(p => roomOfPos(posOf(p.id))), cr = X().roomAt(CP.x, CP.z);
   const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
@@ -10056,7 +10058,6 @@ function copyTick(dt) {
     const ddx = CP.x - x0, ddz = CP.z - z0, jump = Math.hypot(ddx, ddz) > 1; if (!jump && dt > 0) { M.vx = (M.vx || 0) * .7 + ddx / dt * .3; M.vz = (M.vz || 0) * .7 + ddz / dt * .3; } // smoothed heading, so tiny steps do not spin the head
     const md = Math.atan2(-(M.vx || 0), -(M.vz || 0)), mvd = Math.hypot(M.vx || 0, M.vz || 0) > .4;
     const ls = lookStep(CP, Hb, M, dt, mvd, mvd ? md : CP.yaw); if (ls) M.lastSp = ls;
-    if (now > CP.lureAt && tq[4] === 1 && CP.floor === 1) { CP.phase = 'lure'; CP.lureEnd = now + 150000; toAll({ t: 'void', on: true }); setTimeout(() => copySay('i found this room'), 2500); setTimeout(() => copySay('come look'), 11000); CP.pass = null; }
     return;
   }
   if (CP.phase === 'taking') return;
@@ -10122,7 +10123,7 @@ function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] ||
 MP.prox = {};
 function possess(id, q) {
   chatStop(id);
-  Object.assign(PS, { repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + chatGap(id) * rnd(.3, 1) });
+  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: Date.now() + 40000, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + chatGap(id) * rnd(.3, 1) });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(fill(pick(BANK.mic), PS.id)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
@@ -10148,7 +10149,7 @@ function possTick(dt) {
   if (PS.waitFor) { const W2 = PS.waitFor, q = posOf(W2.id); if (!q || ghostOf(W2.id) || now > W2.until || (q[4] === PS.floor && Math.hypot(q[0] - PS.x, q[1] - PS.z) < 2.5)) PS.waitFor = null; else { if (q[4] === PS.floor) PS.yaw = Math.atan2(-(q[0] - PS.x), -(q[1] - PS.z)); return; } } // waiting for the one who asked
   if (MP.voidOn) { const r = x.roomAt(PS.x, PS.z); if (r === 'mpvoid') { walkObj(PS, 21.6, -3.4, 1.6 * dt); return; } }
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
-  if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
+  if (now > (PS.mimicUntil || 0)) { Q.length = 0; PS.mimicLast = null; } else if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
   if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1) slideBy(PS, m.dx, m.dz); PS.yaw = m.yaw; } return; }
   if (now > PS.nextSay) { PS.nextSay = now + chatGap(PS.id); const cat = pickCat(PS.id); const line = bankLine(cat, PS.id); bodySay(line, { sched: 1 }); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
   if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; if (now > PS.nextSay - 60000) bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
