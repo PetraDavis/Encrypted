@@ -10267,6 +10267,18 @@ const BANK = {
   hearq: ['yeah wtf was that', 'i heard it too', 'came from the {next} i think', 'no?? what noise', 'dont say that lol', 'i think it was upstairs', 'yeah that was close', 'prob just the house'],
   dark: ['turn ur torch on', 'i cant see anything either', 'omg', 'stay close', 'where r u, i cant see', 'my torch is on, follow it', 'ok this is bad'],
   staring: ['i wasnt staring lol', 'was just looking around', 'sorry zoned out', 'ur in my way lol', 'just thinking', 'lol ok'],
+  danger: ['where??', 'RUN', 'nope nope nope', 'where do i go', 'omw out', 'hiding', 'dont let her see u', 'go go go'],
+  hiding: ['ok stay there', 'dont move', 'ok im hiding too', 'stay quiet', 'k tell me when shes gone'],
+  safeq: ['i think so', 'idk dont move yet', 'not sure, wait', 'i think shes gone', 'wait a sec first'],
+  success: ['YES', 'lets gooo', 'nice!!', 'finally', 'W', 'ok nice'],
+  fail: ['ugh', 'noo', 'try again', 'hm maybe the order is wrong', 'damn', 'ok what else'],
+  tryit: ['ok trying', 'k', 'one sec', 'ok', 'trying it'],
+  noteq: ['i didnt read it', 'idk i didnt get that far', 'havent seen it', 'which note', 'read it urself lol'],
+  rush: ['im coming', 'ok ok', 'coming', 'omw', 'chill im coming'],
+  almost: ['finally', 'lets gooo', 'we got this', 'yesss', 'dont jinx it lol'],
+  slow: ['ikr', 'fr', 'this house is huge', 'almost there i think', 'ugh same'],
+  downed: ['noooo', 'rip', 'nooo how', 'ill get her back', 'dang', 'oh no'],
+  ghostq: ['idk', 'i hope not lol', 'maybe?', 'thats creepy', 'no idea'],
   ignored: ['sorry was reading', 'im here im here', 'sorry didnt see', 'what?? im here', 'sorry, what', 'my bad, what did u say'],
   plan: ['idk, the {next}?', 'just following u lol', 'anywhere but here', 'looking for a way out', 'the {next} i think', 'wherever the next clue is', '{goal}', 'i think we gotta {goal}', '{goal} i think', 'uh {goal}?', 'we still need to {goal}'],
   directions: ['i think its through the {next}', 'back past the {next}', 'i forgot lol', 'near the {next} i think', 'no clue, i got lost earlier'],
@@ -10563,7 +10575,7 @@ const SLANGP = [[/(?<=[a-z]) a{1,2}h{2,}\b(?! (what|no|help|run))/g, ''], [/\bwy
   [/\b(your|ur) aura (is )?(gone|zero|dead|negative|0|minus|in the negatives)\b.*|\b(lost|losing|minus|negative) (all )?(your |ur |the )?aura\b/g, 'you are bad'], [/\b(your|ur) aura\b.*/g, 'nice one'], [/\bno rizz\b/g, 'you are bad'], [/\b(got|has|have|so much|mad|unspoken|w) rizz\b/g, 'nice one'], [/\bstop glazing\b/g, 'lol'], [/\b(ur|you are|your|u) (so )?(glazing|delulu)\b/g, 'you are dumb'], [/.*\bglazing\b.*/g, 'lol'], [/\bdelulu\b/g, 'dumb'],
   [/\b(crash ?out|crashing out)\b/g, 'freaking out'], [/^is this real$/g, 'periodt'], [/\bwe (so|are so|are) cooked\b/g, 'we are doomed']];
 function norm(text, fz) {
-  let t = String(text).toLowerCase().replace(/[’`]/g, "'").replace(/'/g, '').replace(/([a-z])\1{2,}/g, '$1$1').replace(/[^\p{L}\p{N}\s?!]/gu, ' ');
+  let t = String(text).toLowerCase().replace(/[’`]/g, "'").replace(/\b(we|they)'re\b/g, '$1 are').replace(/\bwere (?=(almost|so|not|going|gonna|done|getting|close|lost|stuck|out|safe|dead|fine|ok|good|cooked|doomed|winning|losing|screwed|here|together|in)\b)/g, 'we are ').replace(/'/g, '').replace(/([a-z])\1{2,}/g, '$1$1').replace(/[^\p{L}\p{N}\s?!]/gu, ' ');
   for (const [re, w] of SLANGP) t = t.replace(re, w); t = t.replace(/\s+/g, ' ').trim();
   const names = new Set((MP.roster || []).map(p => String(p.name).toLowerCase()));
   t = t.split(/\s+/).map(w => { const q = w.replace(/[?!]+$/, ''), tail = w.slice(q.length); let v = RSLANG[q]; if (v === undefined && /(.)\1/.test(q)) v = RSLANG[q.replace(/(.)\1/g, '$1')]; if (fz && v === undefined && !names.has(q) && !COMMONW.has(q)) { const f = fixWord(q); if (f !== q) v = f; } return (v !== undefined ? v : q) + tail; }).join(' ').replace(/\s+/g, ' ').trim();
@@ -10582,7 +10594,18 @@ const INTENTS = [
   ['notme', /^i thought (you|u) (did|had it|have it|got it|took it)\b|^(didnt|did not) (you|u) (have|take|grab) it\b/],
   ['gone', /^(its|it is|they are|theyre|the \w+ is|the \w+ are) (just )?(gone|missing|not there)\b/],
   ['ack', /^(nothing|nm|nothing nvm|nvm nothing|nothing lol|never mind lol|nvm lol|ok|okay|k|kk|okk|nvm|never ?mind|same|same tho|me (too|neither)|true|fair|ight|alright|cool|cool right|right|ya|yeah)\??$/],
-  ['wtf', /^(wtf|what|what the \w+) (just )?happened$|^(wait )?what (just )?happened\b(?! to)|^wtfalarm$|^(wtf|wth|what the (hell|heck|frick))( is (happening|going on|this|wrong with this))?$/],
+  ['danger', /^(shes|she is|its|it is|he is|hes) (coming|here|behind (u|you|us|me)|right there|close|next to (u|you))\b|\b(theres|there is) (something|someone|smth) (behind|next to|near|following)\b|^(hide|run|go)(!+| now| quick| hide| run)*!*$|^(behind (u|you))!*$/],
+  ['hiding', /^(im|i am|ok im|ok i am) hiding\b|^(im|i am) in the (closet|cupboard|wardrobe|locker)\b/],
+  ['safeq', /^(is|did) (she|it|he) (gone|leave|go away)\b|^is it safe\b|^(we|r we|are we) safe\b/],
+  ['success', /^(got it|it worked|it opened|its open|door opened|we did it|did it|solved it)!*$/],
+  ['fail', /^(it )?(didnt|did not|doesnt|does not) work\b|^(wrong|bad) (code|answer|order)\b|^(nope|no) (it )?didnt work\b|^(still )?locked$|^(its )?(still )?locked\b/],
+  ['tryit', /^try (\d{2,}|[a-z]+ \d+|it|that|this|the other)\b/],
+  ['rush', /^(hurry|hurry up|come on|cmon|faster|quick|be quick|move it|go faster)!*$/],
+  ['almost', /\b(we are|were|im|i am|its|were so) (almost|nearly|so close to) (done|there|out|finished)\b|^almost (done|there|out)!*$/],
+  ['slow', /^u+gh+$|\b(taking|takes) (so long|forever|ages)\b|^(this|it) is (so )?(long|slow)\b/],
+  ['downed', /^(she|it|he) (got|caught|killed|took) (me|him|her|them|\w+)\b|^rip \w+$|^(im|i am) dead( lol)?$(?!)|^(i|we) (died|lost \w+)\b/],
+  ['ghostq', /\b(can|do) ghosts (talk|see|hear|move|chat|win)\b/],
+  ['wtf', /^(wait )?(whos|who is) (that|there)\b|^(u|you|did (u|you|anyone)) see that\b|^(wtf|what|what the \w+) (just )?happened$|^(wait )?what (just )?happened\b(?! to)|^wtfalarm$|^(wtf|wth|what the (hell|heck|frick))( is (happening|going on|this|wrong with this))?$/],
   ['imscared', t => !/\?/.test(t) && !/\b(you|your|of you)\b/.test(t) && (/^(ok |ngl |tbh |honestly |guys |um |ok i |yeah )*(i am|i|im) (so |really |very |a bit |a little |getting |actually |kinda |lowkey |genuinely |fr )*(scared|terrified|spooked|afraid|freaked out|nervous|shaking|creeped out)\b/.test(t) || /^(so |very |really |a bit |kinda |getting )*(scared|terrified|spooked)( ngl| fr| tbh| rn| now| honestly| not gonna lie)*$/.test(t) || /\b(this|it|that|the house|this house|this place|this game) is (scaring|freaking) me( out)?\b|^i (do not|dont) like (this|it here)\b|^i (want to|wanna) (go home|leave)\b|gives? me (the )?(creeps|chills)\b|^((nope|no|nah) ?){3,}$|\bi (have|got|get) a bad feeling\b/.test(t) || /^(this|that|it|this place|this house|this game) (is )?(so |really |actually )?(creepy|scary|terrifying|freaky)$/.test(t))],
   ['scaredq', /\b(got|get|getting|so) (scared|spooked)\b|\b(it is|its|this is|so) (so )?haunted\b|\b(we|i|we are|i am|im|were) (are )?(going to|gonna|about to|will) (die|get caught|get got)\b|\b(she|it) (is )?(about to|going to) get (us|me)\b|\bwe are (so )?dead\b/],
   ['dark', /\b(torch|flashlight|light|lights|battery|batteries|lamp|phone light)\b.{0,14}\b(died|dead|out|off|broke|broken|dying|flickering|not working|stopped)\b/],
