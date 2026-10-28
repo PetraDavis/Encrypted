@@ -9370,7 +9370,12 @@ addEventListener('keyup', e => { if (e.key.toLowerCase() === 'v' && MP.ptt) { MP
 addEventListener('blur', () => { if (MP.ptt) { MP.ptt = false; micGate(); } });
 
 // ---------- Ysolde keeps messages that say her name ----------
-const KEEP_RE = /y\s*[sz]\s*[oau]\s*l\s*d|\b[iy]s+[oau]l+d|static\s*-?\s*w[oa]m[ae]n|staticwom/i;
+const KEEP_RE0 = /(?<![a-z])y\s*[sz]\s*[oau]\s*l\s*d|\b[iy]s+[oau]l+d|static\s*-?\s*(w[oa]m[ae]n|lady|girl|chick|ghost)|staticwom|staticlady/i;
+/* her name dressed up: lookalike letters, zero-width gaps, leetspeak, letters spaced or dotted apart */
+const KLOOK = { 'а': 'a', 'е': 'e', 'о': 'o', 'у': 'y', 'с': 'c', 'ѕ': 's', 'і': 'i', 'ӏ': 'l', 'ԁ': 'd', 'α': 'a', 'ο': 'o', 'ε': 'e', 'γ': 'y', 'υ': 'y', 'ι': 'i', '0': 'o', '3': 'e', '1': 'l', '5': 's', '4': 'a', '$': 's', '@': 'a', '|': 'l', '7': 't' };
+function keepNorm(t) { let s = String(t).normalize('NFKC').toLowerCase().replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/g, ''); s = s.replace(/[\u0400-\u04ff\u0370-\u03ff0-9$@|]/g, c => KLOOK[c] || c);
+  const tk = s.split(/[\s.\-_*,~+/\\]+/), out = []; let run = ''; for (const w of tk) { if (w.length === 1) run += w; else { if (run) out.push(run); run = ''; out.push(w); } } if (run) out.push(run); return out.join(' '); }
+const KEEP_RE = { test: t => KEEP_RE0.test(t) || KEEP_RE0.test(keepNorm(t)) };
 MP.kept = []; MP.keptBack = {};
 // the picked player's text, as the others see it: a little more wrong as the night goes on, still readable
 const GLYPH = { a: '\u0251', e: '\u0435', o: '\u00f8', i: '\u0131', l: '\u0142', s: '\u0455', c: '\u03f2', n: '\u014b', u: '\u03c5', y: '\u04af', t: '\u0167', r: '\u0433', h: '\u04bb' };
