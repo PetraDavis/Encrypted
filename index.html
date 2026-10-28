@@ -10721,7 +10721,11 @@ const INTENTS = [
   ['yesno', /^(is|are|do|does|did|can|could|should|will|would|have|has|was|were|you|want)\b/],
 ];
 // fuzzy reading only when the plain one found nothing
-function intentOf(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
+function intentOf(raw, selfName) { const parts = String(raw).split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(x => /[a-z]/i.test(x));
+  if (parts.length > 1) { const ks = parts.map(x => intentOf1(x, selfName)), FILL = new Set(['waitok', 'ack', 'laughs', 'yes', 'no', 'happy', 'greet', 'meh', 'vague', 'maybe', 'sorry', null]); // several sentences: a leaving line wins, else the last thing that says something
+    if (['brb', 'bye'].includes(ks[0])) return ks[0]; for (let i = ks.length - 1; i >= 0; i--) if (!FILL.has(ks[i])) return ks[i]; }
+  return intentOf1(raw, selfName); }
+function intentOf1(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
 function intentOf0(raw, selfName, fz) {
   if (/(^|\s)[a-z]\*{2,}/i.test(raw) && raw.replace(/(^|\s)[a-z]\*{2,}\w*/gi, ' ').trim().split(/\s+/).length <= 3) return /\b(u|you|ur|your|youre)\b/i.test(raw) ? 'insult' : 'meh'; // a filtered swear: aimed at it, or at the game
   if (/[😂🤣💀😭]/u.test(raw) && !/[a-z]{3}/i.test(raw)) return 'laughs';
