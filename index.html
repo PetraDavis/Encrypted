@@ -9959,7 +9959,7 @@ function habitsOf(id) {
   const tot = Object.values(rooms).reduce((a, b) => a + b, 0) || 1, score = r => (ent[r] || 0) + 3 * rooms[r] / tot;
   const px = (MP.prox[id] || []).slice().sort((a, b) => a - b); H.near = px.length >= 20 ? Math.max(.9, Math.min(4, px[Math.floor(px.length / 2)])) : 1.6; H.ret = Object.keys(rooms).sort((a, b) => score(b) - score(a)).slice(0, 3); H.retW = Object.fromEntries(H.ret.map(r => [r, score(r)]));
   H.flOn = flOn.slice(-60); H.flOff = flOff.slice(-60); H.jumpR = jmp / n * 10; H.crTog = crT / n * 10; H.bumpR = bump / n * 10; H.spinR = still ? spins / still * 10 : 0; H.circR = mv ? circ / mv * 10 : 0;
-  return Object.assign(H, { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
+  return Object.assign(H, { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, stillF: still / n, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
     fav: H.ret.length ? H.ret : Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n, pitchM: pSum / n, upR: up / n, downR: down / n, strafeR: mv ? strafe / mv : 0, wallD: mv ? wd / mv : 1.2, speed: wn ? spd / wn : 2.4 /* walking pace only: sprints have their own speed */, jitter: jit / n * 10, pauses, runs });
 }
 // drive head / body / torch orientation from their recorded camera behaviour: replays real snippets of how they turned and looked
@@ -9984,7 +9984,7 @@ function habitStep(o, H, M, dt, moving) {
   torchStep(o, H, M); if (quirkStep(o, H, M, dt, moving)) return { speed: 0, paused: true };
   if (now > M.crouchUntil) { M.crouchUntil = now + rnd(3000, 8000); M.crouch = Math.random() < H.crouch; }
   o.eye = M.crouch ? 1.0 : 1.65;
-  if (moving && !M.pauseUntil && Math.random() < H.pauseRate * dt) { M.pauseUntil = now + Math.min(15000, H.pauseLen * rnd(.6, 1.4) * 1000); M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn; }
+  if (moving && !M.pauseUntil && Math.random() < H.pauseRate / Math.max(.25, 1 - (H.stillF || 0)) * dt) /* their pauses per second of walking, not of the whole session */ { M.pauseUntil = now + Math.min(15000, H.pauseLen * rnd(.6, 1.4) * 1000); M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn; }
   if (M.pauseUntil && now > M.pauseUntil) M.pauseUntil = 0;
   const idle = !moving || M.pauseUntil;
   if (idle && !(H.seg && (H.seg.idle.length || H.seg.move.length))) { if (Math.random() < dt * .8) M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn * rnd(.5, 1.5); o.yaw += M.look * dt; }
