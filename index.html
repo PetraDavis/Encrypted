@@ -10455,7 +10455,21 @@ function varyOwn(k, H) { if (Math.random() > .35) return k; const all = ' ' + H.
   return V.length ? V[Math.floor(Math.random() * V.length)](k) : k; }
 function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; let CT = null; try { CT = ctxTags(id); } catch (e) {} const so = CT && (CT.has('greet') || CT.has('danger')) ? [] : styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
-function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let t = fill(pick(Ls.length ? Ls : L0), id); return t; }
+function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; return lenFit(id, Ls.length ? Ls : L0); }
+/* line length like theirs: of a few candidates, favour the ones as long as the lines they really typed */
+function lenFit(id, L) { return lenPick(() => fill(pick(L), id), id, 6); }
+function lenPick(gen, id, k) { const H = (MP.hist[id] || []).map(t => String(t).trim().split(/\s+/).length); if (H.length < 4) return gen(); const c = [];
+  const st = styleOf(MP.hist[id] || []); for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } c.push([t, H.filter(h => Math.abs(h - n) <= (n > 4 ? 1 : 0)).length + .2, n]); }
+  /* a short typer's turn to say something short, and nothing here is short: one of their own short lines instead */
+  const want = pick(H); if (want <= 2 && !c.some(x => x[2] <= want + 1)) { const sh = (MP.hist[id] || []).filter(t => String(t).trim().split(/\s+/).length <= 2 && !NOECHO.test(t) && !KEEP_RE.test(t) && !/\?$/.test(t)); if (sh.length) return '\u0001' + pick(sh); }
+  let r = Math.random() * c.reduce((a, x) => a + x[1], 0); for (const x of c) if ((r -= x[1]) <= 0) return x[0]; return c[0][0]; }
+/* rooms called what they called them: their own word if they ever typed one, else the short everyday name */
+const RPRE = /^(the|grand|home|old|master|walk-in) /;
+function roomWords(id, text) { let R; try { R = Object.values(X().ROOMS).map(r => String(r.name || '').toLowerCase()).filter(n => n.includes(' ')); } catch (e) { return text; } const H = (MP.hist[id] || []).join(' \n ').toLowerCase(), ALLR = new Set(Object.values(X().ROOMS).map(r => String(r.name || '').toLowerCase()));
+  for (const full of [...new Set(R)].sort((a, b) => b.length - a.length)) { const re = new RegExp('\\b' + full.replace(/[-]/g, '\\$&') + '\\b', 'gi'); if (!re.test(text)) continue;
+    const short = full.replace(RPRE, ''), last = full.split(' ').pop(), cands = [full, short].concat(last === 'room' || ALLR.has(last) ? [] : [last]).filter((v, i, a) => a.indexOf(v) === i), used = cands.map(c => [c, (H.match(new RegExp('\\b' + c.replace(/[-]/g, '\\$&') + '\\b', 'g')) || []).length]).sort((a, b) => b[1] - a[1]);
+    const w = used[0][1] ? used[0][0] : short; text = text.replace(re, m => /^[A-Z]/.test(m) ? w[0].toUpperCase() + w.slice(1) : w); }
+  return text; }
 const NOECHO0 = /\b(zest(y|ie|ier|iest)|gya+t+|thicc|thick|smash|freaky|mommy|daddy|zaddy|sexy|hot girl|rizz me)\b/i;
 const NOECHO = { test: t => NOECHO0.test(t) || /\w\*\*/.test(t) || PROF.has(t) }; // never echo or learn a filtered word
 function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && /\s/.test(t.trim()) && t.trim().split(/\s+/).length >= 3 && !/^((omg|lol|lmao|nope|no|ok|wait|haha\w*|ugh|bro|yes|go|run)\W*\s*)+$/i.test(t.trim()) && !NOECHO.test(t) && t.length < 70 && !KEEP_RE.test(t)); return h.length ? (stripEmos(pick(h)) || 'this place is weird').toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
@@ -10574,7 +10588,7 @@ function typoStep(id, text) {
 MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const r = typoStep(k, text); delete MP.hist[k]; return r; };
 MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
 function speak(id, base, o = {}) {
-  let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || [])));
+  let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) text = roomWords(id, text);
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
   if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
   let fix = null; if (!o.exact) [text, fix] = typoStep(id, text); text = PROF.clean(text); if (fix) fix = PROF.clean(fix);
