@@ -9841,10 +9841,10 @@ const stripEmos = t => { let o = t; for (const m of emosIn(t).reverse()) o = o.s
 MP._emos = emosIn;
 const COMMON = new Set('a an and are as at be but by can come did do does dont for from get go going got had has have he her here hey him his how i if im in into is it its just let lets me my no not now of off ok okay on one or our out over see she so some that the their them then there they this to too up us was we well were what when where which who why will with yes you your u ur r ya yeah yep nah oh hm hmm'.split(' '));
 const ABBR = new Set('fr ngl bro bruh tbh omg dude fam ong deadass idk ikr istg smh rn tho yall lowkey highkey innit lol lmao lmfao wtf af imo fyi'.split(' '));
-const SLANG = ['fr', 'ngl', 'bro', 'bruh', 'tbh', 'omg', 'dude', 'fam', 'ong', 'deadass', 'idk', 'ikr', 'yo', 'literally', 'lowkey', 'istg', 'smh', 'rn', 'tho', 'yall', 'mate', 'innit', 'like', 'man', 'oof', 'welp', 'ok so', 'wait'];
+const SLANG = ['fr', 'ngl', 'bro', 'bruh', 'nah', 'bet', 'ight', 'cap', 'tbh', 'omg', 'dude', 'fam', 'ong', 'deadass', 'idk', 'ikr', 'yo', 'literally', 'lowkey', 'istg', 'smh', 'rn', 'tho', 'yall', 'mate', 'innit', 'like', 'man', 'oof', 'welp', 'ok so', 'wait'];
 function styleOf(texts) {
   texts = (texts || []).map(t => String(t).replace(/\S*\w\*\*\S*/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean); // filtered words teach nothing
-  const T0 = texts.filter(t => /[a-z]/i.test(t) || emosIn(t).length).slice(-20); if (!T0.length) return { caps: false, end: '' };
+  const T0 = texts.filter(t => /[a-z]/i.test(t) || emosIn(t).length).slice(-40); if (!T0.length) return { caps: false, end: '' };
   // emoticons: learned separately (alone / inline, start / end), then removed so the punctuation and case rules never see them
   const emo = {}; for (const t of T0) { const es = emosIn(t), rest = stripEmos(t); for (const { e, i } of es) { const k = e, o = emo[k] || (emo[k] = { e: k, n: 0, alone: 0, end: 0, start: 0 }); o.n++; if (!rest) o.alone++; else if (i + e.length >= t.trimEnd().length - 1) o.end++; else if (i === 0) o.start++; } }
   const EM = Object.values(emo).filter(o => o.n >= 2).map(o => ({ e: o.e, r: o.n / T0.length, aloneR: o.alone / T0.length, inR: (o.n - o.alone) / T0.length, pos: o.end >= o.start ? 'end' : 'start' }));
@@ -9887,7 +9887,7 @@ function inStyle(base, st) {
   if (st.u) t = t.replace(/\byou\b/g, 'u').replace(/\byour\b/g, 'ur'); else t = t.replace(/\bu\b/g, 'you').replace(/\bur (?=(the|so|a|an|not|just|such|being|really|literally|actually|kinda|too|very|gonna|going|always|never|one|fine|ok|okay|good|right|wrong|slow|fast|bad|mean|funny|weird|sus|lying|joking|kidding|scared|here|there)\b)/g, "you're ").replace(/\bur\b/g, 'your'); if (!st.guys) t = t.replace(/^guys,? /, '');
   t = regrammar(t, st.G);
   if (st.pls && !/\bpl[sz]\b|\bplease\b/i.test(t) && /^(wait|come|help|stop|go|check|hurry|can|could|stay|dont|look|follow|let|tell|read|open)\b/i.test(t) && Math.random() < (st.plsR != null ? st.plsR : .3)) t += ' pls';
-  for (const g of st.tags || []) if (!/^(lol|lmao|please|pls|plz|thanks|thank|sorry)$/.test(g.w) && !(/^(noob|bozo|idiot|loser|trash|dumb|stupid|clown|nerd)$/.test(g.w) && !/\b(ur|u|you|your|lol|lmao|slow|bad|cope|dumb|skill|ez|cry|mad|bro)\b/i.test(t)) && Math.random() < Math.min(.9, g.r < .25 ? g.r * 1.5 : g.r) && !new RegExp('\\b' + g.w + '\\b', 'i').test(t)) t = g.start ? g.w + ' ' + t : t.replace(/[.!?]+$/, '') + ' ' + g.w;
+  for (const g of st.tags || []) if (!/^(lol|lmao|please|pls|plz|thanks|thank|sorry)$/.test(g.w) && !(/^(noob|bozo|idiot|loser|trash|dumb|stupid|clown|nerd)$/.test(g.w) && !/\b(ur|u|you|your|lol|lmao|slow|bad|cope|dumb|skill|ez|cry|mad|bro)\b/i.test(t)) && Math.random() < Math.min(.9, g.r < .25 ? g.r * 1.3 : g.r) && !new RegExp('\\b' + g.w + '\\b', 'i').test(t)) t = g.start ? g.w + ' ' + t : t.replace(/[.!?]+$/, '') + ' ' + g.w;
   if (st.noPunct) t = t.replace(/[.,!?;:']/g, '').replace(/\s+/g, ' ').trim();
   else if (!st.apos && st.lower) t = t.replace(/(\w)'(\w)/g, '$1$2');
   else t = t.replace(/[.!?]+$/, '');
@@ -10568,7 +10568,7 @@ function pickCat(id) {
   if (P.helpful) w.helpful *= 2.2; if (P.rude) w.tease = .2; if (P.kind) w.kind = .2; if (P.explorer) w.explore = .18; if (P.names) w.social *= 1.5; else w.social *= .6;
   for (const [t, v] of tmix(id)) if (UTR[t]) w['u_' + t] = .2 * Math.min(1.5, v);
   /* talk about what they talked about: puzzles and clues, or being scared */
-  { const H = (MP.hist[id] || []).map(String); if (H.length >= 6) { const sh = re => H.filter(t => re.test(t)).length / H.length, cl = (v, a, b) => Math.max(a, Math.min(b, v)), pz = cl(sh(TOPIC_PZ) / .15, .4, 3), fr = cl(sh(TOPIC_FR) / .12, .5, 2.5);
+  { const H = (MP.hist[id] || []).map(String); if (H.length >= 6) { const sh = re => H.filter(t => re.test(t)).length / H.length, cl = (v, a, b) => Math.max(a, Math.min(b, v)), pz = cl(sh(TOPIC_PZ) / .12, .4, 5), fr = cl(sh(TOPIC_FR) / .12, .5, 2.5);
     w.helpful *= pz; if (w.u_practical) w.u_practical *= pz; if (w.u_nerdy) w.u_nerdy *= pz; w.scare *= fr; if (w.scaredy) w.scaredy *= fr; } }
   let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) if ((r -= w[k]) <= 0) return k; return 'casual';
 }
