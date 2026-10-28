@@ -10465,7 +10465,7 @@ function varyOwn(k, H) { if (Math.random() > .35) return k; const all = ' ' + H.
 function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; let CT = null; try { CT = ctxTags(id); } catch (e) {} const so = CT && (CT.has('greet') || CT.has('danger')) ? [] : styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
 function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let LL = Ls.length ? Ls : L0; if (/emoji/.test(cat)) { const HJ = (MP.hist[id] || []).join(' '), E = LL.filter(x => [...x.matchAll(/\p{Extended_Pictographic}/gu)].every(m => HJ.includes(m[0]))); LL = E.length ? E : BANK.casual || LL; } /* only emoji they really use */
-  return lenFit(id, LL); }
+  return cat === 'laughs' || cat === 'note' ? fill(pick(LL), id) : lenFit(id, LL); }
 /* line length like theirs: of a few candidates, favour the ones as long as the lines they really typed */
 function lenFit(id, L) { return lenPick(() => fill(pick(L), id), id, 6) || lenPick(() => fill(pick(BANK.casual || BANK.vague), id), id, 6) || fill(pick(L), id); }
 let SHORTB = null; const shortBank = n => { if (!SHORTB) { SHORTB = []; for (const k in BANK) if (Array.isArray(BANK[k])) for (const x of BANK[k]) if (typeof x === 'string' && x.trim().split(/\s+/).length <= 3) SHORTB.push(x); } return SHORTB.filter(x => x.trim().split(/\s+/).length <= n); };
@@ -10560,12 +10560,16 @@ function traitsOf(id) {
   return { n: T, on };
 }
 // what they say unprompted, weighted by who they were
+const TOPIC_PZ = /\b(code|key|note|clue|safe|clock|cipher|numbers?|puzzle|locked|keypad|diary|cellar|attic|piano|fridge|portrait|window|lever|drawer|password|combination)\b/i, TOPIC_FR = /\b(scar\w*|creepy|nope|help|hid(e|ing)|shaking|run|what was that|ghost|terrif\w*|afraid|freak\w*)\b|😭|😨|😱|😰/iu;
 function pickCat(id) {
   const P = id ? traitsOf(id).on : {}, w = { casual: .3, dumb: .15, helpful: .17, scare: .1, social: .28 };
   if (P.scared) { w.scare *= 2.5; w.scaredy = .25; } if (P.brave) { w.scare *= .3; w.brave = .22; }
   if (P.joker) w.jokey = .22; if (P.leader) { w.lead = .3; w.dumb *= .4; } if (P.follower) { w.follower = .25; w.dumb *= 1.6; }
   if (P.helpful) w.helpful *= 2.2; if (P.rude) w.tease = .2; if (P.kind) w.kind = .2; if (P.explorer) w.explore = .18; if (P.names) w.social *= 1.5; else w.social *= .6;
   for (const [t, v] of tmix(id)) if (UTR[t]) w['u_' + t] = .2 * Math.min(1.5, v);
+  /* talk about what they talked about: puzzles and clues, or being scared */
+  { const H = (MP.hist[id] || []).map(String); if (H.length >= 6) { const sh = re => H.filter(t => re.test(t)).length / H.length, cl = (v, a, b) => Math.max(a, Math.min(b, v)), pz = cl(sh(TOPIC_PZ) / .15, .4, 3), fr = cl(sh(TOPIC_FR) / .12, .5, 2.5);
+    w.helpful *= pz; if (w.u_practical) w.u_practical *= pz; if (w.u_nerdy) w.u_nerdy *= pz; w.scare *= fr; if (w.scaredy) w.scaredy *= fr; } }
   let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) if ((r -= w[k]) <= 0) return k; return 'casual';
 }
 // a reply bent toward who they were (only where they showed it)
