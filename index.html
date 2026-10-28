@@ -9790,7 +9790,7 @@ const EMO_SRC = [
   "[xX8B][-o^]?(?:D+|P+|\\)+|\\(+)",
   "[)(\\]\\[DPpc]+[-'o^]?[:;=]",
   "<\\/?3+",
-  "\\^[_\\-.ω]?\\^+", "-_+-", "[Tt][_.]+[Tt]", ";_+;", "[oO0][._][oO0]", ">[_.]?<", "[xX]_+[xX]", "[uU]_+[uU]", "\\._+\\.", "[oOuU][wW][oOuU]",
+  "\\^[_\\-.ω]?\\^+", "-_+-", "[Tt][_.]+[Tt]", ";_+;", "[oO0][._][oO0]", ">[_.]?<", "[xX]_+[xX]", "[uU]_+[uU]", "\\._+\\.", "[oOuU][wW][oOuU]", "[xX]3+", "\\^[wWvV]\\^", ">[wW_]<",
 ];
 const EMO_RE = new RegExp('(?<=^|\\s)(?:' + EMO_SRC.map(x => x.replace('\\1*', '')).join('|') + ')(?=$|\\s|[.,!?])', 'g');
 function emosIn(t) { const out = []; for (const m of String(t).matchAll(EMO_RE)) { if (/^[DPpc]+:$/.test(m[0]) && /\w/.test(t.slice(m.index + m[0].length, m.index + m[0].length + 2).trim()[0] || '')) continue; out.push({ e: m[0], i: m.index }); } return out; }
@@ -10247,6 +10247,7 @@ const BANK = {
 MP._bank = BANK;
 // replies to a few intents, bent by manner: TREPLY[intent][manner] (plain = everyone else)
 const TREPLY = {
+  comfort: { kind: ['aw whats wrong?', 'hey its ok, im here', 'aww dont be sad', 'come here, its ok'], rude: ['bro dont cry lol', 'u good? lol'], joker: ['dont cry, ill protect u lol', 'aw whats wrong, want a joke?'], scared: ['me too honestly', 'same, i wanna leave'], chill: ['eh its ok', 'its fine, chill'], momfriend: ['aw come here, whats wrong?', 'its ok sweetie, stay with me'], wholesome: ['aww its ok <3', 'hey ur doing great'], deadpan: ['sad.', 'same.'], hypeman: ['nah we good, we got this', 'chin up, we cooking'], pessimist: ['yeah, same', 'its ok to be sad, were doomed anyway'] },
   hurt: { plain: ['sorry lol', 'my bad', 'jk jk', 'sorry, i was joking', 'ok sorry'], rude: ['lol relax', 'its true tho', 'ok sorry, kinda'], kind: ['sorry!! i didnt mean it', 'aw sorry'], deadpan: ['sorry.'], trashtalk: ['cope lol', 'stay mad'], sarcastic: ['oh no. anyway', 'sorry, i guess'] },
   notme: { plain: ['nope not me', 'no i never had it', 'not me lol', 'i didnt take it'], rude: ['why would i have it lol', 'not me, check urself'], shy: ['um no', 'not me sorry'] },
   gone: { plain: ['wait what, where did it go', 'gone?? how', 'it was just there', 'great, now what'], pessimist: ['of course it is', 'knew it'], scared: ['she took it didnt she', 'nope nope'], deadpan: ['great.'], overthinker: ['wait did she move it??', 'what if she took it'] },
@@ -10434,7 +10435,6 @@ function persona(k, id) {
   if (k === 'insult') return P.rude ? 'teaseback' : k;
   if (k === 'followme' && P.leader && Math.random() < .35) return 'lead';
   if ((k === 'maybe' || k === 'vague') && P.follower && Math.random() < .3) return 'follower';
-  if (k === 'comfort' && P.kind) return Math.random() < .5 ? 'kind' : k;
   if (k === 'joke' && P.joker) return 'jokey';
   if ((k === 'hearq' || k === 'dark') && P.scared && Math.random() < .5) return 'scaredy';
   if (k === 'split' && P.scared) return 'scaredy';
@@ -10612,6 +10612,7 @@ function intentOf0(raw, selfName, fz) {
   if (/\bthanks? (for nothing|a lot)\b|^\s*(wow|great|gee) thanks\b/i.test(raw) && !/\b(for (the|ur|your|helping|waiting|saving))\b/i.test(raw)) return 'mock';
   if (/^\s*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw)) return 'laughs';
   const em = String(raw); // text faces, read before punctuation is folded away
+  { const F = (re) => new RegExp('(^|\\s)(' + re + ')(?=\\s|$)').test(em); if (F('<\\/3')) return 'comfort'; if (F('T_T|T\\.T|;_;|;-;|:-?c|QQ')) return 'comfort'; if (F('D:|:-?O|:-?o|o_o|O_O|0_0|o\\.o|O\\.O|o_O|O_o')) return 'wtf'; if (F('>?:-?3c?|[xX]3+|\\^[wWvV]\\^|>[wW]<|uwu|UwU|owo|OwO|c:|C:')) return 'happy'; if (F(':-?[pP]|;-?[pP]|xP|XP')) return 'laughs'; } // more text faces
   { const e0 = em.replace(/[\s\uFE0F\u200D]/g, ''); if (e0 && !/[a-z0-9]/i.test(e0)) { if (/^[😨😱😰😧😖🫣]+$/u.test(e0)) return 'imscared'; if (/^[🤨🧐]+$/u.test(e0)) return 'sus'; if (/^👀+$/u.test(e0)) return 'wtf'; if (/^🙏+$/u.test(e0)) return 'thanks'; if (/^[👍👌🤝✅]+$/u.test(e0)) return 'ack'; if (/^[🔥💯🐐👑]+$/u.test(e0)) return 'praise'; } } // a bare emoji says something too
   if (/^\s*(oh no+|uh oh+|oh god|oh nah|nah nah)\s*[!.]*\s*$/i.test(em)) return 'wtf'; if (/^\s*(yikes|eek+|eep+)\s*[!.]*\s*$/i.test(em)) return 'imscared'; if (/^\s*(rip|f|welp|oof)\s*$/i.test(em)) return 'meh'; if (/^\s*oop+\s*$/i.test(em)) return 'laughs'; if (/^\s*(hm+|hmm+|mm+)\s*[.?]*\s*$/i.test(em)) return 'ack';
   if (/>:-?[\(\[\/]|:-?@|😠|😡|🤬|>:-?\|/.test(em)) return 'calm';
