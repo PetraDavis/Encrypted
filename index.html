@@ -9081,7 +9081,7 @@ function hostHandle(from, m) {
   if (m.t === 'pos') { MP.pos[from] = m.p; track(from, m.p); return; }
   if (m.t === 'wd') { applyDiff(m.d); bcast({ t: 'ws', d: m.d }, from); return; }
   if (m.t === 'chat') {
-    const text = String(m.text || '').slice(0, 200); if (!text.trim()) return;
+    const text = PROF.clean(String(m.text || '').slice(0, 200)); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
     learnFrom(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
@@ -9301,12 +9301,33 @@ function dustWord(m) {
 }
 
 // ---------- chat ----------
+// ---------- chat filter: mild swearing stays (shit, hell, damn, crap, ass, piss, wtf); the f-word, b-word, c-word, slurs and sexual words become asterisks ----------
+// lists are stored encoded so the words are not sitting in the source in plain text
+const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1vdGhlcmYsZnVrLGZjayxmYWdnb3QsZGlsZG8sYmxvd2pvYixoYW5kam9iLGppenosY3Vtc2hvdCxwb3JuLHBodWNrLHBodWs='), W = d('ZnVxLGZ1ayxmayxma2luZyxma24sZmtpbixiaXRjaCxiaWF0Y2gsYjF0Y2gsbmlnZyxuaWdndWgsbmlnbGV0LGZhZyxmYWdzLGZhZ2d5LGR5a2UsdHJhbm55LHRyYW5uaWUscmV0YXJkLHJldGFyZGVkLHRhcmQsc3BpYyxjaGluayxraWtlLHdldGJhY2ssZ29vayxjb29uLHJhZ2hlYWQsYmVhbmVyLGhvbW8scXVlZXIsc2hlbWFsZSxkaWNrLGNvY2sscHVzc3ksY3VtLGN1bW1lZCxjdW1taW5nLHRpdHMsdGl0dHksdGl0dGllcyxib29iLGJvb2JzLGhvcm55LHNsdXQsd2hvcmUsaG9lLGhvZXMsc2V4LHNleHksc2V4dGluZyxudWRlcyxudWRlLG5ha2VkLHJhcGUscmFwaXN0LHBlbmlzLHZhZ2luYSxib25lcixvcmdhc20sbWFzdHVyYmF0ZSx0aG90LG1pbGYsZ3lhdHQsZ3lhdCxzbWFzaCx0aGljYyxjdW50LG5pZ2dlcixuaWdnYQ=='), SUF = ['', 's', 'es', 'ed', 'er', 'ers', 'ing', 'in', 'y', 'ies', 'z', 'head', 'heads', 'face', 'hole', 'holes', 'ass', 'off'];
+  const LEET = { '1': 'i', '!': 'i', '|': 'i', '3': 'e', '0': 'o', '@': 'a', '4': 'a', '$': 's', '5': 's', '7': 't', '+': 't', '9': 'g', '6': 'g', '8': 'b', '(': 'c', '<': 'c', 'v': 'v' };
+  const lt = w => w.toLowerCase().replace(/[1!|30@4$57+968(<]/g, c => LEET[c] || c), c1 = w => w.replace(/(.)\1+/g, '$1');
+  const CC = C.map(c1), WC = W.map(c1);
+  const OK = new Set(['spicy', 'cocky', 'cockpit', 'cockatoo', 'dickens', 'homey', 'scunthorpe', 'snigger', 'sniggers', 'niger', 'hoed', 'sextant', 'sexton', 'shitake', 'shiitake']);
+  const bad = raw => { const t = lt(raw).replace(/[^a-z]/g, ''); if (t.length < 2 || OK.has(t)) return false; const rep = /(.)\1/.test(t), k = c1(t);
+    if (C.some(c => t.includes(c)) || (rep && CC.some(c => k.includes(c)))) return true;
+    for (const w of W) for (const s of SUF) if (t === w + s) return true;
+    if (rep) for (const w of WC) for (const s of SUF) if (k === w + c1(s)) return true; return false; };
+  const mask = w => w[0] + '*'.repeat(Math.max(2, w.length - 1));
+  function clean(text) { let t = String(text || '');
+    t = t.replace(/(?:^|(?<=\s))((?:[a-z0-9@$!|+*][\s._\-*]){2,}[a-z0-9@$!|+*])(?=\s|$|[?.!,])/gi, m => { const j = m.replace(/[\s._\-]/g, ''); return bad(j.replace(/\*/g, 'u')) || bad(j.replace(/\*/g, 'i')) || bad(j.replace(/\*/g, 'a')) ? mask(j) : m; }); // f.u.c.k, f u c k
+    t = t.replace(/(^|\s)([a-z0-9@$!]{1,3}) ([a-z0-9@$!*]{1,4})(?=\s|$|[?.!,])/gi, (m, sp, a, b) => !bad(a) && !bad(b) && bad(a + b) ? sp + mask(a + b) : m); // fu ck
+    return t.replace(/[^\s]+/g, tok => { const m = tok.match(/^([^a-z0-9@$!|(<]*)(.*?)([^a-z0-9@$+]*)$/i), core = m ? m[2] : tok; if (!core) return tok;
+      if (/^wt[hf]$|^omf?g$|^stfu$|^lmf?ao$|^af$/i.test(core)) return tok; // abbreviations are fine
+      const vs = [core, core.replace(/\*/g, 'u'), core.replace(/\*/g, 'i'), core.replace(/\*/g, 'a'), core.replace(/[^a-z0-9@$!|+]/gi, '')]; return vs.some(bad) ? m[1] + mask(core) + m[3] : tok; }); }
+  return { clean, bad, has: t => clean(t) !== String(t || '') };
+})();
+MP._prof = PROF;
 function addMsg(html, cls) {
   const box = $('mpmsgs'), el = document.createElement('div'); el.className = 'm' + (cls ? ' ' + cls : ''); el.innerHTML = html; box.appendChild(el);
   while (box.children.length > 9) box.firstChild.remove();
   setTimeout(() => el.classList.add('old'), 14000);
 }
-function chatLine(from, text, body) { if (body && from === MP.me && MP.ghost) return addMsg(`<i>your body says</i> ${esc(text)}`, 'bodyme'); if (ghostOf(from) && !MP.ghost && !body) { const n = nameOf(from) || '?'; return addMsg(`<b style="color:${colorOf(from)};opacity:.6">${esc(n)}</b> ${esc(text)}`, 'gh'); } const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
+function chatLine(from, text, body) { text = PROF.clean(text); if (body && from === MP.me && MP.ghost) return addMsg(`<i>your body says</i> ${esc(text)}`, 'bodyme'); if (ghostOf(from) && !MP.ghost && !body) { const n = nameOf(from) || '?'; return addMsg(`<b style="color:${colorOf(from)};opacity:.6">${esc(n)}</b> ${esc(text)}`, 'gh'); } const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
 function sysMsg(text) { addMsg(esc(text), 'sys'); }
 function yLine(text) { addMsg(esc(String(text).toLowerCase()), 'y'); }
 function chatOpen() {
@@ -9800,6 +9821,7 @@ const COMMON = new Set('a an and are as at be but by can come did do does dont f
 const ABBR = new Set('fr ngl bro bruh tbh omg dude fam ong deadass idk ikr istg smh rn tho yall lowkey highkey innit lol lmao lmfao wtf af imo fyi'.split(' '));
 const SLANG = ['fr', 'ngl', 'bro', 'bruh', 'tbh', 'omg', 'dude', 'fam', 'ong', 'deadass', 'idk', 'ikr', 'yo', 'literally', 'lowkey', 'istg', 'smh', 'rn', 'tho', 'yall', 'mate', 'innit', 'like', 'man', 'oof', 'welp', 'ok so', 'wait'];
 function styleOf(texts) {
+  texts = (texts || []).map(t => String(t).replace(/\S*\w\*\*\S*/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean); // filtered words teach nothing
   const T0 = texts.filter(t => /[a-z]/i.test(t) || emosIn(t).length).slice(-20); if (!T0.length) return { caps: false, end: '' };
   // emoticons: learned separately (alone / inline, start / end), then removed so the punctuation and case rules never see them
   const emo = {}; for (const t of T0) { const es = emosIn(t), rest = stripEmos(t); for (const { e, i } of es) { const k = e, o = emo[k] || (emo[k] = { e: k, n: 0, alone: 0, end: 0, start: 0 }); o.n++; if (!rest) o.alone++; else if (i + e.length >= t.trimEnd().length - 1) o.end++; else if (i === 0) o.start++; } }
@@ -10350,7 +10372,8 @@ function varyOwn(k, H) { if (Math.random() > .35) return k; const all = ' ' + H.
 function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; let CT = null; try { CT = ctxTags(id); } catch (e) {} const so = CT && (CT.has('greet') || CT.has('danger')) ? [] : styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; for (const x of so) if ((r -= x.r) <= 0) return x.w; return so[0].w; }
   return bankLine0(cat, id); }
 function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let t = fill(pick(Ls.length ? Ls : L0), id); if (cat === 'laughs') t = t.replace('{laugh}', styleOf(MP.hist[id] || []).laugh || 'lol'); return t; }
-const NOECHO = /\b(zest(y|ie|ier|iest)|gya+t+|thicc|thick|smash|freaky|mommy|daddy|zaddy|sexy|hot girl|rizz me)\b/i;
+const NOECHO0 = /\b(zest(y|ie|ier|iest)|gya+t+|thicc|thick|smash|freaky|mommy|daddy|zaddy|sexy|hot girl|rizz me)\b/i;
+const NOECHO = { test: t => NOECHO0.test(t) || /\w\*\*/.test(t) || PROF.has(t) }; // never echo or learn a filtered word
 function pastLine(id) { const h = (MP.hist[id] || []).filter(t => t.length > 3 && /\s/.test(t.trim()) && t.trim().split(/\s+/).length >= 3 && !/^((omg|lol|lmao|nope|no|ok|wait|haha\w*|ugh|bro|yes|go|run)\W*\s*)+$/i.test(t.trim()) && !NOECHO.test(t) && t.length < 70 && !KEEP_RE.test(t)); return h.length ? (stripEmos(pick(h)) || 'this place is weird').toLowerCase().replace(/[.!?]+$/, '') : 'this place is weird'; }
 function scaredRoom(id) { const h = MP.hist[id] || [], r = MP.histRoom[id] || [], x = X(); for (let i = h.length - 1; i >= 0; i--) if (/scar|nope|wtf|what was that|aaa|omg|help|run|creepy|jump/i.test(h[i]) && r[i] && x.ROOMS[r[i]]) return x.ROOMS[r[i]].name.toLowerCase(); return pick(ROOM_LIST); }
 // how that player addressed the others: a short form of the name they actually typed
@@ -10467,10 +10490,10 @@ function typoStep(id, text) {
 MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const r = typoStep(k, text); delete MP.hist[k]; return r; };
 MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
 function speak(id, base, o = {}) {
-  let text = inStyle(base, styleOf(MP.hist[id] || []));
+  let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || [])));
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
   if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
-  let fix = null; if (!o.exact) [text, fix] = typoStep(id, text);
+  let fix = null; if (!o.exact) [text, fix] = typoStep(id, text); text = PROF.clean(text); if (fix) fix = PROF.clean(fix);
   if (MP._spy) { MP._spy.push({ id, text, copy: !!o.copy, body: !!o.body }); return; } // tests: what it would say, as whom
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
@@ -10611,6 +10634,7 @@ const INTENTS = [
 // fuzzy reading only when the plain one found nothing
 function intentOf(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
 function intentOf0(raw, selfName, fz) {
+  if (/(^|\s)[a-z]\*{2,}/i.test(raw) && raw.replace(/(^|\s)[a-z]\*{2,}\w*/gi, ' ').trim().split(/\s+/).length <= 3) return /\b(u|you|ur|your|youre)\b/i.test(raw) ? 'insult' : 'meh'; // a filtered swear: aimed at it, or at the game
   if (/[😂🤣💀😭]/u.test(raw) && !/[a-z]{3}/i.test(raw)) return 'laughs';
   if (/^\s*(bro+|bruh+|ayo+|gng)\s*[💀😭😂🤣]+\s*$/iu.test(raw)) return 'laughs';
   if (/^\s*(bffr|be fr|be serious)\s*[?!.]*\s*$/i.test(raw)) return 'serious';
