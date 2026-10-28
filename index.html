@@ -9865,7 +9865,7 @@ function styleOf(texts) {
     const alone = hits.filter(t => t.trim().toLowerCase().replace(/[^a-z\s]/g, '').trim() === w), inl = hits.filter(t => !alone.includes(t));
     if (!SLANG.includes(w) && hits.length / T.length < .3 && alone.length < 2) continue;
     if (alone.length) { const forms = {}; for (const t of alone) forms[t.trim()] = (forms[t.trim()] || 0) + 1; solo.push({ w, r: alone.length / T.length, form: Object.entries(forms).sort((a, b) => b[1] - a[1])[0][0] }); }
-    if (inl.length >= 2 || inl.length / T.length >= .2) { const st = inl.filter(t => new RegExp('^\\W*' + w + '\\b', 'i').test(t.trim())).length; tags.push({ w, r: inl.length / T.length, start: st > inl.length / 2 }); }
+    if (inl.length >= 2 || inl.length / T.length >= .2) { const st = inl.filter(t => new RegExp('^\\W*' + w + '\\b', 'i').test(t.trim())).length; const en = inl.filter(t => new RegExp('\\b' + w + '\\W*$', 'i').test(t.trim())).length; tags.push({ w, r: inl.length / T.length, start: st > inl.length / 2, end: en >= inl.length / 2 || st + en >= inl.length * .75 }); }
   }
   const lower = cnt(t => t === t.toLowerCase()) > .7, noPunct = !T.some(t => /[.,!?;:']/.test(t)), apos = T.some(t => /\w'\w/.test(t));
   for (const o of EM) if (o.aloneR > 0) solo.push({ w: o.e.toLowerCase(), r: o.aloneR, form: o.e });
@@ -9888,7 +9888,7 @@ function inStyle(base, st) {
   if (st.u) t = t.replace(/\byou\b/g, 'u').replace(/\byour\b/g, 'ur'); else t = t.replace(/\bu\b/g, 'you').replace(/\bur (?=(the|so|a|an|not|just|such|being|really|literally|actually|kinda|too|very|gonna|going|always|never|one|fine|ok|okay|good|right|wrong|slow|fast|bad|mean|funny|weird|sus|lying|joking|kidding|scared|here|there)\b)/g, "you're ").replace(/\bur\b/g, 'your'); if (!st.guys) t = t.replace(/^guys,? /, '');
   t = regrammar(t, st.G);
   if (st.pls && !/\bpl[sz]\b|\bplease\b/i.test(t) && /^(wait|come|help|stop|go|check|hurry|can|could|stay|dont|look|follow|let|tell|read|open)\b/i.test(t) && Math.random() < (st.plsR != null ? st.plsR : .3)) t += ' pls';
-  for (const g of st.tags || []) if (!/^(lol|lmao|please|pls|plz|thanks|thank|sorry)$/.test(g.w) && !(/^(noob|bozo|idiot|loser|trash|dumb|stupid|clown|nerd)$/.test(g.w) && !/\b(ur|u|you|your|lol|lmao|slow|bad|cope|dumb|skill|ez|cry|mad|bro)\b/i.test(t)) && Math.random() < Math.min(.9, g.r < .25 ? g.r * 1.3 : g.r) && !new RegExp('\\b' + g.w + '\\b', 'i').test(t)) t = g.start ? g.w + ' ' + t : t.replace(/[.!?]+$/, '') + ' ' + g.w;
+  for (const g of st.tags || []) if ((g.start || g.end || g.end === undefined) && !/^(lol|lmao|please|pls|plz|thanks|thank|sorry)$/.test(g.w) && !(/^(noob|bozo|idiot|loser|trash|dumb|stupid|clown|nerd)$/.test(g.w) && !/\b(ur|u|you|your|lol|lmao|slow|bad|cope|dumb|skill|ez|cry|mad|bro)\b/i.test(t)) && Math.random() < Math.min(.9, g.r < .25 ? g.r * 1.3 : g.r) && !new RegExp('\\b' + g.w + '\\b', 'i').test(t)) t = g.start ? g.w + ' ' + t : t.replace(/[.!?]+$/, '') + ' ' + g.w;
   if (st.noPunct) t = t.replace(/[.,!?;:']/g, '').replace(/\s+/g, ' ').trim();
   else if (!st.apos && st.lower) t = t.replace(/(\w)'(\w)/g, '$1$2');
   else t = t.replace(/[.!?]+$/, '');
@@ -10479,7 +10479,9 @@ function lenPick(gen, id, k) { const H = (MP.hist[id] || []).map(t => String(t).
   /* aim at one line they really typed: its length, and whether it was about the clues */
   const ri = Math.floor(Math.random() * HT.length), want = H[ri], refPZ = TOPIC_PZ.test(HT[ri]), fitT = t => TOPIC_PZ.test(String(t)) ? (refPZ ? 3 : .6) : (refPZ ? .5 : 1);
   for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } const said = RS.includes(String(t).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); c.push([t, Math.pow(H.filter(h => Math.abs(h - n) <= (n > 4 ? 1 : 0)).length + .2, 2) * Math.pow(fitQ(t), 1.6) * fitV(t) * fitT(t) * (said ? .12 : 1), n, said]); }
-  if (c.every(x => x[3])) return null; /* everything here was said just now: try another kind of line */
+  if (c.every(x => x[3])) return null;
+  /* a long typer's turn for a long line, and nothing here is long: two thoughts run together, the way they write */
+  if (want >= 7 && c.every(x => x[2] <= want - 3)) { const a2 = c.filter(x => !x[3]).sort((p, q) => q[2] - p[2]); if (a2.length >= 2 && !/^\u0001/.test(a2[0][0] + a2[1][0])) return String(a2[0][0]).replace(/[.!?]+$/, '') + pick([' and ', ', ', ' and honestly ', ' but ', ', also ']) + String(a2[1][0]).replace(/^[A-Z](?=[a-z])/, c2 => c2.toLowerCase()); } /* everything here was said just now: try another kind of line */
   /* a short typer's turn to say something short, and nothing here is short: one of their own short lines instead */
   if (!refPZ && want <= 3 && !c.some(x => x[2] <= (want <= 2 ? want + 1 : want))) { const RS6 = RS.slice(-8), sh = (MP.hist[id] || []).filter(t => String(t).trim().split(/\s+/).length <= 2 && !NOECHO.test(t) && !KEEP_RE.test(t) && !/\?$/.test(t) && !RS6.includes(String(t).toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim())); const SB = Math.random() < .65 ? shortBank(Math.min(3, want + 1)).filter(x => !/[{]/.test(x) && x.toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(Boolean).every(w => V[w]) && !RS.includes(x.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim())) : []; if (SB.length) return pick(SB); /* now and then a short line of the game's, but only in words they use */
     if (sh.length) return '\u0001' + pick(sh); }
@@ -10489,7 +10491,7 @@ const RPRE = /^(the|grand|home|old|master|walk-in) /;
 function roomWords(id, text) { let R; try { R = Object.values(X().ROOMS).map(r => String(r.name || '').toLowerCase()).filter(n => n.includes(' ')); } catch (e) { return text; } const H = (MP.hist[id] || []).join(' \n ').toLowerCase(), ALLR = new Set(Object.values(X().ROOMS).map(r => String(r.name || '').toLowerCase()));
   for (const full of [...new Set(R)].sort((a, b) => b.length - a.length)) { const re = new RegExp('\\b' + full.replace(/[-]/g, '\\$&') + '\\b', 'gi'); if (!re.test(text)) continue;
     const short = full.replace(RPRE, ''), last = full.split(' ').pop(), cands = [full, short].concat(last === 'room' || ALLR.has(last) ? [] : [last]).filter((v, i, a) => a.indexOf(v) === i), used = cands.map(c => [c, (H.match(new RegExp('\\b' + c.replace(/[-]/g, '\\$&') + '\\b', 'g')) || []).length]).sort((a, b) => b[1] - a[1]);
-    const w = used[0][1] ? used[0][0] : short; text = text.replace(re, m => /^[A-Z]/.test(m) ? w[0].toUpperCase() + w.slice(1) : w); }
+    const w = used[0][1] ? used[0][0] : short; text = text.replace(re, m => m === m.toUpperCase() && /[A-Z]{2}/.test(m) ? w.toUpperCase() : /^[A-Z]/.test(m) ? w[0].toUpperCase() + w.slice(1) : w); }
   return text; }
 const NOECHO0 = /\b(zest(y|ie|ier|iest)|gya+t+|thicc|thick|smash|freaky|mommy|daddy|zaddy|sexy|hot girl|rizz me)\b/i;
 const NOECHO = { test: t => NOECHO0.test(t) || /\w\*\*/.test(t) || PROF.has(t) }; // never echo or learn a filtered word
@@ -10620,9 +10622,9 @@ function speak(id, base, o = {}) {
   let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) text = roomWords(id, text);
   if (o.body || o.copy) { const RS = MP.recentSaid || (MP.recentSaid = {}), a = RS[id] || (RS[id] = []); a.push(String(base).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); if (a.length > 40) a.shift(); }
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
-  if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
+  if (Math.random() < .03 && /\bI\b/.test(text) && text !== text.toUpperCase()) text = text.replace(/\bI\b/, 'we'); // a slip (their casing kept)
   let fix = null; if (!o.exact) [text, fix] = typoStep(id, text); text = PROF.clean(text); if (fix) fix = PROF.clean(fix);
-  if ((o.body || o.copy) && !o.exact) { const L = MP.lastTxt || (MP.lastTxt = {}), k = id + (o.copy ? 'c' : 'b'), prev = L[k]; if (prev && prev.t.toLowerCase() === text.toLowerCase() && Date.now() - prev.at < 120000) text = (/^(in|im in|by|at|near) /i.test(text) ? 'still ' : pick(['yeah ', 'like i said ', 'still '])) + text.replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase()); L[k] = { t: text, at: Date.now() }; } /* never the exact same line twice running */
+  if ((o.body || o.copy) && !o.exact) { const L = MP.lastTxt || (MP.lastTxt = {}), k = id + (o.copy ? 'c' : 'b'), prev = L[k]; if (prev && prev.t.toLowerCase() === text.toLowerCase() && Date.now() - prev.at < 120000) { const sh = text === text.toUpperCase() && /[A-Z]{2}/.test(text), pre = (/^(in|im in|by|at|near) /i.test(text) ? 'still ' : pick(['yeah ', 'like i said ', 'still '])); text = sh ? pre.toUpperCase() + text : pre + text.replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase()); } L[k] = { t: text, at: Date.now() }; } /* never the exact same line twice running */
   if (MP._spy) { MP._spy.push({ id, text, copy: !!o.copy, body: !!o.body }); return; } // tests: what it would say, as whom
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
