@@ -10940,7 +10940,8 @@ const REPH = ['i said {last}', '{last}', '{last} lol', 'nvm', 'i said {last}, u 
 // the thread so far decides it: personal questions, follow-ups to them, "what?", answers to its own questions. null when the thread has nothing to say
 function ctxReply(self, from, text, k) {
   const c = convOf(self, from), now = Date.now(), t = norm(text); convNote(c, 'them', text, k); MP._to = { id: from, at: now };
-  if (k && ACCUSE.includes(k)) { c.pend = null; return null; } // accusations always get the full denial, never a bare yes/no
+  if (k && ACCUSE.includes(k)) { c.pend = null; return null; }
+  if (k === 'ack' && !(c.pend && now - c.pend.at < 45000)) { let r = 0; try { r = chatPerMin(self); } catch (e) {} if (Math.random() > (r < 1 ? .05 : Math.min(.4, .05 + r * .04))) return { k: 'ack', line: null }; } // a bare ok/same mostly gets nothing back, unless they were chatty // accusations always get the full denial, never a bare yes/no
   { const own = ownLine(self, { reply: k || 'vague' }); if (own) { c.pend = null; return { k: 'own', line: own }; } } // what they themselves said when someone said this kind of thing
   const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, mix = tmix(self), tr = pickT(mix); let f = followKind(t, text); if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
   const out = (key, line, pend) => { if (pend !== undefined) { c.pend = pend; c.keep = 1; } return { k: key, line }; };
@@ -10966,7 +10967,7 @@ MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, tmix,
 function copyHeard(from, text) {
   if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase();
   const to = addressee(from, text, CP.orig, [CP.x, CP.z, CP.floor], CP.lastSaid, CP.asked); if (to === 'unsure' && askWho(CP.orig, from, CP, w => speak(CP.orig, w, { copy: true, only: CP.target }))) return; if (to === 'other' || (to === 'group' && Math.random() > chatty(CP.orig))) return;
-  const c = intentOf(text, n); CONV_CUR = convOf(CP.orig, from); const cx = ctxReply(CP.orig, from, text, c); if (cx) { speak(CP.orig, fill(cx.line, CP.orig), { copy: true, only: CP.target }); CONV_CUR = null; return; }
+  const c = intentOf(text, n); CONV_CUR = convOf(CP.orig, from); const cx = ctxReply(CP.orig, from, text, c); if (cx) { if (cx.line) speak(CP.orig, fill(cx.line, CP.orig), { copy: true, only: CP.target }); CONV_CUR = null; return; }
   try { copyAnswer(from, text, n, c); } finally { CONV_CUR = null; }
 }
 function copyAnswer(from, text, n, c) {
@@ -10982,7 +10983,7 @@ function bodyHeard(from, text) {
   if (to === 'unsure' && askWho(PS.id, from, PS, w => bodySay(w))) return;
   if (to === 'other' || (to === 'group' && Math.random() > chatty(PS.id))) return;
   const k = intentOf(text, n), now = Date.now();
-  CONV_CUR = convOf(PS.id, from); try { const cx = ctxReply(PS.id, from, text, k); if (cx) return bodySay(fill(cx.line, PS.id)); return bodyAnswer(from, text, n, t, k, now, to); } finally { CONV_CUR = null; }
+  CONV_CUR = convOf(PS.id, from); try { const cx = ctxReply(PS.id, from, text, k); if (cx) return cx.line ? bodySay(fill(cx.line, PS.id)) : undefined; return bodyAnswer(from, text, n, t, k, now, to); } finally { CONV_CUR = null; }
 }
 function bodyAnswer(from, text, n, t, k, now, to) {
   if (k === 'affirmreal') { bodySay(fill(fresh(persona(k, PS.id)), PS.id)); if (Math.random() < .3) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
