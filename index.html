@@ -9124,7 +9124,7 @@ function clientHandle(m) {
     case 'intel': Object.assign(MP.intel, m.i); return;
     case 'vc': MP.vChosen = m.id; voiceFx(); return;
     case 'ghosts': MP.ghosts = m.ids; if (m.ids.includes(MP.me) && !MP.ghost) becomeGhost(); voiceFx(); drawVoice(); return;
-    case 'cp': Object.assign(CP, m.c); if (!CP.on) { removeAvatar('copy'); delete MP.pos.copy; } voiceFx(); drawVoice(); return;
+    case 'cp': Object.assign(CP, m.c); if (!CP.on) { removeAvatar('copy'); delete MP.pos.copy; } voiceFx(); micGate(); drawVoice(); return;
     case 'cpgone': copyVanish(); return;
     case 'ps': PS.on = m.on; PS.id = m.id; if (!m.on) delete MP.pos.poss; if (m.on && m.id === MP.me && MP.ghost) MP.povUntil = Date.now() + 22000; return;
     case 'dust': dustWord(m); return;
@@ -9332,7 +9332,7 @@ const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1v
   const clean0 = clean; clean = text => ctxClean(clean0(text));
   return { clean, bad, has: t => clean(t) !== String(t || '') };
 })();
-MP._prof = PROF; MP._chatLine = (f, t) => chatLine(f, t); MP._loops = () => commonLoops();
+MP._prof = PROF; MP._chatLine = (f, t) => chatLine(f, t); MP._loops = () => commonLoops(); MP._voice = { micGate: () => micGate(), drawVoice: () => drawVoice(), CP: () => CP, cp: c => { Object.assign(CP, c); voiceFx(); micGate(); drawVoice(); } };
 // the sender alone is told, once at a time: a blue notice in the middle of their screen that fades on its own (never for the clone's words, never for mild swearing)
 let langT = 0, langEl = null;
 function langWarn() { const now = Date.now(); if (!langEl) { langEl = document.createElement('div'); langEl.id = 'langwarn'; langEl.setAttribute('role', 'status'); langEl.textContent = "please don't use that language"; document.body.appendChild(langEl); }
@@ -9677,7 +9677,7 @@ function voiceFx() {
     v.out.gain.setTargetAtTime((CP.on || window.__mpSilent || (ghostOf(id) && !MP.ghost) ? 0 : silent) * (X().FX.vol ?? 1), t, .3);
   }
 }
-function micGate() { if (!MP.out) return; const on = MP.stream && (MP.mic === 'open' || (MP.mic === 'ptt' && MP.ptt)); MP.out.g.gain.setTargetAtTime(on ? 1 : 0, audioCtx().currentTime, .02); drawVoice(); }
+function micGate() { if (!MP.out || !audioCtx()) return; const on = MP.stream && !CP.on && (MP.mic === 'open' || (MP.mic === 'ptt' && MP.ptt)); /* the copy kills voice for everyone */ MP.out.g.gain.setTargetAtTime(on ? 1 : 0, audioCtx().currentTime, .02); drawVoice(); }
 function cycleMic() {
   const next = MP.mic === 'off' ? 'ptt' : MP.mic === 'ptt' ? 'open' : 'off';
   if (next === 'off') { MP.mic = 'off'; if (MP.stream) { MP.stream.getTracks().forEach(t => t.stop()); MP.stream = null; MP.micSrc = null; } micGate(); return; }
@@ -9690,7 +9690,7 @@ function cycleMic() {
 }
 function drawVoice() {
   const el = $('mpvoice'); if (!MP.on || !MP.started) { el.hidden = true; return; }
-  el.hidden = false; const live = MP.stream && (MP.mic === 'open' || (MP.mic === 'ptt' && MP.ptt));
+  el.hidden = false; if (CP.on) { el.innerHTML = `<div style="opacity:.45">MIC <b>&middot;&middot;&middot;</b> [M] &middot; CHAT [T]</div><div style="opacity:.45">${MP.roster.map(p => `<span style="color:#666">${esc(p.name)}</span>`).join(' &middot; ')}</div>`; return; } const live = MP.stream && (MP.mic === 'open' || (MP.mic === 'ptt' && MP.ptt));
   const mic = MP.mic === 'off' ? 'off' : MP.mic === 'ptt' ? 'hold V' : 'on';
   el.innerHTML = `<div>MIC <b class="${live ? 'on' : ''}">${mic}</b> [M] &middot; CHAT [T]</div><div>${MP.roster.map(p => `<span style="color:${p.color}">${esc(p.name)}</span>`).join(' &middot; ')}</div>`;
 }
@@ -9904,7 +9904,7 @@ function inStyle(base, st) {
 MP._style = (texts, base) => inStyle(base, styleOf(texts));
 MP._styleOf = styleOf; MP._gen = (texts, cat, ctxs) => { const k = '__t' + Math.random(); MP.hist[k] = texts; if (ctxs) MP.histCtx[k] = ctxs; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
 function copySay(base, sched) { if (!CP.on) return; speak(CP.orig, base, { copy: true, sched, only: CP.target }); }
-const cpPub = () => toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } });
+const cpPub = () => { toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror } }); voiceFx(); micGate(); drawVoice(); };
 MP.copyStart = (orig, target) => {
   const L = living(); if (CP.on || L.length < 2) return false;
   const o = L.find(p => p.id === orig) || pick(L), tg = L.find(p => p.id === target && p.id !== o.id) || pick(L.filter(p => p.id !== o.id));
