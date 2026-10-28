@@ -9856,7 +9856,7 @@ function styleOf(texts) {
   const T = T0.map(stripEmos).filter(t => /[a-z]/i.test(t)); if (!T.length) T.push('ok');
   const cnt = f => T.filter(f).length / T.length, ends = {}; for (const t of T) { const m = t.trim().match(/([!?]{2,}|\.\.\.|[.!?]|~+)$/); const k = m ? m[1] : ''; if (k.includes('?')) continue; ends[k] = (ends[k] || 0) + 1; }
   const ems = T.join(' ').match(/\p{Extended_Pictographic}/gu) || [], emoji = ems[0] || '', emRate = cnt(t => /\p{Extended_Pictographic}/u.test(t));
-  const lm = T.join(' ').match(/\b(lmao+|lmfao|lol+|haha+|hehe+|xd|rofl)\b|😂|🤣|😭/gi), laugh = lm ? lm[lm.length - 1] : 'lol';
+  const lm = T0.join(' ').match(/\b(lmao+|lmfao|lol+|haha+|hehe+|xd|rofl)\b|😂|🤣|😭/gi), laugh = lm ? lm[lm.length - 1] : 'lol';
   // their own filler words, and where they put them
   // their own short words (wtf, omg, bruh, ngl, idk...): any short token they keep using, learned from what they typed only.
   // Each is tracked as used alone ("wtf") or inside a line ("wtf was that"), and where it sits (start / end).
@@ -10471,7 +10471,8 @@ function varyOwn(k, H) { if (Math.random() > .35) return k; const all = ' ' + H.
 function bankLine(cat, id) { const own = cat === 'laughs' || cat === 'note' ? null : ownLine(id); if (own) return own; let CT = null; try { CT = ctxTags(id); } catch (e) {} const so = CT && (CT.has('greet') || CT.has('danger')) ? [] : styleOf(MP.hist[id] || []).solo || [], sr = so.reduce((a, x) => a + x.r, 0); if (so.length && Math.random() < Math.min(.85, sr * (cat === 'scare' ? 2.5 : 1))) { let r = Math.random() * sr; let w0 = so[0].w; for (const x of so) if ((r -= x.r) <= 0) { w0 = x.w; break; } const RS = ((MP.recentSaid || {})[id] || []).slice(-6); if (!RS.includes(String(w0).toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim())) return w0; }
   return bankLine0(cat, id); }
 function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['casual', 'social'].includes(cat) && (MP.hist[id] || []).length > 2 && Math.random() < .12) cat = 'memory'; const st0 = styleOf(MP.hist[id] || []), L0 = BANK[cat] || BANK.vague, Ls = st0.wpm && st0.wpm < 1.8 && (MP.hist[id] || []).length >= 4 ? L0.filter(x => x.split(' ').length <= 3) : []; let LL = Ls.length ? Ls : L0; if (/emoji/.test(cat)) { const HJ = (MP.hist[id] || []).join(' '), E = LL.filter(x => [...x.matchAll(/\p{Extended_Pictographic}/gu)].every(m => HJ.includes(m[0]))); LL = E.length ? E : BANK.casual || LL; } /* only emoji they really use */
-  return cat === 'laughs' || cat === 'note' ? fill(pick(LL), id) : lenFit(id, LL); }
+  if (cat === 'laughs') { let t = fill(pick(LL), id); const lg = styleOf(MP.hist[id] || []).laugh; if (lg && !/^(lol|lmao)$/i.test(lg) && !t.toLowerCase().includes(lg.toLowerCase()) && Math.random() < .85) t = Math.random() < .25 ? lg : t + ' ' + lg; return t; } /* a laugh in their own laugh */
+  return cat === 'note' ? fill(pick(LL), id) : lenFit(id, LL); }
 /* line length like theirs: of a few candidates, favour the ones as long as the lines they really typed */
 function lenFit(id, L) { return lenPick(() => fill(pick(L), id), id, 6) || lenPick(() => fill(pick(BANK.casual || BANK.vague), id), id, 6) || fill(pick(L), id); }
 let SHORTB = null; const shortBank = n => { if (!SHORTB) { SHORTB = []; for (const k in BANK) if (Array.isArray(BANK[k])) for (const x of BANK[k]) if (typeof x === 'string' && x.trim().split(/\s+/).length <= 3) SHORTB.push(x); } return SHORTB.filter(x => x.trim().split(/\s+/).length <= n); };
