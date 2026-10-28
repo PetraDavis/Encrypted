@@ -9784,7 +9784,7 @@ function grammarOf(T, raw) {
   // apostrophes: dropped only if they show it (dont, im, its...) and never use one
   G.noApos = !T.some(t => /\w'\w/.test(t)) && has(/\b(dont|im|cant|wont|didnt|thats|whats|ive|youre|theres|isnt|doesnt|lets|ill)\b/i) > 0;
   // shorthand they actually use, and how often relative to chances
-  G.short = SHORT.filter(([, sh]) => { const re = new RegExp('(^|\\s)' + sh.replace(/\d/, '\\d') + '(?=\\s|$|[?!.,])', 'i'); return has(re) >= (sh.length === 1 ? 2 : 1); }).map(([full, sh]) => [full, sh]);
+  G.short = SHORT.filter(([, sh]) => { const re = /\d/.test(sh) ? new RegExp('(^|[a-z]\\s)' + sh + '(?=\\s(u|you|me|the|real|sure|a|now|ever|it|that|this|him|her|us|them|what|nothing|fun|free|ages|once|good|real)\\b)', 'i') : new RegExp('(^|\\s)' + sh + '(?=\\s|$|[?!.,])', 'i'); /* '4' only counts as 'for' when it reads as 'for' ('4 u'), not in '4 numbers' */ return has(re) >= (sh.length === 1 ? 2 : 1); }).map(([full, sh]) => [full, sh]);
   // commas, run-ons, dropped little words
   G.noComma = !T.some(t => /,/.test(t)) && N >= 3;
   G.runOn = !T.some(t => /[.!?]\s+\S/.test(t.trim().replace(/[.!?]+$/, ''))) && N >= 3;
