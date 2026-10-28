@@ -10611,7 +10611,7 @@ MP.think = {}; MP.lastChatAt = {};
 function latTrack(id, text, cps) { const now = Date.now(), L = MP.lastChatAt; let lo = 0; for (const k in L) if (k !== id && L[k] > lo) lo = L[k];
   if (lo && now - lo < 30000) { const th = now - lo - String(text).length / (cps || 3.2) * 1000; if (th > 150 && th < 20000) { const a = MP.think[id] || (MP.think[id] = []); a.push(Math.round(th)); if (a.length > 40) a.shift(); } } L[id] = now; }
 // slips: only the misspellings this player really made, at their real rate (none seen = none made); never on a name or a nickname
-function nameForms(id) { const H = MP.hist[id] || [], F = new Map(); for (const p of MP.roster || []) { const n = p.name; if (!n) continue; const lo = n.toLowerCase(); let nk = ''; try { nk = p.id !== id ? nickFor(id, p) : ''; } catch (e) {} for (const f of new Set([lo, String(nk || '').toLowerCase()])) { if (f.length < 2 || (f !== lo && COMMON.has(f))) continue; const re = new RegExp('(^|[^\\p{L}])(' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}])', 'iu'), seen = {}; for (const t of H) { const m = t.match(re); if (m && m[2] !== m[2].toUpperCase()) seen[m[2]] = (seen[m[2]] || 0) + 1; } const best = Object.entries(seen).sort((x, y) => y[1] - x[1])[0]; F.set(f, best ? best[0] : f === lo ? n : f); } } return F; }
+function nameForms(id) { const H = MP.hist[id] || [], F = new Map(), LT = H.length >= 4 && H.filter(t => t === t.toLowerCase()).length / H.length > .8; /* never typed the name: an all-lowercase typer writes it lowercase */ for (const p of MP.roster || []) { const n = p.name; if (!n) continue; const lo = n.toLowerCase(); let nk = ''; try { nk = p.id !== id ? nickFor(id, p) : ''; } catch (e) {} for (const f of new Set([lo, String(nk || '').toLowerCase()])) { if (f.length < 2 || (f !== lo && COMMON.has(f))) continue; const re = new RegExp('(^|[^\\p{L}])(' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}])', 'iu'), seen = {}; for (const t of H) { const m = t.match(re); if (m && m[2] !== m[2].toUpperCase()) seen[m[2]] = (seen[m[2]] || 0) + 1; } const best = Object.entries(seen).sort((x, y) => y[1] - x[1])[0]; F.set(f, best ? best[0] : f === lo ? (LT ? lo : n) : f); } } return F; }
 function typoStep(id, text) {
   const G0 = styleOf(MP.hist[id] || []).G, F = nameForms(id);
   if (F.size && text !== text.toUpperCase()) for (const [f, form] of F) text = text.replace(new RegExp('(^|[^\\p{L}])' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'giu'), (m, a) => a + form); // names keep the case they type them in
@@ -10623,7 +10623,7 @@ function typoStep(id, text) {
 MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const r = typoStep(k, text); delete MP.hist[k]; return r; };
 MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
 function speak(id, base, o = {}) {
-  let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) text = roomWords(id, text);
+  let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) { text = roomWords(id, text); const sl = styleOf(MP.hist[id] || []); if (sl.lower && !sl.caps && !sl.shout) for (const p of MP.roster || []) if (p.name && /^[A-Z]/.test(p.name)) text = text.replace(new RegExp('\\b' + p.name.replace(/[^\p{L}\p{N}]/gu, '') + '\\b', 'g'), p.name.toLowerCase()); text = text.replace(/ {2,}/g, ' ').trim(); } /* lowercase typers write names in lowercase too */
   if (o.body || o.copy) { const RS = MP.recentSaid || (MP.recentSaid = {}), a = RS[id] || (RS[id] = []); a.push(String(base).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); if (a.length > 40) a.shift(); }
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
   if (Math.random() < .03 && /\bI\b/.test(text) && text !== text.toUpperCase()) text = text.replace(/\bI\b/, 'we'); // a slip (their casing kept)
@@ -10866,7 +10866,9 @@ function intentOf0(raw, selfName, fz) {
 }
 // never the same reply twice in a row from one category (remembers the last few)
 const usedR = {};
-function fresh(cat) { const L = BANK[cat] || BANK.vague, U = usedR[cat] || (usedR[cat] = []); const c = L.filter(x => !U.includes(x)); const w = pick(c.length ? c : L); U.push(w); while (U.length > Math.min(6, L.length - 1)) U.shift(); return w; }
+let FR_ID = null; /* whose reply is being picked: answers as long as theirs */
+function fresh(cat) { const L = BANK[cat] || BANK.vague, U = usedR[cat] || (usedR[cat] = []); const c = L.filter(x => !U.includes(x)); let w = pick(c.length ? c : L);
+  const HL = FR_ID ? (MP.hist[FR_ID] || []).map(t => String(t).trim().split(/\s+/).length) : []; if (HL.length >= 4 && (c.length ? c : L).length > 1) { const P = c.length ? c : L, cs = [...new Set(Array.from({ length: 5 }, () => pick(P)))], want = pick(HL), sc = cs.map(x => { const n = x.replace(/\{[^}]+\}/g, 'x').trim().split(/\s+/).length; return Math.pow(HL.filter(h => Math.abs(h - n) <= 1).length + .2, 2) / (1 + Math.abs(n - want)); }); let r = Math.random() * sc.reduce((a, b) => a + b, 0); for (let i = 0; i < cs.length; i++) if ((r -= sc[i]) <= 0) { w = cs[i]; break; } } U.push(w); while (U.length > Math.min(6, L.length - 1)) U.shift(); return w; }
 MP._reply = { norm, intentOf, fresh, fill: (t, id) => fill(t, id) };
 function replyCat(t) { const k = intentOf(t); return k && BANK[k] ? k : null; }
 // ---------- nicknames: which player each short name means, learned from chat ----------
@@ -11217,7 +11219,8 @@ function ctxReply(self, from, text, k) {
 }
 MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, tmix, spamOf, POPEN, PFU, PDENY, UTR, AANS, REPH, PLACEANS };
 // the clone answers the one person it follows, and only them
-function copyHeard(from, text) {
+function copyHeard(from, text) { FR_ID = CP.orig; try { return copyHeard0(from, text); } finally { FR_ID = null; } }
+function copyHeard0(from, text) {
   if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase();
   const to = addressee(from, text, CP.orig, [CP.x, CP.z, CP.floor], CP.lastSaid, CP.asked); if (to === 'unsure' && askWho(CP.orig, from, CP, w => speak(CP.orig, w, { copy: true, only: CP.target }))) return; if (to === 'other' || (to === 'group' && Math.random() > chatty(CP.orig))) return;
   const c = intentOf(text, n); { const rt = repeatTell(CP.orig, from, c); if (rt) return speak(CP.orig, rt, { copy: true, only: CP.target }); } CONV_CUR = convOf(CP.orig, from); const cx = ctxReply(CP.orig, from, text, c); if (cx) { if (cx.line) speak(CP.orig, fill(cx.line, CP.orig), { copy: true, only: CP.target }); CONV_CUR = null; return; }
@@ -11230,7 +11233,8 @@ function copyAnswer(from, text, n, c) {
   const c2 = persona(c, CP.orig), w = c === 'laughs' ? bankLine('laughs', CP.orig) : fill(fresh(BANK[c2] ? c2 : 'vague'), CP.orig);
   speak(CP.orig, w, { copy: true, only: CP.target });
 }
-function bodyHeard(from, text) {
+function bodyHeard(from, text) { FR_ID = PS.id; try { return bodyHeard0(from, text); } finally { FR_ID = null; } }
+function bodyHeard0(from, text) {
   if (!PS.on || from === PS.id || ghostOf(from)) return;
   const n = nameOf(PS.id).toLowerCase(), t = norm(text), to = addressee(from, text, PS.id, [PS.x, PS.z, PS.floor], PS.lastSaid, PS.asked);
   if (to === 'unsure' && askWho(PS.id, from, PS, w => bodySay(w))) return;
