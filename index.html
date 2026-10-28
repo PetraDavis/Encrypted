@@ -9865,7 +9865,7 @@ function styleOf(texts) {
   for (const o of EM) if (o.aloneR > 0) solo.push({ w: o.e.toLowerCase(), r: o.aloneR, form: o.e });
   const G = grammarOf(T, texts);
   const wpm = T.reduce((a, t) => a + t.trim().split(/\s+/).length, 0) / T.length;
-  return { dotR: (ends['.'] || 0) / Math.max(1, T.length), wpm, G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
+  return { dotR: (ends['.'] || 0) / Math.max(1, T.length), wpm, G, plsR: cnt(t => /\bpl[sz]\b/i.test(t)), emo: EM, used: new Set(Object.keys(seen)), q: T.some(t => /\?[!?]*\s*$/.test(t)), qR: (() => { const QL = texts.slice(-60).map(stripEmos).filter(t => /\?[!?]*\s*$/.test(t) || /^(did|does|do|who|whos|what|whats|wat|where|wheres|which|why|how|is|are|r|can|could|anyone|has|have|was|were)\b/i.test(String(t).trim())); return QL.length >= 2 ? QL.filter(t => /\?[!?]*\s*$/.test(t)).length / QL.length : 1; })(), ems, emRate, laugh, tags, solo, lower, noPunct, apos, caps: cnt(t => /^[A-Z]/.test(t.trim())) > .5, shout: cnt(t => t === t.toUpperCase() && /[A-Z]{3}/.test(t)) > .5, end: (Object.entries(ends).sort((a, b) => b[1] - a[1])[0] || [""])[0], emoji, lol: cnt(t => /\b(lol|lmao)\b/i.test(t)) > .15, u: T.some(t => /\bu\b|\bur\b/i.test(t)), pls: T.some(t => /\bpl[sz]\b/i.test(t)), guys: T.some(t => /\bguys\b/i.test(t)) };
 }
 function inStyle(base, st) {
   if (base[0] === '\u0001') return base.slice(1); // their own words, exactly as typed
@@ -9890,7 +9890,7 @@ function inStyle(base, st) {
   else if (st.lower) t = t.toLowerCase();
   else if (st.caps) { t = t.replace(/\bi\b/g, 'I').replace(/\bim\b/gi, "I'm").replace(/\bdont\b/g, "don't"); t = t[0].toUpperCase() + t.slice(1).replace(/([.!?] )([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
   const isQ = /^(did|does|do|who|whos|what|whats|wat|where|wheres|which|why|y|how|is|are|r|can|could|anyone|has|have|was|were|wait did|wait which|wait what|ok who|so who)\b/i.test(t) || /\?$/.test(base.trim());
-  if (!st.noPunct) t = t.replace(/[.!?~]+$/, '') + (isQ && st.q ? (st.G && st.G.qEnd ? st.G.qEnd : '?') : st.end || (!isQ && st.dotR >= .3 && Math.random() < st.dotR + .1 ? '.' : ''));
+  if (!st.noPunct) t = t.replace(/[.!?~]+$/, '') + (isQ && st.q && Math.random() < (st.qR != null ? st.qR : 1) ? (st.G && st.G.qEnd ? st.G.qEnd : '?') : st.end || (!isQ && st.dotR >= .3 && Math.random() < st.dotR + .1 ? '.' : ''));
   else if (st.G && isQ && st.G.qEnd && st.q) t += st.G.qEnd;
   else if (/~/.test(st.end || '') && !isQ && !/~$/.test(t)) t += st.end;
   if (st.G && st.G.xEnd && !isQ && !/[!?]$/.test(t) && Math.random() < st.G.xR) t = t.replace(/[.]$/, '') + st.G.xEnd;
@@ -10459,7 +10459,11 @@ function bankLine0(cat, id) { if (Math.random() < .03) cat = 'creepy'; if (['cas
 /* line length like theirs: of a few candidates, favour the ones as long as the lines they really typed */
 function lenFit(id, L) { return lenPick(() => fill(pick(L), id), id, 6); }
 function lenPick(gen, id, k) { const H = (MP.hist[id] || []).map(t => String(t).trim().split(/\s+/).length); if (H.length < 4) return gen(); const c = [];
-  const st = styleOf(MP.hist[id] || []); for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } c.push([t, H.filter(h => Math.abs(h - n) <= (n > 4 ? 1 : 0)).length + .2, n]); }
+  const st = styleOf(MP.hist[id] || []), HT = (MP.hist[id] || []).map(t => String(t).toLowerCase()), isQ = t => /\?\s*\W*$/.test(t) || /^(what|where|who|why|how|did|does|do|is|are|can|could|should|was|were|anyone|any1)\b/i.test(t.trim()), qr = HT.filter(isQ).length / HT.length;
+  const V = {}; for (const t of HT) for (const w of t.split(/[^\p{L}\p{N}']+/u)) if (w) V[w] = (V[w] || 0) + 1;
+  /* asks as often as they asked, and in words they use */
+  const fitQ = t => isQ(String(t).replace(/^\u0001/, '')) ? (qr + .02) / .4 : (1.02 - qr) / .6, fitV = t => { const ws = String(t).toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(w => w.length > 1); return ws.length ? .4 + 1.6 * ws.filter(w => V[w]).length / ws.length : 1; };
+  for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } c.push([t, (H.filter(h => Math.abs(h - n) <= (n > 4 ? 1 : 0)).length + .2) * fitQ(t) * fitV(t), n]); }
   /* a short typer's turn to say something short, and nothing here is short: one of their own short lines instead */
   const want = pick(H); if (want <= 2 && !c.some(x => x[2] <= want + 1)) { const sh = (MP.hist[id] || []).filter(t => String(t).trim().split(/\s+/).length <= 2 && !NOECHO.test(t) && !KEEP_RE.test(t) && !/\?$/.test(t)); if (sh.length) return '\u0001' + pick(sh); }
   let r = Math.random() * c.reduce((a, x) => a + x[1], 0); for (const x of c) if ((r -= x[1]) <= 0) return x[0]; return c[0][0]; }
