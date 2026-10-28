@@ -10611,6 +10611,8 @@ function intentOf0(raw, selfName, fz) {
   if (/\bthanks? (for nothing|a lot)\b|^\s*(wow|great|gee) thanks\b/i.test(raw) && !/\b(for (the|ur|your|helping|waiting|saving))\b/i.test(raw)) return 'mock';
   if (/^\s*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw)) return 'laughs';
   const em = String(raw); // text faces, read before punctuation is folded away
+  { const e0 = em.replace(/[\s\uFE0F\u200D]/g, ''); if (e0 && !/[a-z0-9]/i.test(e0)) { if (/^[😨😱😰😧😖🫣]+$/u.test(e0)) return 'imscared'; if (/^[🤨🧐]+$/u.test(e0)) return 'sus'; if (/^👀+$/u.test(e0)) return 'wtf'; if (/^🙏+$/u.test(e0)) return 'thanks'; if (/^[👍👌🤝✅]+$/u.test(e0)) return 'ack'; if (/^[🔥💯🐐👑]+$/u.test(e0)) return 'praise'; } } // a bare emoji says something too
+  if (/^\s*(oh no+|uh oh+|oh god|oh nah|nah nah)\s*[!.]*\s*$/i.test(em)) return 'wtf'; if (/^\s*(yikes|eek+|eep+)\s*[!.]*\s*$/i.test(em)) return 'imscared'; if (/^\s*(rip|f|welp|oof)\s*$/i.test(em)) return 'meh'; if (/^\s*oop+\s*$/i.test(em)) return 'laughs'; if (/^\s*(hm+|hmm+|mm+)\s*[.?]*\s*$/i.test(em)) return 'ack';
   if (/>:-?[\(\[\/]|:-?@|😠|😡|🤬|>:-?\|/.test(em)) return 'calm';
   if (/[:;=]'?-?[\(\[]|:'-?\(|\bd:|😢|😞|😔|🥺|☹/u.test(em)) return 'comfort';
   if (/\bx-?d+\b/i.test(em)) return 'laughs';
