@@ -9914,8 +9914,12 @@ MP.copyStart = (orig, target) => {
   CP.hab = habitsOf(o.id); CP.pitch = CP.hab.pitchM; CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
   MP.copyN = (MP.copyN || 0) + 1; CP.success = false; MP.copyDone = MP.copyN >= 2; cpPub(); return { orig: o.id, target: tg.id };
 };
+/* after a Copy: one private line to the one who was copied, from themselves, in their own way of typing */
+function thxLine(id) { const t = PROF.clean(inStyle('thanks for letting me borrow you', styleOf(MP.hist[id] || []))); const tf = typoStep(id, t); return PROF.clean(tf[1] ? t : tf[0]); }
+MP._thx = h => { const k = '__t' + Math.random(); MP.hist[k] = h; const out = thxLine(k); delete MP.hist[k]; return out; };
 function copyEnd(how) {
   if (!CP.on) return; CP.on = false;
+  const who = CP.orig; setTimeout(() => { if (MP.on && MP.roster.some(p => p.id === who)) toPlayer(who, { t: 'chat', from: who, text: thxLine(who) }); }, rnd(3000, 6000));
   // it failed (burned, or nobody was taken): one more attempt later, no sooner than 4 minutes from now
   if (CP.success) MP.copyDone = true; else if ((MP.copyN || 0) < 2) { MP.copyDone = false; MP.copyNext = Date.now() + 4 * 60000; MP.copyForce = Date.now() + 8 * 60000; } if (how) toAll({ t: 'cpgone' }); cpPub(); if (MP.voidOn) setTimeout(() => toAll({ t: 'void', on: false }), 4000);
 }
