@@ -10257,6 +10257,10 @@ const BANK = {
   whereother: ['idk, last i saw them in the {room}', 'no idea, i was in the {here}', 'they were with me a sec ago', 'i think they went to the {room}', 'havent seen them in a while', 'idk, ask them lol', 'they went upstairs i think'],
   split: ['ok ill take the {room}', 'no lets stay together', 'fine, ill do the {here}', 'bad idea but ok', 'ok who goes where', 'i\'ll check the {room} then', 'splitting up never works in movies'],
   praise: ['{W}', 'thanks lol', 'ty', 'i know im good', 'team effort', 'ty ty', 'finally someone noticed lol', 'ok thanks {name}'],
+  accuseother: ['hmm maybe', 'u sure?', 'could be', 'why them tho', 'idk, ive been watching them too', 'maybe, they were kinda quiet'],
+  whoq: ['no clue tbh', 'idk yet', 'hard to tell', 'not sure, watching everyone', 'idk, everyone seems normal'],
+  vote: ['ok', 'yeah skip for now', 'idk yet', 'not u, chill', 'lets wait a bit'],
+  alibi: ['i was in the {wasin}', 'just looking around', 'alone lol', 'checking the {wasin}', 'idk, walking around'],
   reassured: ['ok thanks', 'yeah ok', 'thanks lol', 'ok good', 'ok cool', 'thank god lol'],
   suggest: ['yeah lets', 'idk, what do u think', 'sure lets try it', 'maybe, ur call', 'lets do it', 'ok but you first lol', 'fine, lead the way', 'yeah why not'],
   whome: ['who me?', 'me?', 'r u talking to me?', 'wait me?', 'me??', 'u mean me?', 'talking to me?', 'wait who', 'huh, me?'],
@@ -10357,6 +10361,7 @@ function fill0(t, id) {
   if (/\{next\}/.test(t)) { const R = nextRooms(id); if (!R.length) return pick(['not sure', 'idk tbh', 'no idea, havent been there', 'idk, just following u']); t = t.replace(/\{next\}/g, () => pick(R)); }
   if (/\b(i found a note|found a note|i read \{note\}|i read the)\b/.test(t) && !((MP.reads || {})[id] || []).length) return pick(['nothing yet', 'not really', 'havent found much']); // never claims a note they did not read
   if (/\{item\}/.test(t)) { const R = seenItems(id, /\{here\}/.test(t)); if (!R.length) t = t.replace(/(by|near) the \{item\} in the /g, 'in the ').replace(/near the \{item\}, /g, '').replace(/,? (by|near) the \{item\}/g, ''); if (!R.length && /\{item\}/.test(t)) return pick(['nothing yet', 'not really', 'havent found much', 'nope, u?']); t = t.replace(/\{item\}/g, () => pick(R)); }
+  if (/\{wasin\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['just walking around', 'looking for clues', 'idk, around']); t = t.replace(/\{wasin\}/g, () => pick(R)); }
   if (/\{been\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['nothing yet', 'not really', 'nope, u?', 'not yet', 'havent found much']); t = t.replace(/\{been\}/g, () => pick(R)); }
   if (/\{seen\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['havent seen it', 'no idea', 'idk, didnt see it']); t = t.replace(/\{seen\}/g, () => pick(R)); }
   if (/\{name\}/.test(t) && MP._to && Date.now() - MP._to.at < 8000 && MP._to.id !== id) { const p2 = (MP.roster || []).find(p => p.id === MP._to.id); if (p2) t = t.replace(/\{name\}/g, () => nickFor(id, p2)); }
@@ -10594,6 +10599,10 @@ const INTENTS = [
   ['notme', /^i thought (you|u) (did|had it|have it|got it|took it)\b|^(didnt|did not) (you|u) (have|take|grab) it\b/],
   ['gone', /^(its|it is|they are|theyre|the \w+ is|the \w+ are) (just )?(gone|missing|not there)\b/],
   ['ack', /^(nothing|nm|nothing nvm|nvm nothing|nothing lol|never mind lol|nvm lol|ok|okay|k|kk|okk|nvm|never ?mind|same|same tho|me (too|neither)|true|fair|ight|alright|cool|cool right|right|ya|yeah)\??$/],
+  ['whoq', /\b(who|whos|who is) (do (u|you) think|r u|are you) (it is|is it|sus|suspect|thinking)\b|^(who|whos) (do (you|u) think )?(is )?(the )?(copy|clone|fake|imposter|it)\??$|^(idk|i dont know|i do not know|i dunno|no idea|no clue) who (it is|is it|the (copy|clone) is)\b/],
+  ['vote', /^(skip|lets skip|i skip) (the )?vote\b|^(dont|do not|pls dont|please dont) vote (me|for me|me out)\b|^(should we|lets|do we) vote\b/],
+  ['alibi', /^(where (were|where) (you|u) (before|earlier|just now|when|during|\d+ ?(min|mins|minutes|sec|secs) ago|a (min|minute|sec) ago)|what (were|where) (you|u) doing)\b|^who (was|were|where) with (you|u)\b/],
+  ['reassured', /^(ok |okay |fine )?(i|ok i) (believe|trust) (you|u)\b/],
   ['danger', /^(shes|she is|its|it is|he is|hes) (coming|here|behind (u|you|us|me)|right there|close|next to (u|you))\b|\b(theres|there is) (something|someone|smth) (behind|next to|near|following)\b|^(hide|run|go)(!+| now| quick| hide| run)*!*$|^(behind (u|you))!*$/],
   ['hiding', /^(im|i am|ok im|ok i am) hiding\b|^(im|i am) in the (closet|cupboard|wardrobe|locker)\b/],
   ['safeq', /^(is|did) (she|it|he) (gone|leave|go away)\b|^is it safe\b|^(we|r we|are we) safe\b/],
@@ -10715,6 +10724,8 @@ function intentOf0(raw, selfName, fz) {
   if (/(^|\s)(:-?[\)d]|=\)|\^_?\^|😊|🙂|😀|😄)(\s|$)/iu.test(em) && em.replace(/\s/g, '').length < 6) return 'happy';
   const t = norm(raw, fz); if (selfName && new RegExp('\\bnot (really |the real )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal'; if (selfName && new RegExp('\\b(are you|is (this|that|it)( really| actually)?|you are|you really|are you (even|really|actually)|prove (you are|your|ur|youre)) (the real )?(even )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal';
   const tt = selfName ? t.replace(new RegExp('^(hey |yo |oi )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b[ ,]*'), '').replace(new RegExp('[ ,]*\\b' + selfName.replace(/[^a-z0-9]/g, '') + '[?!]*$'), '') || t : t;
+  { const sn = (selfName || '').toLowerCase().replace(/[^a-z0-9]/g, ''), ns = (MP.roster || []).map(p => String(p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')).filter(n => n.length >= 2 && n !== sn); // blaming someone else
+    if (ns.length) { const N = '(' + ns.join('|') + ')'; if (new RegExp('^(i think |i bet |pretty sure |ngl |tbh |honestly )*(its|it is) (definitely |def |prob |probably |totally |so )*' + N + '[?!]*$').test(tt) || new RegExp('^' + N + ' (is|has to be|must be) (lying|the copy|the clone|sus|fake|a copy|a clone|the fake|the imposter|not real)\\b').test(tt) || new RegExp('^(vote|lets vote|i vote|voting) (out )?' + N + '\\b').test(tt)) return 'accuseother'; } }
   for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(tt) : m.test(tt)) return k;
   const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || (bare.startsWith(selfName) && bare.length <= selfName.length + 3))))) return 'called';
   if (/\?\s*$/.test(t) || /^(why|what|how|who|where|when|which)\b/.test(t)) return 'vague';
@@ -11128,10 +11139,25 @@ function solveFor(from) {
   if (!best) { let bd = 1e9; for (const d of E.DOORS) if (d.puzzle && !S.solved[d.puzzle] && open.includes(d.puzzle)) { const dd = Math.hypot(d.x - PS.x, d.z - PS.z); if (dd < bd) { bd = dd; best = d.puzzle; } } }
   bodySay(pick(BANK.stall), { delay: rnd(700, 1600), exact: true });
   if (!best) return bodySay(pick(['idk which one', 'what one', 'which puzzle', 'cant see it from here']), { delay: rnd(3000, 5000) });
-  const ans = String(A[best][0]).toLowerCase(), wait = Math.min(8000, 1200 + ans.length * 260) * rnd(.9, 1.1);
-  bodySay(pick(['its ', 'i think its ', 'try ', '', 'pretty sure its ']) + ans, { delay: 1600 + wait, exact: true });
+  const ans = String(A[best][0]).toLowerCase(), J = solveJob('poss', best), wait = Math.max(4000, J.at - Date.now()); // as long as a person would take, a touch less
+  bodySay(pick(['its ', 'i think its ', 'try ', '', 'pretty sure its ']) + ans, { delay: wait, exact: true }); J.said = 1;
 }
 MP._solve = solveFor;
+// the body and the copy work puzzles out themselves: only clues the group has found, only at the lock, a little quicker than people do
+const SOLVE = { found: {}, dur: [], jobs: {} };
+function humanSolveMs(id) { const A = (window.__ENC.PURE.ANSWERS || {})[id], len = A ? String(A[0]).length : 5, d = SOLVE.dur.slice(-6).sort((a, b) => a - b);
+  const base = d.length ? d[Math.floor(d.length / 2)] : Math.min(240000, Math.max(45000, 40000 + len * 9000)); return base * rnd(.8, .92); }
+function solveJob(who, id) { const k = who + ':' + id, J = SOLVE.jobs[k]; if (J) return J; const f = SOLVE.found[id] || Date.now(); return SOLVE.jobs[k] = { id, at: Math.max(Date.now() + 4000, f + humanSolveMs(id)) }; }
+function solveTick() {
+  const E = window.__ENC; if (!E || !E.PUZ) return; const S = X().S, A = E.PURE.ANSWERS || {}, now = Date.now();
+  for (const pz of E.PUZ) { let f = false; try { f = pz.found && pz.found(); } catch (e) {} if (f && !SOLVE.found[pz.id]) SOLVE.found[pz.id] = now; if (S.solved[pz.id] && SOLVE.found[pz.id] && !SOLVE.found[pz.id + '!']) { SOLVE.found[pz.id + '!'] = 1; if (!SOLVE.by || SOLVE.by !== pz.id) SOLVE.dur.push(now - SOLVE.found[pz.id]); SOLVE.by = null; } }
+  if (MP.on && !MP.host) return;
+  const who = []; if (PS.on) who.push(['poss', PS.x, PS.z, PS.floor || 1]); if (CP.on && CP.x != null) who.push(['copy', CP.x, CP.z, CP.floor || 1]);
+  for (const [w, x, z, fl] of who) for (const d of E.DOORS) { const id = d.puzzle; if (!id || S.solved[id] || !A[id] || !SOLVE.found[id] || (d.floor || 1) !== fl || Math.hypot(d.x - x, d.z - z) > 5) continue;
+    const J = solveJob(w, id); if (!J.near) J.near = now + rnd(3000, 8000); if (now < J.at || now < J.near) continue; /* a few seconds at the keypad, like typing it in */ SOLVE.by = id; if (E.submit(id, String(A[id][0]))) { if (w === 'poss' && !J.said && Math.random() < .5) bodySay(pick(['got it', 'ok its open', 'opened it', 'figured it out'])); } }
+}
+setInterval(() => { try { solveTick(); } catch (e) {} }, 1000);
+MP._solveT = { SOLVE, solveTick, humanSolveMs, solveJob, PS: () => PS, CP: () => CP };
 // she still walks elsewhere while she wears someone, and the body is always first to a hiding place
 const HIDE_SPOTS = () => (X().HIDES || []).map(h => ({ x: h.cam[0], z: h.cam[1], room: X().roomAt(h.cam[0], h.cam[1]) }));
 function bodyHide() {
