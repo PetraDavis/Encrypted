@@ -9761,6 +9761,10 @@ const COPY_LINES = ['i found this room', 'come look', 'guys over here', 'over he
 const SHORT = [['you are', 'ur'], ["you're", 'ur'], ['your', 'ur'], ['you', 'u'], ['are', 'r'], ['people', 'ppl'], ['right now', 'rn'], ['because', 'bc'], ['please', 'pls'], ['okay', 'k'], ['ok', 'k'], ['though', 'tho'], ['thanks', 'thx'], ["i don't know", 'idk'], ['i dont know', 'idk'], ['before', 'b4'], ['something', 'smth'], ['probably', 'prob'], ['what', 'wat'], ['see you', 'cya'], ['to be honest', 'tbh'], ['oh my god', 'omg'], ['with', 'w'], ['tomorrow', 'tmrw'], ['message', 'msg'], ['about', 'abt'], ['really', 'rly'], ['why', 'y'], ['too', '2'], ['for', '4']];
 const STRETCH = ['so', 'no', 'help', 'what', 'why', 'pls', 'please', 'ok', 'yes', 'hey', 'wait', 'come', 'here', 'go', 'stop', 'omg', 'oh', 'ugh', 'scary', 'creepy', 'nope', 'hi', 'guys', 'run', 'dark'];
 let KNOWN = null;
+/* a swapped letter only counts as a typo if the two keys sit next to each other ('line' is a word, not a slip for 'like') */
+const KROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+function keyNear(w, kw) { if (w.length !== kw.length) return true; let i = 0; while (i < w.length && w[i] === kw[i]) i++; if (i === w.length) return true; if (w.slice(i + 1) !== kw.slice(i + 1)) return true; /* not a single swap: a transposition */
+  const at = c => { for (let r = 0; r < 3; r++) { const j = KROWS[r].indexOf(c); if (j >= 0) return [r, j]; } return null; }, a = at(w[i]), b = at(kw[i]); return !!(a && b && Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1] + (a[0] - b[0]) * .5) <= 1); }
 function knownWords() {
   if (KNOWN) return KNOWN; KNOWN = new Set(COMMON);
   const add = t => (String(t).toLowerCase().match(/[a-z]+/g) || []).forEach(w => KNOWN.add(w));
@@ -9793,7 +9797,7 @@ function grammarOf(T, raw) {
   const SH = new Set(SHORT.map(x => x[1]).concat(SLANG, [...ABBR], 'dont im cant wont didnt thats whats ive youre theres isnt doesnt lets ill hes shes wasnt arent couldnt shouldnt wouldnt gonna wanna gotta lemme ya yea yeah nah'.split(' ')));
   const cnt = {}; for (const w of words) if (w.length > 2 && !K.has(w) && !SH.has(w) && !K.has(w.replace(/([a-z])\1+/g, '$1'))) cnt[w] = (cnt[w] || 0) + 1;
   G.miss = {}; G.once = {}; let typoN = 0; const pre = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
-  for (const w in cnt) { let k = null, kb = -1; for (const kw of K) if (kw.length > 2 && ed1(w, kw)) { const sc = pre(w, kw) * 2 - Math.abs(w.length - kw.length) + (kw.length >= w.length ? 1 : 0); if (sc > kb) { kb = sc; k = kw; } } if (!k) continue; if (cnt[w] >= 2) G.miss[k] = w; else { typoN += cnt[w]; G.once[k] = w; } }
+  for (const w in cnt) { let k = null, kb = -1; for (const kw of K) if (kw.length > 2 && ed1(w, kw) && keyNear(w, kw)) { const sc = pre(w, kw) * 2 - Math.abs(w.length - kw.length) + (kw.length >= w.length ? 1 : 0); if (sc > kb) { kb = sc; k = kw; } } if (!k) continue; if (cnt[w] >= 2) G.miss[k] = w; else { typoN += cnt[w]; G.once[k] = w; } }
   G.typoR = Math.min(.4, typoN / N); G.fixR = (raw || []).filter(t => /^\*\w/.test(t.trim())).length / Math.max(1, typoN);
   // no capitals at all (even "i")
   G.noCaps = T.every(t => t === t.toLowerCase()) && has(/\bi\b/) + has(/\bim\b/) > 0 ? 1 : T.every(t => t === t.toLowerCase()) ? .5 : 0;
