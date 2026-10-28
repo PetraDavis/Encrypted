@@ -10274,6 +10274,7 @@ const BANK = {
   selfdown: ['ur fine lol', 'nah ur good', 'we all suck at this lol', 'ur doing fine', 'dont say that', 'its ok lol'],
   madq: ['no lol', 'nah im good', 'not mad', 'nah ur fine', 'why would i be mad'],
   team: ['fr', 'best team', 'yeah we do', 'duo of the year lol', 'ikr'],
+  rollcall: ['{roll}'],
   controls: ['{ctrl}', 'its {ctrl}', '{ctrl} i think', 'press {ctrl}', '{ctrl} lol'],
   coming: ['coming', 'omw', 'yeah one sec', 'ya', 'yep coming'],
   whichq: ['idk which', 'no clue', 'try the first one', 'whichever lol', 'hmm idk'],
@@ -10370,7 +10371,7 @@ function goalNow() { try { const el = document.getElementById('objt'); let g = (
 // asked the same thing a third time inside a minute and a half: people point back at what they said
 const REPQ = {}; const REPK = new Set(['where', 'areuok', 'ok', 'plan', 'scaredq', 'controls', 'whoq', 'foundq', 'affirmreal', 'denyclone', 'directions']);
 function repeatTell(self, from, k) { if (!k || !REPK.has(k)) return null; const key = self + '|' + from, now = Date.now(), R = REPQ[key]; if (!R || R.k !== k || now - R.at > 90000) { REPQ[key] = { k, n: 1, at: now }; return null; } R.n++; R.at = now; if (R.n < 3 || Math.random() < .35) return null; return pick(['i just told u lol', 'i said already', 'same answer lol', 'scroll up lol', 'still the same', 'i literally just said']); }
-let CHOICE = null, CTRL = null;
+let CHOICE = null, CTRL = null, ROLL = null;
 const CTRLS = [[/crouch|duck|sneak/, 'c'], [/run|sprint/, 'shift'], [/flash ?light|torch|light/, 'f'], [/journal|notes?|clues?|read .* again/, 'j or tab'], [/jump/, 'space'], [/pick|grab|interact|open (the )?doors?|open stuff|use/, 'e'], [/talk|chat|type/, 't'], [/mic|voice/, 'm, or hold v'], [/move|walk/, 'wasd']];
 function noteName(id) { const R = (MP.reads[id] || []).map(r => String(r.title || '').toLowerCase().replace(/[^a-z' ]/g, '').trim()).filter(t => t && t.length < 40); if (!R.length) return pick(['the note', 'that note', 'the notes']); const t = pick(R); return /^(the|a|an|that|this|my|\w+'s?) /.test(t) ? t : 'the ' + t; } // only notes this player actually read
 function seenRooms(id) { const x = X(), R = new Set(); for (const q of (MP.track[id] || [])) { const r = x.roomAt(q[0], q[1]); if (r && x.ROOMS[r]) R.add(x.ROOMS[r].name.toLowerCase()); } for (const r of (MP.histRoom[id] || [])) if (r && x.ROOMS[r]) R.add(x.ROOMS[r].name.toLowerCase()); return [...R]; }
@@ -10397,7 +10398,7 @@ function fill0(t, id) {
   const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
   const H0 = MP.hist[id] || [], cntW = re => H0.filter(t => re.test(t)).length, addr = ['twin', 'bestie', 'bro', 'gang'].find(w => cntW(new RegExp('(^|\\s)' + w + '(\\s|$)', 'i')) >= 2);
   const nick = p2 => addr && Math.random() < .35 ? addr : nickFor(id, p2);
-  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id) || 'here').replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => noteName(id)).replace(/\{seen0\}/g, () => { const R = seenRooms(id); return R.length ? pick(R) : here; }).replace(/\{ctrl\}/g, () => CTRL || 'idk').replace(/\{opt\}/g, () => CHOICE ? pick(CHOICE) : 'the first one').replace(/\{spam\}/g, () => spamOf(id)).replace(/\{W\}/g, () => cntW(/^w( |$)/i) >= 2 ? 'W' : pick(['nice', 'yesss', 'lets go'])).replace(/\{L\}/g, () => cntW(/^l( |$)|\bthe l\b/i) >= 2 ? 'L' : pick(['lol no', 'nope', 'ur the noob'])).replace(/\{self\}/g, self).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
+  return t.replace(/\{past\}/g, () => pastLine(id)).replace(/\{scared\}/g, () => scaredRoom(id) || 'here').replace(/\{room\}/g, () => pick(ROOM_LIST)).replace(/\{item\}/g, () => pick(ITEMS)).replace(/\{note\}/g, () => noteName(id)).replace(/\{seen0\}/g, () => { const R = seenRooms(id); return R.length ? pick(R) : here; }).replace(/\{roll\}/g, () => ROLL === '@name' ? self : ROLL || 'here').replace(/\{ctrl\}/g, () => CTRL || 'idk').replace(/\{opt\}/g, () => CHOICE ? pick(CHOICE) : 'the first one').replace(/\{spam\}/g, () => spamOf(id)).replace(/\{W\}/g, () => cntW(/^w( |$)/i) >= 2 ? 'W' : pick(['nice', 'yesss', 'lets go'])).replace(/\{L\}/g, () => cntW(/^l( |$)|\bthe l\b/i) >= 2 ? 'L' : pick(['lol no', 'nope', 'ur the noob'])).replace(/\{self\}/g, self).replace(/\{here\}/g, here).replace(/\{name\}/g, () => others.length ? nick(pick(others)) : 'guys');
 }
 // the situation each of their lines was said in, so the clone says the same thing when the same thing happens again
 MP.histCtx = {}; MP.lastChat = null; MP.ownUsed = {};
@@ -10570,6 +10571,7 @@ function speak(id, base, o = {}) {
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
   if (Math.random() < .03) text = text.replace(/\bI\b/, 'we').replace(/^[A-Z]/, c => c.toLowerCase()); // a slip
   let fix = null; if (!o.exact) [text, fix] = typoStep(id, text); text = PROF.clean(text); if (fix) fix = PROF.clean(fix);
+  if ((o.body || o.copy) && !o.exact) { const L = MP.lastTxt || (MP.lastTxt = {}), k = id + (o.copy ? 'c' : 'b'), prev = L[k]; if (prev && prev.t.toLowerCase() === text.toLowerCase() && Date.now() - prev.at < 120000) text = (/^(in|im in|by|at|near) /i.test(text) ? 'still ' : pick(['yeah ', 'like i said ', 'still '])) + text.replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase()); L[k] = { t: text, at: Date.now() }; } /* never the exact same line twice running */
   if (MP._spy) { MP._spy.push({ id, text, copy: !!o.copy, body: !!o.body }); return; } // tests: what it would say, as whom
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
@@ -10616,6 +10618,7 @@ function norm(text, fz) {
 }
 // what they meant, in priority order; null when nothing fits
 const INTENTS = [
+  ['rollcall', t => /^(who(s| is) (still )?(here|alive|left|around)|(is )?every(one|1|body) (still )?(here|alive|ok))\??!*$/.test(t) && (ROLL = pick(['here', 'me', 'still here', 'me, still alive lol', 'here!'])) && true],
   ['brb', /^(brb|afk|one sec|1 sec|sec|gimme a sec|give me a sec|hold on a sec|be right back|bathroom|my (mom|mum|dad) is calling( me)?|dinner|gotta eat)( brb| sorry| guys)?$/],
   ['back', /^(back|im back|i am back|bk|re|okay im back|ok back|ok im back)$/],
   ['thanks', /^(wb|welcome back)$/],
@@ -10634,6 +10637,11 @@ const INTENTS = [
   ['team', /\b(we make|we are|were|what) a (good|great) team\b|^(good|great|nice) team(work)?!*$|\bteamwork\b/],
   ['praise', /^(your|you are|youre) (actually |really |so |lowkey |kinda |honestly )*(good|cracked|insane|goated|smart|a genius|the goat)\b/],
   ['thanks', /\bi owe (you|u) (one|big)\b/],
+  ['rollcall', t => { let m; if (/\bif (your|you are|youre|ur|u r) (the |a )?(copy|clone|fake|ghost)\b/.test(t)) return false;
+    if ((m = t.match(/^(everyone |every1 |guys |all )?(say|type) ([a-z0-9]+)( if (you|your|you are|youre) (here|alive|ok|real|there))?!*$/)) && !/^(something|anything|it|that|this|sorry|ur|your|a)$/.test(m[3]) && !NOECHO.test(m[3])) { ROLL = m[3]; return true; }
+    if (/^(roll ?call|sound off|count off|check in|attendance|whos (still )?(here|alive|left|around)|(is )?every(one|1|body) (here|alive|ok)|say (something|anything) if (you|your|youre) (here|alive))\??!*$/.test(t)) { ROLL = pick(['here', 'me', 'here!', 'still here', '1', 'present lol']); return true; }
+    if (/^(everyone |guys )?(type|say) (your|ur) name\b/.test(t)) { ROLL = '@name'; return true; }
+    if ((m = t.match(/^(everyone |guys )?(type|say|pick) a (color|colour|number|animal|food)\b/))) { ROLL = pick({ color: ['blue', 'red', 'green', 'purple'], colour: ['blue', 'red', 'green'], number: ['7', '3', '42', '9'], animal: ['cat', 'dog', 'frog'], food: ['pizza', 'fries', 'tacos'] }[m[3]]); return true; } return false; }],
   ['controls', t => { if (!/^(how (do|can|did) (i|you|u|we)|what(s| is) the (button|key) (to|for)|what (button|key) (is|for|do i press)|which (button|key))\b/.test(t)) return false; const q = t.replace(/^.*?(how (do|can|did) (i|you|u|we)|what(s| is) the (button|key) (to|for)|what (button|key) (is|for|do i press)|which (button|key)( is| for)?)\s*/, ''); if (q.split(' ').length > 7 || /\b(get|go|find|reach|solve|beat|escape|win|unlock)\b/.test(q)) return false; for (const [re, k] of CTRLS) if (re.test(q)) { CTRL = k; return true; } return false; }],
   ['choice', t => { const m = t.replace(/\?+$/, '').match(/^(?:(?:should|do|can|shall) (?:we|i) (?:go |do |take |try |use |pick |open )?|is it |(?:is it )?the )?(?:the )?([a-z0-9]+(?: [a-z0-9]+)?) or (?:the )?([a-z0-9]+(?: [a-z0-9]+)?)$/); if (!m || /^(nah|not|no)$/.test(m[2]) || t.split(' ').length > 8) return false; CHOICE = [m[1], m[2]]; return true; }],
   ['ready', /^((are|r) (you|u) |u |you )?(ready|in)\??$|^(we|are we|r we) (good|ready)\??$|^shall we\??$|^(are|r) we doing this\??$|^lets do this\b/],
