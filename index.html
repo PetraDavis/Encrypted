@@ -10676,8 +10676,10 @@ function mentioned(from, text) { const s = new Set(); for (const [i, w] of toks(
 function aboutThem(from, text, self) {
   const T = toks(text), i = T.findIndex((w, j) => nickOf(w, from, j === 0) === self); if (i < 0) return false;
   const t = ' ' + T.join(' ') + ' ', you = /\b(you|u|ur|your|youre|yall)\b/.test(norm(text)), W = T[i], before = T.slice(Math.max(0, i - 3), i).join(' '), after = T.slice(i + 1, i + 3).join(' ');
+  if (/\bnot (you|u)\b/.test(norm(text)) && /^(you|u)$/.test(T[i - 1] || '')) return true; // "not u bob, cy"
   if (you) return false;
-  if (i === 0 || /^(hey|yo|oi|ok|okay|wait|bro|dude)$/.test(T[i - 1] || '')) return /^(is|was|has|went|said|keeps|seems|looks|always|never|did|isnt|wasnt|hasnt|cant|might|must)\b/.test(after) && !/^(is|was) (that|this|it)\b/.test(after);
+  const pv = T[i - 1] || '', pvOther = i === 1 && (() => { const o = nickOf(pv, from, true); return o && o !== self; })();
+  if (i === 0 || pvOther || /^(hey|yo|oi|ok|okay|wait|bro|dude|guys|everyone|yall|chat|gang|omg|bruh)$/.test(pv)) return /^(is|was|has|went|said|keeps|seems|looks|always|never|did|isnt|wasnt|hasnt|cant|might|must)\b/.test(after) && !/^(is|was) (that|this|it)\b/.test(after);
   return /\b(where is|wheres|where did|where does|seen|ask|tell|did|think|thinks|with|about|is|was|follow|check on|watch|what about|than|like|and|or|trust)$/.test(before) && !/^(come|go|wait|stop|look|run|hide|get|help)\b/.test(T.slice(i + 1).join(' ') || '');
 }
 function addressee(from, text, self, pos, lastSaid, asked) {
@@ -10688,7 +10690,7 @@ function addressee(from, text, self, pos, lastSaid, asked) {
   if (/\b(guys|everyone|everybody|yall|you all|all of you|team|people|you two|you both|both of you|you 2|you three|gang|chat|squad)\b/.test(t)) return 'group';
   const L = living().filter(p => p.id !== from); if (L.length <= 1) return 'me';
   const now = Date.now(); if (now - (lastSaid || 0) < 12000 && !L.some(p => p.id !== self && now - (MP.saidAt[p.id] || 0) < now - lastSaid)) return 'me'; // it spoke last
-  if (/\b(you|your|you are)\b/.test(t) || /^(twin|twinion|bro|bruh|bestie|homie|dude)\b/.test(t)) { const q = posOf(from); if (q && pos) { const d = p => p[2] === q[4] ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 99; const mine = d(pos), best = Math.min(99, ...L.filter(p => p.id !== self).map(p => posOf(p.id)).filter(Boolean).map(o => d([o[0], o[1], o[4]]))); if (mine < 6 && mine < best - 1) return 'me'; if (mine < 6) return 'unsure'; } }
+  if (/\b(you|your|you are)\b/.test(t) || /^(twin|twinion|bro|bruh|bestie|homie|dude)\b/.test(t) || /^(twin|twinion|bro+|bruh+|bestie|homie|dude)\b/i.test(String(text).trim())) { const q = posOf(from); if (q && pos) { const d = p => p[2] === q[4] ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 99; const mine = d(pos), best = Math.min(99, ...L.filter(p => p.id !== self).map(p => posOf(p.id)).filter(Boolean).map(o => d([o[0], o[1], o[4]]))); if (mine < 6 && mine < best - 1) return 'me'; if (mine < 6) return 'unsure'; } }
   return 'group';
 }
 MP.saidAt = {};
