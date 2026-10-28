@@ -10314,12 +10314,14 @@ const SHOUT = k => { const L = k.replace(/[^A-Za-z]/g, ''), U = k.replace(/[^A-Z
 function ownLine(id, o = {}) { const H = MP.hist[id] || [], C0 = MP.histCtx[id] || []; if (H.length < 8) return null;
   const now = Date.now(), U = MP.ownUsed[id] || (MP.ownUsed[id] = {}), C = o.tags || ctxTags(id, { self: o.self != null ? o.self : (PS.on && id === PS.id ? (PS.lastSaid ? 9 : 0) : CP.on && id === CP.orig ? (CP.lastSaid ? 9 : 0) : 9), reply: o.reply }), freq = {};
   for (const t of H) { const k = t.trim(); freq[k] = (freq[k] || 0) + 1; }
+  let RN = [], hereR = null; try { const x = X(), q = whereIs(id), hr = q && x.roomAt(q[0], q[1]); RN = Object.values(x.ROOMS).flatMap(r => { const n = String(r.name || '').toLowerCase(); return [n, n.split(' ').pop()]; }).filter(w => w.length > 3).sort((a, b) => b.length - a.length); hereR = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : null; } catch (e) {}
   const S = {}; H.forEach((t, i) => { const k = t.trim(), T = C0[i]; if (!T || !k || k.length > 60 || NOECHO.test(k) || KEEP_RE.test(k) || /^\*/.test(k) || now - (U[k] || -1e9) < 300000) return;
     const T2 = T instanceof Set ? T : new Set(T); let m = 0; for (const g of T2) if (KEYT(g) && C.has(g)) m += g === 'idle' ? .3 : g === 'far' || g === 'near' ? .5 : g.startsWith('r:') ? 2 : 1; if (!m || (m <= .5 && !T2.has('idle'))) return;
     if (T2.has('idle') && !T2.has('danger') && (C.has('danger') || C.has('scare'))) return; // no small talk mid-chase
     if (SHOUT(k) && !C.has('danger') && !C.has('scare')) return; // never shout with nothing chasing
     for (const g of ['odd', 'found', 'q']) if (T2.has(g) && !C.has(g) && !T2.has('idle')) m *= .35;
     if ((T2.has('danger') || T2.has('scare')) && !C.has('danger') && !C.has('scare')) return; // urgent lines only when it is urgent again
+    if (RN.length) { const lo = k.toLowerCase(), m = RN.find(r => lo.includes(r)); if (m && !(hereR && hereR.includes(m))) return; } // a line naming a room is only true again in that room
     if ((T2.has('far') && C.has('near')) || (T2.has('near') && C.has('far'))) m *= .3; if (T2.has('greet') && !C.has('greet')) return;
     S[k] = (S[k] || 0) + m * Math.sqrt(freq[k]); });
   const E = Object.entries(S); if (!E.length) return null; const tot = E.reduce((a, e) => a + e[1], 0);
