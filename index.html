@@ -8930,6 +8930,7 @@ window.__ENDCUT = ENDCUT;
 #mpchat .m.y{color:#c98a90;font-style:italic;background:rgba(20,0,4,.45)}
 #mpchat .m.sys{color:#8c8478}
 #mpchat .m.gh{opacity:.55;font-style:italic;background:rgba(0,0,0,.25)}#mpchat .m.bodyme{color:#b9a7a7;font-style:italic;background:rgba(60,0,8,.35);border-left:2px solid #6e1520;letter-spacing:.02em}#mpchat .m.bodyme i{color:#8a6c6c}#mpchat .m.gh.old{opacity:0}
+#langwarn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;pointer-events:none;max-width:calc(100vw - 32px);box-sizing:border-box;padding:1rem 1.6rem;background:rgba(10,30,60,.88);border:1px solid #4aa8ff;color:#d8ecff;font-family:var(--f-type);font-size:clamp(1.05rem,4.2vw,1.6rem);letter-spacing:.06em;text-align:center;box-shadow:0 0 40px rgba(60,150,255,.35);opacity:0;transition:opacity .5s}#langwarn.on{opacity:1}#langwarn.off{opacity:0;transition:opacity .8s}
 #mpin{pointer-events:auto;width:100%;box-sizing:border-box;margin-top:.3rem;background:rgba(5,7,8,.92);border:1px solid #5a1a20;color:#e9e2d6;font:inherit;padding:.4rem .5rem}
 #mpvoice{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:3.2rem;font-family:var(--f-type);font-size:.75rem;letter-spacing:.1em;color:#8c8478;z-index:12;text-align:right;line-height:1.6;pointer-events:none}
 #mpvoice b{color:#d8d0c2;font-weight:normal}#mpvoice .on{color:var(--ember)}
@@ -9321,7 +9322,13 @@ const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1v
       const vs = [core, core.replace(/\*/g, 'u'), core.replace(/\*/g, 'i'), core.replace(/\*/g, 'a'), core.replace(/[^a-z0-9@$!|+]/gi, '')]; return vs.some(bad) ? m[1] + mask(core) + m[3] : tok; }); }
   return { clean, bad, has: t => clean(t) !== String(t || '') };
 })();
-MP._prof = PROF;
+MP._prof = PROF; MP._chatLine = (f, t) => chatLine(f, t);
+// the sender alone is told, once at a time: a blue notice in the middle of their screen that fades on its own (never for the clone's words, never for mild swearing)
+let langT = 0, langEl = null;
+function langWarn() { const now = Date.now(); if (!langEl) { langEl = document.createElement('div'); langEl.id = 'langwarn'; langEl.setAttribute('role', 'status'); langEl.textContent = "please don't use that language"; document.body.appendChild(langEl); }
+  MP.langShown = (MP.langShown || 0) + (now - langT > 3000 ? 1 : 0); langT = now; langEl.classList.remove('off'); langEl.classList.add('on'); clearTimeout(langEl._t); langEl._t = setTimeout(() => { langEl.classList.remove('on'); langEl.classList.add('off'); }, 3000); }
+function langCheck(v) { const w = String(v || '').replace(/^\/dust\s+/, ''); if (w && PROF.has(w)) langWarn(); }
+MP._lang = { langCheck, get shown() { return MP.langShown || 0; }, get visible() { return !!(langEl && langEl.classList.contains('on')); } };
 function addMsg(html, cls) {
   const box = $('mpmsgs'), el = document.createElement('div'); el.className = 'm' + (cls ? ' ' + cls : ''); el.innerHTML = html; box.appendChild(el);
   while (box.children.length > 9) box.firstChild.remove();
@@ -9339,7 +9346,7 @@ $('mpin').addEventListener('input', () => { if (!MP.typeT0 && $('mpin').value) M
 $('mpin').addEventListener('keydown', e => {
   e.stopPropagation();
   if (e.key === 'Escape') { e.preventDefault(); return chatClose(); }
-  if (e.key === 'Enter') { e.preventDefault(); const v = $('mpin').value.trim().slice(0, 200); if (v && /^\/dust\s/.test(v)) { const w = v.replace(/^\/dust\s+/, '').trim().split(/\s+/)[0] || ''; if (w && MP.ghost && !MP.dustUsed && PS.on && PS.id === MP.me) addMsg('<i>your hand will not move in the dust</i>', 'bodyme'); else if (w && MP.ghost && !MP.dustUsed) { MP.dustUsed = true; const P = X().P; toHost({ t: 'dust', word: w.slice(0, 12), x: +P.x.toFixed(2), z: +P.z.toFixed(2), yaw: P.yaw }); } } else if (v) { const sec = MP.typeT0 ? (performance.now() - MP.typeT0) / 1000 : 0; chatLine(MP.me, v); if (MP.ghost && PS.on && PS.id === MP.me && !MP.psWarned) { MP.psWarned = 1; addMsg('<i>only the dead can hear you now</i>', 'bodyme'); } toHost({ t: 'chat', text: v, cps: sec > .4 ? +(v.length / sec).toFixed(2) : 0 }); } MP.typeT0 = 0; chatClose(); }
+  if (e.key === 'Enter') { e.preventDefault(); const v = $('mpin').value.trim().slice(0, 200); langCheck(v); if (v && /^\/dust\s/.test(v)) { const w = v.replace(/^\/dust\s+/, '').trim().split(/\s+/)[0] || ''; if (w && MP.ghost && !MP.dustUsed && PS.on && PS.id === MP.me) addMsg('<i>your hand will not move in the dust</i>', 'bodyme'); else if (w && MP.ghost && !MP.dustUsed) { MP.dustUsed = true; const P = X().P; toHost({ t: 'dust', word: w.slice(0, 12), x: +P.x.toFixed(2), z: +P.z.toFixed(2), yaw: P.yaw }); } } else if (v) { const sec = MP.typeT0 ? (performance.now() - MP.typeT0) / 1000 : 0; chatLine(MP.me, v); if (MP.ghost && PS.on && PS.id === MP.me && !MP.psWarned) { MP.psWarned = 1; addMsg('<i>only the dead can hear you now</i>', 'bodyme'); } toHost({ t: 'chat', text: v, cps: sec > .4 ? +(v.length / sec).toFixed(2) : 0 }); } MP.typeT0 = 0; chatClose(); }
 });
 addEventListener('keydown', e => {
   if (!MP.on || !MP.started) return; const tg = e.target; if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return;
@@ -10516,7 +10523,7 @@ function fixWord(w) { if (VOCAB.has(w) || w.length < 3 || /\d/.test(w)) return w
   if (w.length < 4) { for (const v of VOCAB) if (v.length === w.length && dl1(w, v) && w[0] === v[0]) { const d = [...w].findIndex((ch, i) => ch !== v[i]); if (w[d] === v[d + 1] && w[d + 1] === v[d]) return v; } return w; }
   let best = null; for (const v of VOCAB) if (dl1(w, v) && (w[0] === v[0] || (w[0] === v[1] && w[1] === v[0]))) { if (best) return w; best = v; } return best || w; } // only when one word fits
 // slang phrases folded to plain words before anything else (finna, tryna, ion, dippin, W/L, im weak...)
-const SLANGP = [[/\bwya\b/g, 'where are you'], [/^(you|u) up\b/g, 'you there'], [/^(whats good|wsg|wsp|wassup|whats poppin)\b/g, 'hey'], [/^(ong|on god|frfr|fr fr|no bc|nah bc|no because|nah cuz) (?=\w{2,} \w)/g, ''], [/^mid (\w+)$/g, 'so mid'], [/\bit be like that\b|^(its|it is) what it is$/g, 'so mid'], [/\b(ur|you are|youre|u|you) (so |actually |lowkey |lowk )?cracked\b/g, 'nice one'], [/\bion\b/g, 'i do not'], [/\btryna\b/g, 'trying to'], [/\bfinna\b/g, 'going to'], [/\bbouta\b|\babt to\b/g, 'about to'], [/\b(dippin|dipping|dip out|dippin out)\b/g, 'leaving'], [/\bim (out|dippin|dipping|dip)\b( fr)?/g, 'im leaving'], [/\bpull up\b/g, 'come here'], [/^slide\b/g, 'come'],
+const SLANGP = [[/(?<=[a-z]) a{1,2}h{2,}\b(?! (what|no|help|run))/g, ''], [/\bwya\b/g, 'where are you'], [/^(you|u) up\b/g, 'you there'], [/^(whats good|wsg|wsp|wassup|whats poppin)\b/g, 'hey'], [/^(ong|on god|frfr|fr fr|no bc|nah bc|no because|nah cuz) (?=\w{2,} \w)/g, ''], [/^mid (\w+)$/g, 'so mid'], [/\bit be like that\b|^(its|it is) what it is$/g, 'so mid'], [/\b(ur|you are|youre|u|you) (so |actually |lowkey |lowk )?cracked\b/g, 'nice one'], [/\bion\b/g, 'i do not'], [/\btryna\b/g, 'trying to'], [/\bfinna\b/g, 'going to'], [/\bbouta\b|\babt to\b/g, 'about to'], [/\b(dippin|dipping|dip out|dippin out)\b/g, 'leaving'], [/\bim (out|dippin|dipping|dip)\b( fr)?/g, 'im leaving'], [/\bpull up\b/g, 'come here'], [/^slide\b/g, 'come'],
   [/\b(hella|mad|lowkey|highkey|deadass|lowk|kinda|literally|actually|straight up)\b ?/g, ''], [/\b(trippin|tripping|buggin|bugging|wildin|wilding)\b/g, 'being weird'], [/\b(tweaking|tweakin|shook|spooked out)\b/g, 'scared'], [/\b(capping|cappin)\b/g, 'lying'], [/\bthats cap\b/g, 'that is a lie'],
   [/\b(this|that) (aint|is not) it\b/g, 'this is bad'], [/\bits giving\b/g, 'it is'], [/\bgot jumped\b/g, 'got scared'], [/\bhmu\b/g, 'tell me'], [/\bwym\b/g, 'what do you mean'], [/\bwdym\b/g, 'what do you mean'], [/^w (\w+)$/g, 'nice one $1'], [/^l (\w+)$/g, 'you are bad $1'], [/^(ratio|l)$/g, 'you are bad'],
   [/\b(u|you) (straight|alr|alright|good)\b/g, 'you ok'], [/^(bet bet|say less)$/g, 'bet'],
