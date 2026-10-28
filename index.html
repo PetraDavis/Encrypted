@@ -9981,7 +9981,7 @@ function lookStep(o, H, M, dt, moving, moveDir) {
 function habitStep(o, H, M, dt, moving) {
   const now = Date.now();
   if (now > M.runUntil) { M.runOn = Math.random() < H.sprint; M.runUntil = now + rnd(1500, 3500); }
-  torchStep(o, H, M); if (quirkStep(o, H, M, dt, moving)) return { speed: 0, paused: true };
+  torchStep(o, H, M); if (quirkStep(o, H, M, dt, moving && !M.pauseUntil)) return { speed: 0, paused: true };
   if (now > M.crouchUntil) { M.crouchUntil = now + rnd(3000, 8000); M.crouch = Math.random() < H.crouch; }
   o.eye = M.crouch ? 1.0 : 1.65;
   if (moving && !M.pauseUntil && Math.random() < H.pauseRate / Math.max(.25, 1 - (H.stillF || 0)) * dt) /* their pauses per second of walking, not of the whole session */ { M.pauseUntil = now + Math.min(15000, H.pauseLen * rnd(.6, 1.4) * 1000); M.look = (Math.random() < .5 ? -1 : 1) * H.idleTurn; }
