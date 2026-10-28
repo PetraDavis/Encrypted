@@ -10509,7 +10509,7 @@ const INTENTS = [
   ['hurt', /^(thats|that is|that was|ur|you are|your|so|wow) (so |really |kinda )?(mean|rude|harsh|cold)( bro| tho| lol)?$/],
   ['notme', /^i thought (you|u) (did|had it|have it|got it|took it)\b|^(didnt|did not) (you|u) (have|take|grab) it\b/],
   ['gone', /^(its|it is|they are|theyre|the \w+ is|the \w+ are) (just )?(gone|missing|not there)\b/],
-  ['ack', /^(ok|okay|k|kk|okk|nvm|never ?mind|same|same tho|me (too|neither)|true|fair|ight|alright|cool|cool right|right|ya|yeah)\??$/],
+  ['ack', /^(nothing|nm|nothing nvm|nvm nothing|nothing lol|never mind lol|nvm lol|ok|okay|k|kk|okk|nvm|never ?mind|same|same tho|me (too|neither)|true|fair|ight|alright|cool|cool right|right|ya|yeah)\??$/],
   ['wtf', /^(wtf|what|what the \w+) (just )?happened$|^(wait )?what (just )?happened\b(?! to)|^wtfalarm$|^(wtf|wth|what the (hell|heck|frick))( is (happening|going on|this|wrong with this))?$/],
   ['imscared', t => !/\?/.test(t) && !/\b(you|your|of you)\b/.test(t) && (/^(ok |ngl |tbh |honestly |guys |um |ok i |yeah )*(i am|i|im) (so |really |very |a bit |a little |getting |actually |kinda |lowkey |genuinely |fr )*(scared|terrified|spooked|afraid|freaked out|nervous|shaking|creeped out)\b/.test(t) || /^(so |very |really |a bit |kinda |getting )*(scared|terrified|spooked)( ngl| fr| tbh| rn| now| honestly| not gonna lie)*$/.test(t) || /\b(this|it|that|the house|this house|this place|this game) is (scaring|freaking) me( out)?\b|^i (do not|dont) like (this|it here)\b|^i (want to|wanna) (go home|leave)\b|gives? me (the )?(creeps|chills)\b|^((nope|no|nah) ?){3,}$|\bi (have|got|get) a bad feeling\b/.test(t) || /^(this|that|it|this place|this house|this game) is (so |really |actually )?(creepy|scary|terrifying|freaky)$/.test(t))],
   ['scaredq', /\b(got|get|getting|so) (scared|spooked)\b|\b(it is|its|this is|so) (so )?haunted\b|\b(we|i|we are|i am|im|were) (are )?(going to|gonna|about to|will) (die|get caught|get got)\b|\b(she|it) (is )?(about to|going to) get (us|me)\b|\bwe are (so )?dead\b/],
@@ -10950,7 +10950,7 @@ function ctxReply(self, from, text, k) {
   if (k && ACCUSE.includes(k)) { c.pend = null; return null; }
   if (k === 'ack' && !(c.pend && now - c.pend.at < 45000)) { let r = 0; try { r = chatPerMin(self); } catch (e) {} if (Math.random() > (r < 1 ? .05 : Math.min(.4, .05 + r * .04))) return { k: 'ack', line: null }; } // a bare ok/same mostly gets nothing back, unless they were chatty // accusations always get the full denial, never a bare yes/no
   { const own = ownLine(self, { reply: k || 'vague' }); if (own) { c.pend = null; return { k: 'own', line: own }; } } // what they themselves said when someone said this kind of thing
-  const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, mix = tmix(self), tr = pickT(mix); let f = followKind(t, text); if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
+  const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, mix = tmix(self), tr = pickT(mix); let f = followKind(t, text); if (!f && p && p.type !== 'asked' && /^[a-z]+( [a-z]+)?\s*\?+$/i.test(String(text).trim()) && !/^(what|why|how|who|where|when|huh|really|srsly|fr|wdym)\b/i.test(String(text).trim())) f = 'guess'; if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
   const out = (key, line, pend) => { if (pend !== undefined) { c.pend = pend; c.keep = 1; } return { k: key, line }; };
   const P = pTopic(t);
   const fu = (p, f) => { const t2 = Math.random() < .6 || !p.mix ? p.type : pickT(p.mix), B = PFU[t2] || PFU.plain; return pick(B[f] || PFU.plain[f] || PFU.plain.ok).replace(/\{topic\}/g, p.topic); };
@@ -10965,7 +10965,7 @@ function ctxReply(self, from, text, k) {
   if (f === 'what' && mine && now - mine.at < 40000) { const last = mine.text.replace(/[?!.]+$/, ''); return out('rephrase', pick(REPH).replace('{last}', last), c.pend ? Object.assign({}, c.pend, { at: now }) : null); }
   if (p && p.type === 'asked' && /\bwhere\b/i.test(p.line) && /\b(kitchen|library|attic|cellar|basement|hall|hallway|foyer|study|bedroom|bathroom|stairs|upstairs|downstairs|office|nursery|here|there|room|closet|lounge|dining)\b/.test(t)) return out('ans.place', pick(PLACEANS), null);
   if (!p || !f) return null;
-  if (p.type === 'asked') { if (f !== 'yes' && f !== 'no') return null; const cls = (ASKCLS.find(([, re]) => re.test(p.line)) || ['_'])[0]; return out('ans.' + f, pick(AANS[f][cls]), null); }
+  if (p.type === 'asked') { if (f === 'ok' && /^(sure|ok|okay|alright|fine|bet|k|kk|ya sure|sure why not)\b/.test(t)) f = 'yes'; if (f !== 'yes' && f !== 'no') return null; const cls = (ASKCLS.find(([, re]) => re.test(p.line)) || ['_'])[0]; return out('ans.' + f, pick(AANS[f][cls]), null); }
   if (++p.n > 3) return out('fu.close', fu(p, 'close'), null);
   return out('fu.' + f, fu(p, f), Object.assign(p, { at: now }));
 }
