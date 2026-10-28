@@ -10585,7 +10585,7 @@ function pickCat(id) {
   if (P.helpful) w.helpful *= 2.2; if (P.rude) w.tease = .2; if (P.kind) w.kind = .2; if (P.explorer) w.explore = .18; if (P.names) w.social *= 1.5; else w.social *= .6;
   for (const [t, v] of tmix(id)) if (UTR[t]) w['u_' + t] = .2 * Math.min(1.5, v) * Math.min(1, UTR[t].length / 10); /* a small bank said often is a parrot */
   /* talk about what they talked about: puzzles and clues, or being scared */
-  { const H = (MP.hist[id] || []).map(String); if (H.length >= 6) { const sh = re => H.filter(t => re.test(t)).length / H.length, cl = (v, a, b) => Math.max(a, Math.min(b, v)), pz = cl(sh(TOPIC_PZ) / .12, .4, 5), fr = cl(sh(TOPIC_FR) / .12, .5, 2.5);
+  { const H = (MP.hist[id] || []).map(String); if (H.length >= 6) { const sh = re => H.filter(t => re.test(t)).length / H.length, cl = (v, a, b) => Math.max(a, Math.min(b, v)), pz = cl(Math.pow(sh(TOPIC_PZ) / .12, 1.4), .4, 7), fr = cl(sh(TOPIC_FR) / .12, .5, 2.5);
     w.helpful *= pz; if (w.u_practical) w.u_practical *= pz; if (w.u_nerdy) w.u_nerdy *= pz; w.scare *= fr; if (w.scaredy) w.scaredy *= fr; } }
   let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) if ((r -= w[k]) <= 0) return k; return 'casual';
 }
