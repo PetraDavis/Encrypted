@@ -9088,7 +9088,7 @@ function hostHandle(from, m) {
     learnFrom(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
-    for (const p of MP.roster) if (p.id !== from && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
+    for (const p of MP.roster) if (p.id !== from && (!ghostOf(from) || ghostOf(p.id)) && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
     return;
   }
   if (m.t === 'vote') return voteIn(from, m.kind);
@@ -9265,7 +9265,7 @@ function avLoop() {
   if (MP.readT0 && $('note').hidden) { const sec = (Date.now() - MP.readT0) / 1000; MP.readT0 = 0; if (sec > 1 && sec < 600) toHost({ t: 'readt', sec }); }
   if (!MP.on) return;
   const S = X().S;
-  const figs = MP.roster.filter(p => p.id !== MP.me).map(p => ({ id: p.id, p, kind: ghostOf(p.id) ? 'ghost' : 'live' }));
+  const figs = MP.roster.filter(p => p.id !== MP.me).filter(p => MP.ghost || !ghostOf(p.id)).map(p => ({ id: p.id, p, kind: ghostOf(p.id) ? 'ghost' : 'live' })); // the living never see ghosts
   if (CP.on && MP.pos.copy) { const o = MP.roster.find(p => p.id === CP.orig); if (o) figs.push({ id: 'copy', p: o, kind: 'copy' }); }
   if (PS.on && MP.pos.poss) { const o = MP.roster.find(p => p.id === PS.id); if (o) figs.push({ id: 'poss', p: o, kind: 'copy' }); }
   if (PS.falling) figs.push({ id: 'poss', p: PS.falling, kind: 'copy' });
@@ -9332,7 +9332,7 @@ const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1v
   const clean0 = clean; clean = text => ctxClean(clean0(text));
   return { clean, bad, has: t => clean(t) !== String(t || '') };
 })();
-MP._prof = PROF; MP._chatLine = (f, t) => chatLine(f, t);
+MP._prof = PROF; MP._chatLine = (f, t) => chatLine(f, t); MP._loops = () => commonLoops();
 // the sender alone is told, once at a time: a blue notice in the middle of their screen that fades on its own (never for the clone's words, never for mild swearing)
 let langT = 0, langEl = null;
 function langWarn() { const now = Date.now(); if (!langEl) { langEl = document.createElement('div'); langEl.id = 'langwarn'; langEl.setAttribute('role', 'status'); langEl.textContent = "please don't use that language"; document.body.appendChild(langEl); }
@@ -9344,7 +9344,7 @@ function addMsg(html, cls) {
   while (box.children.length > 9) box.firstChild.remove();
   setTimeout(() => el.classList.add('old'), 14000);
 }
-function chatLine(from, text, body) { text = PROF.clean(text); if (body && from === MP.me && MP.ghost) return addMsg(`<i>your body says</i> ${esc(text)}`, 'bodyme'); if (ghostOf(from) && !MP.ghost && !body) { const n = nameOf(from) || '?'; return addMsg(`<b style="color:${colorOf(from)};opacity:.6">${esc(n)}</b> ${esc(text)}`, 'gh'); } const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
+function chatLine(from, text, body) { text = PROF.clean(text); if (body && from === MP.me && MP.ghost) return addMsg(`<i>your body says</i> ${esc(text)}`, 'bodyme'); if (ghostOf(from) && !MP.ghost && !body) return; const lost = MP.d >= .75 && MP.learned.some(l => l.id === from); const n = nameOf(from) || '?'; addMsg(`<b style="color:${lost ? '#c0141f' : colorOf(from)}">${esc(lost ? n.toLowerCase() : n)}</b> ${esc(text)}`); }
 function sysMsg(text) { addMsg(esc(text), 'sys'); }
 function yLine(text) { addMsg(esc(String(text).toLowerCase()), 'y'); }
 function chatOpen() {
@@ -10019,7 +10019,7 @@ function quirkStep(o, H, M, dt, moving) {
   if (moving && Math.random() < (H.bumpR || 0) * dt * .5) { Q.bump = now + rnd(300, 1100); MP.qLog && (MP.qLog.bump = (MP.qLog.bump || 0) + 1); }
   return false;
 }
-MP._hab = { habitsOf, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id), typeDelay: (id, t) => typeDelay(id, t) };
+MP._hab = { habitsOf, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { typing: (a, b, c) => typing(a, b, c), track: (a, b) => track(a, b), chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id), typeDelay: (id, t) => typeDelay(id, t) };
 function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
