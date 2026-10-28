@@ -10265,6 +10265,10 @@ const BANK = {
   gamefun: ['yeah its fun', 'ya lowkey', 'its ok', 'kinda scary lol', 'yeah'],
   gamenext: ['idk u pick', 'something less scary lol', 'idk', 'whatever u want', 'anything but this lol'],
   goodluck: ['good luck', 'oof', 'u got this', 'rip lol', 'gl'],
+  whodied: ['idk', 'not me lol', 'i didnt see', 'wait someone died?', 'no idea'],
+  otherdead: ['noo', 'rip', 'oh no', 'nooo why', 'f'],
+  lastones: ['stay close', 'we got this', 'dont leave me', 'ok we gotta be careful', 'just us now'],
+  gg: ['gg', 'gg wp', 'ggs', 'that was fun', 'gg guys'],
   gofirst: ['ok fine', 'why me lol', 'nah u go', 'ok but stay close', 'fine, follow me'],
   accuseother: ['hmm maybe', 'u sure?', 'could be', 'why them tho', 'idk, ive been watching them too', 'maybe, they were kinda quiet'],
   whoq: ['no clue tbh', 'idk yet', 'hard to tell', 'not sure, watching everyone', 'idk, everyone seems normal'],
@@ -10609,6 +10613,13 @@ const INTENTS = [
   ['gone', /^(its|it is|they are|theyre|the \w+ is|the \w+ are) (just )?(gone|missing|not there)\b/],
   ['ack', /^(nothing|nm|nothing nvm|nvm nothing|nothing lol|never mind lol|nvm lol|ok|okay|k|kk|okk|nvm|never ?mind|same|same tho|me (too|neither)|true|fair|ight|alright|cool|cool right|right|ya|yeah)\??$/],
   ['personal', /\bwhat(s| is) for (dinner|lunch|breakfast)\b/],
+  ['whodied', /^(who|whos) (died|dead|is dead|got caught|got got)\b|^did \w+ (die|get caught|get got)\b/],
+  ['otherdead', /^(\w+ (is|s) (dead|a ghost|gone|down)|we lost \w+|is \w+ (a ghost|dead))( now)?\??$/],
+  ['lastones', /\b(only|just) (2|3|two|three|us|me|u and me|you and me) (of us )?(left|now)\b|\b(its|it is) just (us|me|u and me|you and me)( now)?\b|^(im|i am|were|we are) the (last|only) (one|ones)\b/],
+  ['success', /^(we )?(escaped|got out|made it out|made it|won|win)!*$|^we (escaped|got out|made it|won)\b/],
+  ['fail', /^we (lost|died|failed)\b|^we (almost|nearly) (had it|did it|made it)\b/],
+  ['gg', /^(gg|ggs|gg wp|ggwp|good game|good games)( guys| all| everyone)?!*$/],
+  ['gamefun', /^(rematch|again|one more|play again|another round)\??!*$/],
   ['gamenext', /\bwhat (game|games) should we play\b|\bwhat (do|should) we play (next|after)\b/],
   ['goodluck', /^(i have|i got|ive got|got) (a |an )?(big )?(test|exam|quiz|interview|game|match)\b/],
   ['micloud', /\b(your|ur) (mic|audio|voice) (is )?(so |too |really )?(loud|quiet|bad|echoing|crackling|weird)\b|\b(turn|lower) (your|ur) (mic|volume) (down|up)\b/],
@@ -10642,7 +10653,7 @@ const INTENTS = [
   ['imscared', t => !/\?/.test(t) && !/\b(you|your|of you)\b/.test(t) && (/^(ok |ngl |tbh |honestly |guys |um |ok i |yeah )*(i am|i|im) (so |really |very |a bit |a little |getting |actually |kinda |lowkey |genuinely |fr )*(scared|terrified|spooked|afraid|freaked out|nervous|shaking|creeped out)\b/.test(t) || /^(so |very |really |a bit |kinda |getting )*(scared|terrified|spooked)( ngl| fr| tbh| rn| now| honestly| not gonna lie)*$/.test(t) || /\b(this|it|that|the house|this house|this place|this game) is (scaring|freaking) me( out)?\b|^i (do not|dont) like (this|it here)\b|^i (want to|wanna) (go home|leave)\b|gives? me (the )?(creeps|chills)\b|^((nope|no|nah) ?){3,}$|\bi (have|got|get) a bad feeling\b/.test(t) || /^(this|that|it|this place|this house|this game) (is )?(so |really |actually )?(creepy|scary|terrifying|freaky)$/.test(t))],
   ['scaredq', /\b(got|get|getting|so) (scared|spooked)\b|\b(it is|its|this is|so) (so )?haunted\b|\b(we|i|we are|i am|im|were) (are )?(going to|gonna|about to|will) (die|get caught|get got)\b|\b(she|it) (is )?(about to|going to) get (us|me)\b|\bwe are (so )?dead\b/],
   ['dark', /\b(torch|flashlight|light|lights|battery|batteries|lamp|phone light)\b.{0,14}\b(died|dead|out|off|broke|broken|dying|flickering|not working|stopped)\b/],
-  ['alive', /\b(she|her|it|ysolde) (got|get|took|take|has|grabbed|caught) you\b|\b(dead(?! end)|ghost|died|die|alive|human|spirit|zombie|undead)\b/],
+  ['alive', /\b(she|her|it|ysolde) (got|get|took|take|has|grabbed|caught) you\b|\b(are|r) (you|u) (even )?(dead|a ghost|alive|human|a spirit|a zombie|undead)\b|\b(you|u) (died|are dead|r dead|dead|a ghost)\b|\b(your|you are|youre|ur|are you|r u|r you|are u) (the |a |still |even )?(ghost|dead|alive|human)\b|^(dead|ghost|alive|human)\??$/],
   ['affirmreal', /\b(swear|promise) (it is|you are|your|that is)\b|^(are|r) you (you|really you|for real)\b|\bis (this|that|it) (really )?(you|me)\b|\bwho are you\b|\bwho is this\b|\b(actually|really|even) you\b|\b(are )?you (even |really |actually |for )?real\b|\breal name\b|only .{1,12} would know|\bonly (the real )?\w+ (would )?knows?\b/],
   ['ignored', /\bwhy (are|r|is) (you|u) (so |being |acting |this )?(quiet|silent)\b/],
   ['afkq', /\b(anyone|any1|anybody|some1|someone) (there|here|alive|around|on)\b|^hello+\?+ anyone\b/],
@@ -10753,6 +10764,7 @@ function intentOf0(raw, selfName, fz) {
   const t = norm(raw, fz); if (selfName && new RegExp('\\bnot (really |the real )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal'; if (selfName && new RegExp('\\b(are you|is (this|that|it)( really| actually)?|you are|you really|are you (even|really|actually)|prove (you are|your|ur|youre)) (the real )?(even )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b').test(t)) return 'affirmreal';
   const tt = selfName ? t.replace(new RegExp('^(hey |yo |oi )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b[ ,]*'), '').replace(new RegExp('[ ,]*\\b' + selfName.replace(/[^a-z0-9]/g, '') + '[?!]*$'), '') || t : t;
   { const sn = (selfName || '').toLowerCase().replace(/[^a-z0-9]/g, ''), ns = (MP.roster || []).map(p => String(p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')).filter(n => n.length >= 2 && n !== sn); // blaming someone else
+    if (sn && (new RegExp('\\b' + sn + ' (is|s) (dead|a ghost|gone|down)\\b|\\bis ' + sn + ' (a ghost|dead)\\b|\\bwe lost ' + sn + '\\b|\\b' + sn + ' (died|got caught)\\b').test(t))) return 'alive';
     if (ns.length) { const N = '(' + ns.join('|') + ')'; if (new RegExp('^(i think |i bet |pretty sure |ngl |tbh |honestly )*(its|it is) (definitely |def |prob |probably |totally |so )*' + N + '[?!]*$').test(tt) || new RegExp('^' + N + ' (is|has to be|must be) (lying|the copy|the clone|sus|fake|a copy|a clone|the fake|the imposter|not real)\\b').test(tt) || new RegExp('^(vote|lets vote|i vote|voting) (out )?' + N + '\\b').test(tt)) return 'accuseother'; } }
   for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(tt) : m.test(tt)) return k;
   const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || (bare.startsWith(selfName) && bare.length <= selfName.length + 3))))) return 'called';
