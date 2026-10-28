@@ -10622,7 +10622,14 @@ function typoStep(id, text) {
 }
 MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const r = typoStep(k, text); delete MP.hist[k]; return r; };
 MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
+/* a terse typer answers tersely: hedges and second clauses dropped ('i think it said to go upstairs' -> 'go upstairs') */
+function terse(id, t) { const H = (MP.hist[id] || []).map(x => stripEmos(String(x)).trim()).filter(Boolean).map(x => x.split(/\s+/).length).sort((a, b) => a - b); if (H.length < 6) return t; const med = H[Math.floor(H.length / 2)]; if (med > 2.5) return t;
+  let t2 = String(t).trim(); const n0 = t2.split(/\s+/).length; if (n0 <= med + 1) return t;
+  t2 = t2.replace(/^(i think (it said( to)?|its|it was|we)?|pretty sure( its)?|i guess|um+|uh+|well|ok so|so|honestly|like|just|i mean)\s+/i, '').replace(/\s+(i think|i guess|honestly|tbh|right now|at least|for now)$/i, '');
+  if (t2.split(/\s+/).length > med + 2) { const cut = t2.split(/[,;]|\s(?=(?:im|i'm|ur|just|can we|but|and|lag|so|because|cause|not)\s)/i)[0].trim(); if (cut.split(/\s+/).length >= 1 && cut.length >= 2) t2 = cut; }
+  return t2 && t2.length > 1 ? t2 : t; }
 function speak(id, base, o = {}) {
+  if ((o.body || o.copy) && !o.sched && !o.exact && base[0] !== '\u0001') base = terse(id, base);
   let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) { text = roomWords(id, text); const sl = styleOf(MP.hist[id] || []); if (sl.lower && !sl.caps && !sl.shout) for (const p of MP.roster || []) if (p.name && /^[A-Z]/.test(p.name)) text = text.replace(new RegExp('\\b' + p.name.replace(/[^\p{L}\p{N}]/gu, '') + '\\b', 'g'), p.name.toLowerCase()); { const HJ = (MP.hist[id] || []).join(' '); text = text.replace(/\p{Extended_Pictographic}[\uFE0F\u200D\p{Extended_Pictographic}]*/gu, e => HJ.includes(e) ? e : '').replace(/ +([?!.,])/g, '$1'); } text = text.replace(/ {2,}/g, ' ').trim() || 'ok'; } /* only emoji they really use */ /* lowercase typers write names in lowercase too */
   if (o.body || o.copy) { const RS = MP.recentSaid || (MP.recentSaid = {}), a = RS[id] || (RS[id] = []); a.push(String(base).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); if (a.length > 40) a.shift(); }
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
