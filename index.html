@@ -10144,7 +10144,8 @@ function torchTick(dt) {
     tV.set(a.x - P.x, 1.2 - x.camera.position.y, a.z - P.z); const dist = tV.length(); tV.normalize();
     let ok = dist < 10 && tF.dot(tV) > .975; const r0 = x.roomAt(P.x, P.z), r1 = x.roomAt(a.x, a.z); if (ok && r0 !== r1 && dist > 6) ok = false; if (ok) for (let k = .6; k < dist - .3; k += .4) { const rr = x.roomAt(P.x + (a.x - P.x) * k / dist, P.z + (a.z - P.z) * k / dist); if (!rr || (rr !== r0 && rr !== r1)) { ok = false; break; } }
     a.torchT = ok ? (a.torchT || 0) + dt : 0;
-    if (a.torchT > (id === 'copy' && CP.phase === 'lure' && CP.target === MP.me ? 10 : 3)) { a.torchT = -999; toHost({ t: 'torch', on: id }); }
+    if (id === 'copy' && CP.phase === 'lure' && CP.target === MP.me) a.torchT = Math.min(a.torchT, 2);
+    if (a.torchT > 3) { a.torchT = -999; toHost({ t: 'torch', on: id }); }
   }
 }
 function allClear() { const L = living(); if (!L.length) return; const f = pick(L); speak(f.id, pick(["she's gone", 'shes gone', 'she is gone', "ok she's gone"]), { except: f.id, delay: rnd(4000, 8000) }); }
