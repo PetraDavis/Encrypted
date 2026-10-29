@@ -10680,7 +10680,10 @@ function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0,
 // how often they really talked while alive: their messages per minute of play (stops counting once they are a ghost or worn)
 function chatStop(id) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (!T.until) T.until = Date.now(); }
 function chatPerMin(id) { const T = MP.typ[id], end = T && T.until || Date.now(), win = Math.max(3 * 60000, end - Math.min(MP.t0 || end, T ? T.first : end)); return (T ? T.n : 0) / (win / 60000); }
-function chatGap(id) { const r = chatPerMin(id), per = r > 0 ? 60000 / r : 15 * 60000; return Math.max(8000, Math.min(15 * 60000, per * rnd(.6, 1.5))); }
+MP._chatGap = id => chatGap(id); MP._chatGap0 = id => chatGap0(id);
+function chatGap0(id) { const r = chatPerMin(id), per = r > 0 ? 60000 / r : 15 * 60000; return Math.max(8000, Math.min(15 * 60000, per * rnd(.6, 1.5))); }
+// their own silences: a gap they really left between lines (bursts aside), give or take a little
+function chatGap(id) { const A = MP.histAt[id] || [], G = []; for (let i = 1; i < A.length; i++) { const g = A[i] - A[i - 1]; if (A[i] && A[i - 1] && g > 4500 && g < 15 * 60000) G.push(g); } if (G.length < 6) return chatGap0(id); return Math.max(8000, Math.min(15 * 60000, pick(G.slice(-30)) * rnd(.85, 1.15))); }
 function typeDelay(id, text) { let m = 'calm'; try { m = moodNow(id); } catch (e) {} const T = MP.typ[id], cm = T && T.cpsM && T.cpsM[m], cps = cm && cm.n >= 3 ? cm.v : T && T.cps ? T.cps : 3.2, tm = ((MP.thinkM || {})[id] || {})[m], th = tm && tm.length >= 3 ? tm : (MP.think || {})[id] || []; /* answers as fast as they did in that mood */ return (text.length / cps) * 1000 * rnd(.85, 1.2) + (th.length >= 3 ? pick(th) * rnd(.85, 1.15) : rnd(400, 1500)); }
 /* how long they took to start answering after someone else spoke (their typing time taken out) */
 MP.think = {}; MP.lastChatAt = {};
@@ -11552,7 +11555,7 @@ setInterval(() => {
 }, 90000);
 // normal deaths in multiplayer make ghosts
 H.die = () => { if (!MP.on || !MP.started || MP.roster.length < 2) return false; killMe('static'); return true; };
-MP._ps = { possess, unpossess, possTick, bodyHide }; MP._heard = { copyHeard, bodyHeard };
+MP._ps = { possess, unpossess, possTick, bodyHide, speakT: (id, t) => speak(id, t, { body: true, whole: 1 }) }; MP._heard = { copyHeard, bodyHeard };
 // the room that was not there: a grey, wrong copy of Ivy's bedroom. One spot per floor, each off a room you can always walk to;
 // it exists only while the clone is leading someone to it, on that person's floor
 const VOID_SPOTS = { 1: [{ room: 'foyer', x: -4.5, z: -6, dx: 0, dz: -1 }], 2: [{ room: 'hall2', x: -15, z: -48.5, dx: -1, dz: 0 }], 3: [{ room: 'loft', x: 9, z: -69, dx: 1, dz: 0 }], '-1': [{ room: 'gym', x: 40, z: 59, dx: -1, dz: 0 }, { room: 'breach', x: 70, z: 57.8, dx: 0, dz: -1 }], '-2': [{ room: 'hydro', x: 111.4, z: 47, dx: 0, dz: -1 }] };
