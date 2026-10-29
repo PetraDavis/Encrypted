@@ -9086,7 +9086,7 @@ function hostHandle(from, m) {
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     latTrack(from, text, m.cps);
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); memChat(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
+    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!ghostOf(from) || ghostOf(p.id)) && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -9726,7 +9726,7 @@ $('mp_cont').onclick = () => hostStart(true);
 $('mp_back').onclick = () => closePanel(false);
 $('mp').addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(false); });
 // ---------- ghosts ----------
-MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.histCtx = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
+MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.histTo = {}; MP.histCtx = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
 function ghostOf(id) { return MP.ghosts.includes(id); }
 function becomeGhost() {
   MP.ghost = true; H.ghost = true; const x = X();
@@ -10542,7 +10542,31 @@ function nickFor(id, other) {
   const best = Object.entries(words).sort((a, b) => b[1] - a[1])[0]; return best ? best[0] : n;
 }
 // who they were, from what they typed and did: only traits they actually showed count
-function traitsOf(id) {
+// how they treated this one person (rude to one, polite to another): the social side of who they were, toward whoever it is answering now
+let MAN_TO = null; const MAN_SOC = ['rude', 'kind', 'polite', 'trashtalk', 'wholesome', 'hypeman', 'sarcastic'];
+function addrOf(from, text) { let M = null; try { M = mentioned(from, text); } catch (e) {} if (M && M.size === 1) return [...M][0]; if (M && M.size > 1) return null; const L = MP.lastChat; if (L && L.from !== from && Date.now() - L.at < 10000) return L.from; const O = living().filter(p => p.id !== from); return O.length === 1 ? O[0].id : null; }
+function manLines(id, to) { const H = MP.hist[id] || [], A = MP.histTo[id] || []; return H.filter((t, i) => A[i] === to); }
+function traitsOf(id) { const T0 = traitsOf0(id); if (!MAN_TO || MAN_TO === id || String(id).startsWith('__')) return T0; const sub = manLines(id, MAN_TO); if (sub.length < 3) return T0;
+  const k = '__man' + Math.random(); MP.hist[k] = sub; let S; try { S = traitsOf0(k); } finally { delete MP.hist[k]; } const n = Math.max(1, (MP.hist[id] || []).length), m = sub.length, out = { n: Object.assign({}, T0.n), on: Object.assign({}, T0.on) };
+  for (const s of MAN_SOC) { out.n[s] = Math.round(S.n[s] * n / m); out.on[s] = S.on[s]; } if (out.on.rude && out.on.kind) { if (out.n.rude >= out.n.kind) out.on.kind = false; else out.on.rude = false; } if (out.on.polite && out.on.rude) { if (out.n.polite >= out.n.rude) out.on.rude = false; else out.on.polite = false; } return out; }
+// whether they called that person by name, and where in the line
+function mannerOf(id, to) { const H = MP.hist[id] || [], A = MP.histTo[id] || [], o = MP.roster.find(p => p.id === to); if (!o) return null; let n = 0, nm = 0, st = 0; H.forEach((t, i) => { if (A[i] !== to) return; n++; const T = toks(t); const j = T.findIndex(w => w === String(o.name).toLowerCase() || nickOf(w, id) === to); if (j >= 0) { nm++; if (j === 0) st++; } }); return n < 3 ? null : { n, nameR: nm / n, start: st > nm / 2, nick: nickFor(id, o) }; }
+function manName(id, to, base) { if (!to || base[0] === '\u0001') return base; const m = mannerOf(id, to); if (!m) return base; const T = toks(base), has = T.some(w => w === m.nick || nickOf(w, id) === to);
+  if (!has && Math.random() < m.nameR * .85) return m.start ? m.nick + ' ' + base : base.replace(/([.!?~]*)\s*$/, (x, p) => ' ' + m.nick + p);
+  if (has && m.nameR < .15 && m.n >= 4) { const b2 = base.replace(new RegExp('(^|\\s)' + m.nick.replace(/[^a-z0-9]/gi, '') + '\\b,?', 'i'), ' ').replace(/\s{2,}/g, ' ').trim(); if (b2.length > 1) return b2; } return base; }
+// how they spoke to that person: their own jabs at them, or their please and sorry, at the rate they used them
+const MAN_RUDE = /stupid|idiot|noob|\bslow\b|shut up|stfu|trash|ur bad|useless|loser|skill issue|hurry( up)?|keep up|bozo|cope|annoying|get good|ur so bad|stop being/i, MAN_POL = /\b(please|pls|plz|thank you|thanks|thx|ty|sorry|sry|excuse me|could you|would you)\b/i;
+function manTone(id, to, base) { if (!to || base[0] === '\u0001') return base; const L = manLines(id, to); if (L.length < 3) return base; const o = MP.roster.find(p => p.id === to), nm = o ? String(o.name).toLowerCase() : '';
+  const strip = t => toks(t).filter(w => w !== nm && nickOf(w, id) !== to).join(' ').trim(), R = L.filter(t => MAN_RUDE.test(t)), P = L.filter(t => MAN_POL.test(t)), rr = R.length / L.length, pr = P.length / L.length;
+  if (rr >= .3 && !pr) base = base.replace(/\b(please|pls|plz|sorry|thanks|thank you)\b,? ?/gi, '').replace(/\s{2,}/g, ' ').trim() || base;
+  if (pr >= .3 && !rr && MAN_RUDE.test(base)) return base;
+  if (rr >= .25 && !MAN_RUDE.test(base) && !/\?\s*$/.test(base) && Math.random() < rr * .8) { const J = R.map(strip).filter(t => t && t.split(' ').length <= 5 && !/\?$/.test(t)); if (J.length) return base.replace(/[.!]+$/, '') + (/[a-z0-9]$/i.test(base) ? ' ' : ' ') + pick(J); }
+  if (pr >= .25 && !MAN_POL.test(base) && Math.random() < pr * .8) { const W = P.join(' ').toLowerCase(), has = w => new RegExp('\\b' + w + '\\b').test(W);
+    if (/^(wait|come|go|stay|follow|hurry|help|look|check|stop|hide|run|get|open|try|read|use|bring|give|tell|show|lets)\b/i.test(base) && (has('please') || has('pls') || has('plz'))) return base.replace(/[.!]*$/, m => ' ' + (has('please') ? 'please' : has('pls') ? 'pls' : 'plz') + m);
+    if (/^(no|nah|nope|not|cant|i cant|idk|i dont)\b/i.test(base) && (has('sorry') || has('sry'))) return (has('sorry') ? 'sorry ' : 'sry ') + base;
+    if (/^(ok|okay|sure|yes|yeah|coming|on my way|got it)\b/i.test(base) && (has('thanks') || has('thank you') || has('ty') || has('thx'))) return base.replace(/[.!]*$/, m => ' ' + (has('thanks') ? 'thanks' : has('thank you') ? 'thank you' : has('thx') ? 'thx' : 'ty') + m); }
+  return base; }
+function traitsOf0(id) {
   const RAW = (MP.hist[id] || []).map(String), H = RAW.map(t => t.toLowerCase()), n = H.length, c = re => H.filter(t => re.test(t)).length;
   const others = MP.roster.filter(p => p.id !== id).map(p => p.name.toLowerCase().slice(0, 3)).filter(Boolean);
   const T = {
@@ -10665,6 +10689,7 @@ function terse(id, t) { const H = (MP.hist[id] || []).map(x => stripEmos(String(
   return t2 && t2.length > 1 ? t2 : t; }
 function speak(id, base, o = {}) {
   if ((o.body || o.copy) && !o.sched && !o.exact && base[0] !== '\u0001') base = terse(id, base);
+  if ((o.body || o.copy) && MAN_TO && !o.exact) base = manName(id, MAN_TO, manTone(id, MAN_TO, base)); /* their name for that person, as often as they used it */
   let text = PROF.clean(inStyle(base, styleOf(MP.hist[id] || []))); if (o.body || o.copy) { text = roomWords(id, text); const sl = styleOf(MP.hist[id] || []); if (sl.lower && !sl.caps && !sl.shout) for (const p of MP.roster || []) if (p.name && /^[A-Z]/.test(p.name)) text = text.replace(new RegExp('\\b' + p.name.replace(/[^\p{L}\p{N}]/gu, '') + '\\b', 'g'), p.name.toLowerCase()); { const HJ = (MP.hist[id] || []).join(' '); text = text.replace(/\p{Extended_Pictographic}[\uFE0F\u200D\p{Extended_Pictographic}]*/gu, e => HJ.includes(e) ? e : '').replace(/ +([?!.,])/g, '$1'); } text = text.replace(/ {2,}/g, ' ').trim(); if (!text) { const SH = (MP.hist[id] || []).filter(t => /[a-z]/i.test(t) && t.trim().split(/\s+/).length <= 2 && !KEEP_RE.test(t)); text = SH.length ? pick(SH) : PROF.clean(inStyle('ok', sl)); } } /* only emoji they really use */ /* lowercase typers write names in lowercase too */
   if (o.body || o.copy) { const RS = MP.recentSaid || (MP.recentSaid = {}), a = RS[id] || (RS[id] = []); a.push(String(base).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); if (a.length > 40) a.shift(); }
   if (CONV_CUR && (o.body || o.copy)) convNote(CONV_CUR, 'me', base.replace(/^\u0001/, ''));
@@ -11341,7 +11366,7 @@ function ctxReply(self, from, text, k) {
 }
 MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, tmix, spamOf, POPEN, PFU, PDENY, UTR, AANS, REPH, PLACEANS };
 // the clone answers the one person it follows, and only them
-function copyHeard(from, text) { FR_ID = CP.orig; try { return copyHeard0(from, text); } finally { FR_ID = null; } }
+function copyHeard(from, text) { FR_ID = CP.orig; MAN_TO = from; try { return copyHeard0(from, text); } finally { FR_ID = null; MAN_TO = null; } }
 function copyHeard0(from, text) {
   if (!CP.on || from !== CP.target || CP.phase === 'taking' || ghostOf(from)) return; const n = nameOf(CP.orig).toLowerCase();
   const to = addressee(from, text, CP.orig, [CP.x, CP.z, CP.floor], CP.lastSaid, CP.asked); if (to === 'unsure' && askWho(CP.orig, from, CP, w => speak(CP.orig, w, { copy: true, only: CP.target }))) return; if (to === 'other' || (to === 'group' && Math.random() > chatty(CP.orig))) return;
@@ -11355,7 +11380,8 @@ function copyAnswer(from, text, n, c) {
   const c2 = persona(c, CP.orig), w = c === 'laughs' ? bankLine('laughs', CP.orig) : fill(fresh(BANK[c2] ? c2 : 'vague'), CP.orig);
   speak(CP.orig, w, { copy: true, only: CP.target });
 }
-function bodyHeard(from, text) { FR_ID = PS.id; try { return bodyHeard0(from, text); } finally { FR_ID = null; } }
+function bodyHeard(from, text) { FR_ID = PS.id; MAN_TO = from; try { return bodyHeard0(from, text); } finally { FR_ID = null; MAN_TO = null; } }
+MP._man = { addrOf, mannerOf, manName, manTone, traitsTo: (id, to) => { MAN_TO = to; try { return traitsOf(id); } finally { MAN_TO = null; } } };
 function bodyHeard0(from, text) {
   if (!PS.on || from === PS.id || ghostOf(from)) return;
   const n = nameOf(PS.id).toLowerCase(), t = norm(text), to = addressee(from, text, PS.id, [PS.x, PS.z, PS.floor], PS.lastSaid, PS.asked);
