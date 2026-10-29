@@ -10061,7 +10061,7 @@ function copyTick(dt) {
   const o = posOf(CP.orig), tq = posOf(CP.target);
   if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 6 : 10) * 60000) return copyEnd(false);
   /* time to lure: checked first, so standing together (mirror) or idling beside the target cannot hold it off until the copy times out */
-  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4], i: voidSpot(tq[4], tq[0], tq[1]) }); CP.lureSay = now + 9000; CP.lureN = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
+  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4], i: voidSpot(tq[4], tq[0], tq[1]) }); CP.lureSay = now + rnd(5500, 7500); CP.lureN = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
   // everyone in one room with it: it moves as the original moves
   const L = living(), rooms = L.map(p => roomOfPos(posOf(p.id))), cr = X().roomAt(CP.x, CP.z);
   const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
@@ -10662,16 +10662,16 @@ function persona(k, id) {
 MP._traits = { traitsOf, pickCat, persona, tmix, say: (id, cat) => inStyle(bankLine(cat || pickCat(id), id), styleOf(MP.hist[id] || [])), reply: (id, msg) => { const k = intentOf(msg, nameOf(id).toLowerCase()); const k2 = k && persona(k, id); return k2 && BANK[k2] ? inStyle(fill(fresh(k2), id), styleOf(MP.hist[id] || [])) : null; } };
 // how fast and how often each real player types
 MP.typ = {};
-function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (cps > .3 && cps < 25) T.cps = T.cps ? T.cps * .7 + cps * .3 : cps; if (T.until || ghostOf(id)) return; T.n++; T.times.push(Date.now()); }
+function typing(id, text, cps) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (cps > .3 && cps < 25) { T.cps = T.cps ? T.cps * .7 + cps * .3 : cps; let m = 'calm'; try { m = moodNow(id); } catch (e) {} const C = T.cpsM || (T.cpsM = {}), o = C[m] || (C[m] = { v: 0, n: 0 }); o.v = o.n ? o.v * .7 + cps * .3 : cps; o.n++; } /* how fast they type when calm, and when something is after them */ if (T.until || ghostOf(id)) return; T.n++; T.times.push(Date.now()); }
 // how often they really talked while alive: their messages per minute of play (stops counting once they are a ghost or worn)
 function chatStop(id) { const T = MP.typ[id] || (MP.typ[id] = { cps: 0, n: 0, first: Date.now(), times: [] }); if (!T.until) T.until = Date.now(); }
 function chatPerMin(id) { const T = MP.typ[id], end = T && T.until || Date.now(), win = Math.max(3 * 60000, end - Math.min(MP.t0 || end, T ? T.first : end)); return (T ? T.n : 0) / (win / 60000); }
 function chatGap(id) { const r = chatPerMin(id), per = r > 0 ? 60000 / r : 15 * 60000; return Math.max(8000, Math.min(15 * 60000, per * rnd(.6, 1.5))); }
-function typeDelay(id, text) { const T = MP.typ[id], cps = T && T.cps ? T.cps : 3.2, th = (MP.think || {})[id] || []; return (text.length / cps) * 1000 * rnd(.85, 1.2) + (th.length >= 3 ? pick(th) * rnd(.85, 1.15) : rnd(400, 1500)); }
+function typeDelay(id, text) { let m = 'calm'; try { m = moodNow(id); } catch (e) {} const T = MP.typ[id], cm = T && T.cpsM && T.cpsM[m], cps = cm && cm.n >= 3 ? cm.v : T && T.cps ? T.cps : 3.2, tm = ((MP.thinkM || {})[id] || {})[m], th = tm && tm.length >= 3 ? tm : (MP.think || {})[id] || []; /* answers as fast as they did in that mood */ return (text.length / cps) * 1000 * rnd(.85, 1.2) + (th.length >= 3 ? pick(th) * rnd(.85, 1.15) : rnd(400, 1500)); }
 /* how long they took to start answering after someone else spoke (their typing time taken out) */
 MP.think = {}; MP.lastChatAt = {};
 function latTrack(id, text, cps) { const now = Date.now(), L = MP.lastChatAt; let lo = 0; for (const k in L) if (k !== id && L[k] > lo) lo = L[k];
-  if (lo && now - lo < 30000) { const th = now - lo - String(text).length / (cps || 3.2) * 1000; if (th > 150 && th < 20000) { const a = MP.think[id] || (MP.think[id] = []); a.push(Math.round(th)); if (a.length > 40) a.shift(); } } L[id] = now; }
+  if (lo && now - lo < 30000) { const th = now - lo - String(text).length / (cps || 3.2) * 1000; if (th > 150 && th < 20000) { const a = MP.think[id] || (MP.think[id] = []); a.push(Math.round(th)); if (a.length > 40) a.shift(); let m = 'calm'; try { m = moodNow(id); } catch (e) {} const TM = MP.thinkM || (MP.thinkM = {}), b = (TM[id] || (TM[id] = {}))[m] || (TM[id][m] = []); b.push(Math.round(th)); if (b.length > 30) b.shift(); } } L[id] = now; }
 // slips: only the misspellings this player really made, at their real rate (none seen = none made); never on a name or a nickname
 function nameForms(id) { const H = MP.hist[id] || [], F = new Map(), LT = H.length >= 4 && H.filter(t => t === t.toLowerCase()).length / H.length > .8; /* never typed the name: an all-lowercase typer writes it lowercase */ for (const p of MP.roster || []) { const n = p.name; if (!n) continue; const lo = n.toLowerCase(); let nk = ''; try { nk = p.id !== id ? nickFor(id, p) : ''; } catch (e) {} for (const f of new Set([lo, String(nk || '').toLowerCase()])) { if (f.length < 2 || (f !== lo && COMMON.has(f))) continue; const re = new RegExp('(^|[^\\p{L}])(' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}])', 'iu'), seen = {}; for (const t of H) { const m = t.match(re); if (m && m[2] !== m[2].toUpperCase()) seen[m[2]] = (seen[m[2]] || 0) + 1; } const best = Object.entries(seen).sort((x, y) => y[1] - x[1])[0]; F.set(f, best ? best[0] : f === lo ? (LT ? lo : n) : f); } } return F; }
 function typoStep(id, text) {
@@ -11408,7 +11408,7 @@ function copyAnswer(from, text, n, c) {
   speak(CP.orig, w, { copy: true, only: CP.target });
 }
 function bodyHeard(from, text) { FR_ID = PS.id; MAN_TO = from; try { return bodyHeard0(from, text); } finally { FR_ID = null; MAN_TO = null; } }
-MP._mood = { moodH, moodNow }; MP._rhy = { rhythmOf, rhySplit }; MP._man = { addrOf, mannerOf, manName, manTone: (id, to, b) => { MAN_JAB = null; const r = manTone(id, to, b), j = MAN_JAB; MAN_JAB = null; return j ? r + ' ' + j : r; }, traitsTo: (id, to) => { MAN_TO = to; try { return traitsOf(id); } finally { MAN_TO = null; } } };
+MP._mood = { moodH, moodNow, typeDelay: (id, t) => typeDelay(id, t) }; MP._rhy = { rhythmOf, rhySplit }; MP._man = { addrOf, mannerOf, manName, manTone: (id, to, b) => { MAN_JAB = null; const r = manTone(id, to, b), j = MAN_JAB; MAN_JAB = null; return j ? r + ' ' + j : r; }, traitsTo: (id, to) => { MAN_TO = to; try { return traitsOf(id); } finally { MAN_TO = null; } } };
 function bodyHeard0(from, text) {
   if (!PS.on || from === PS.id || ghostOf(from)) return;
   const n = nameOf(PS.id).toLowerCase(), t = norm(text), to = addressee(from, text, PS.id, [PS.x, PS.z, PS.floor], PS.lastSaid, PS.asked);
