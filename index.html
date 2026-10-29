@@ -9086,7 +9086,7 @@ function hostHandle(from, m) {
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     latTrack(from, text, m.cps);
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
+    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; { const HA = MP.histAt[from] || (MP.histAt[from] = []); while (HA.length < (MP.hist[from] || []).length) HA.push(null); HA.length = (MP.hist[from] || []).length; HA.push(Date.now()); } { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!ghostOf(from) || ghostOf(p.id)) && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -9726,7 +9726,7 @@ $('mp_cont').onclick = () => hostStart(true);
 $('mp_back').onclick = () => closePanel(false);
 $('mp').addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(false); });
 // ---------- ghosts ----------
-MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.histTo = {}; MP.histCtx = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
+MP.ghosts = []; MP.dustBy = {}; MP.scareT = {}; MP.reacts = {}; MP.hist = {}; MP.histAt = {}; MP.histTo = {}; MP.histCtx = {}; MP.reads = {}; MP.readT = {}; MP.voiceUsed = {}; MP.histRoom = {};
 function ghostOf(id) { return MP.ghosts.includes(id); }
 function becomeGhost() {
   MP.ghost = true; H.ghost = true; const x = X();
@@ -9798,7 +9798,7 @@ function grammarOf(T, raw) {
   const cnt = {}; for (const w of words) if (w.length > 2 && !K.has(w) && !SH.has(w) && !K.has(w.replace(/([a-z])\1+/g, '$1'))) cnt[w] = (cnt[w] || 0) + 1;
   G.miss = {}; G.once = {}; let typoN = 0; const pre = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
   for (const w in cnt) { let k = null, kb = -1; for (const kw of K) if (kw.length > 2 && ed1(w, kw) && keyNear(w, kw)) { const sc = pre(w, kw) * 2 - Math.abs(w.length - kw.length) + (kw.length >= w.length ? 1 : 0); if (sc > kb) { kb = sc; k = kw; } } if (!k) continue; if (cnt[w] >= 2) G.miss[k] = w; else { typoN += cnt[w]; G.once[k] = w; } }
-  G.typoR = Math.min(.4, typoN / N); G.fixR = (raw || []).filter(t => /^\*\w/.test(t.trim())).length / Math.max(1, typoN);
+  G.typoR = Math.min(.4, typoN / N); G.fixR = (raw || []).filter(t => /^\*\w|^\w[\w']*\*$/.test(t.trim())).length / Math.max(1, typoN);
   // no capitals at all (even "i")
   G.noCaps = T.every(t => t === t.toLowerCase()) && has(/\bi\b/) + has(/\bim\b/) > 0 ? 1 : T.every(t => t === t.toLowerCase()) ? .5 : 0;
   // spacing quirks
@@ -10677,7 +10677,7 @@ function typoStep(id, text) {
   if (!G0 || !G0.typoR || !G0.once || Math.random() >= G0.typoR) return [text, null];
   const ws = text.split(' '), C = ws.map((w, i) => [i, w.toLowerCase().replace(/[^a-z]/g, '')]).filter(([, w]) => G0.once[w] && !F.has(w)); if (!C.length) return [text, null];
   const [wi, w] = pick(C), orig = ws[wi]; let t2 = G0.once[w]; if (orig === orig.toUpperCase()) t2 = t2.toUpperCase(); ws[wi] = orig.replace(new RegExp(w, 'i'), t2);
-  return [ws.join(' '), Math.random() < Math.min(1, G0.fixR) ? '*' + orig.replace(/[^\p{L}']/gu, '') : null];
+  const fw = orig.replace(/[^\p{L}']/gu, ''), R = rhythmOf(id); return [ws.join(' '), Math.random() < Math.min(1, G0.fixR) ? (R && R.fix === 'post' ? fw + '*' : '*' + fw) : null];
 }
 MP._typo = (texts, text) => { const k = '__t' + Math.random(); MP.hist[k] = texts; const r = typoStep(k, text); delete MP.hist[k]; return r; };
 MP._genReply = (texts, msg, cat) => { const k = '__t' + Math.random(); MP.hist[k] = texts; let out = null; try { const k2 = intentOf(msg, 'zed'); if (cat) MP.histCtx[k] = cat; const own = ownLine(k, { reply: k2 || 'vague' }); const c = k2 && persona(k2, k); out = own ? inStyle(own, styleOf(texts)) : c && BANK[c] ? inStyle(fill(fresh(c), k), styleOf(texts)) : null; } catch (e) { out = 'ERR ' + e.message; } delete MP.hist[k]; return out; };
@@ -10687,6 +10687,17 @@ let MOOD_C = { at: 0 }; function moodNow(id) { try { const T = ctxTags(id); retu
 function moodH(id) { const H = MP.hist[id] || [], C = MP.histCtx[id] || []; if (H.length < 8 || String(id).startsWith('__')) return H; const now = Date.now(); if (MOOD_C.id === id && MOOD_C.n === H.length && now - MOOD_C.at < 300 && !MP._ctxNow) return MOOD_C.h;
   const tense = i => { const c = C[i]; if (!c) return false; const S = c instanceof Set ? c : new Set(c); return S.has('danger') || S.has('scare'); }, TL = H.filter((t, i) => tense(i)), CL = H.filter((t, i) => !tense(i)), m = moodNow(id);
   const h = m === 'tense' && TL.length >= 4 ? TL : m === 'calm' && TL.length >= 3 && CL.length >= 6 ? CL : H; MOOD_C = { id, n: H.length, at: now, h }; return h; }
+// typing rhythm: did they fire off a few short messages in a row, break one thought over two sends, fix a slip with *word or word*, and how long between the pieces
+function rhythmOf(id) { const H = MP.hist[id] || [], A = MP.histAt[id] || []; if (H.length < 8) return null; let n = 0, bur = 0, spl = 0, pre = 0, post = 0; const gaps = [], firstW = [];
+  for (let i = 0; i < H.length; i++) { const t = String(H[i]).trim(); if (/^\*\w/.test(t)) pre++; else if (/^\w[\w']*\*$/.test(t)) post++; if (!A[i]) continue; n++; if (!i || !A[i - 1]) continue; const g = A[i] - A[i - 1]; if (g <= 0 || g > 4500) continue; if (/^\*\w|^\w[\w']*\*$/.test(t)) continue;
+    bur++; gaps.push(g); const p = String(H[i - 1]).trim(); if (!/[.?!]$/.test(p) && p.split(/\s+/).length <= 6 && !/^\*/.test(p)) { spl++; firstW.push(p.split(/\s+/).length); } }
+  if (n < 8) return { fix: post > pre ? 'post' : 'pre' }; gaps.sort((a, b) => a - b); firstW.sort((a, b) => a - b);
+  return { burstR: bur / n, splitR: spl / n, gap: gaps.length ? gaps[gaps.length >> 1] : 1500, firstW: firstW.length ? firstW[firstW.length >> 1] : 3, fix: post > pre ? 'post' : 'pre' }; }
+// one thought sent as two messages, broken where they broke theirs
+function rhySplit(id, text) { const R = rhythmOf(id); if (!R || !R.splitR || /^\u0001/.test(text)) return null; const W = text.trim().split(/\s+/); if (W.length < 3 || Math.random() > Math.min(.85, R.splitR * 2.2)) return null;
+  const FN = /^(the|a|an|by|to|of|in|at|on|for|my|your|ur|our|does|do|did|is|are|was|were|can|will|would|could|should|have|has|i|its|it|this|that|with|from|into|near|some|any|no|not|and|but|so|or|just|very|really|dont|cant|didnt|havent|wont|ill|im|gonna|wanna|what|where|who|how|why|about|i am|am|be)$/i, END = /^(it|that|this|them|me|you|u|him|her|room|hall|door|key|out|up|down|here|there|though|tho|about|know|much|forever|yet)$/i;
+  const cand = []; for (let i = 1; i < W.length; i++) { const a = W[i - 1], b = W[i].toLowerCase().replace(/[^a-z']/g, ''); if (FN.test(a.replace(/[^a-z']/gi, '')) || END.test(b)) continue; if (/[,;:]$/.test(a) || /^(and|but|so|then|cause|because|bc|cuz|like|i|im|its|its|wait|we|u|you|maybe|or)$/.test(b) || (i === 1 && /^(omg|wait|ok|okay|bro|bruh|dude|yo|nah|yeah|yes|no|lol|um|uh|guys|hey|ugh)\W*$/i.test(a))) cand.push(i); }
+  if (!cand.length && W.length > R.firstW && R.firstW >= 1 && !/\?$/.test(W[R.firstW - 1]) && !FN.test(W[R.firstW - 1].replace(/[^a-z']/gi, '')) && !/^wait$/i.test(W[R.firstW - 1]) && !END.test(W[R.firstW].replace(/[^a-z']/gi, ''))) cand.push(R.firstW); if (!cand.length) return null; const i = cand.sort((x, y) => Math.abs(x - R.firstW) - Math.abs(y - R.firstW))[0]; const a = W.slice(0, i).join(' ').replace(/,$/, ''), b = W.slice(i).join(' '); return a && b ? [a, b] : null; }
 function terse(id, t) { const H = moodH(id).map(x => stripEmos(String(x)).trim()).filter(Boolean).map(x => x.split(/\s+/).length).sort((a, b) => a - b); if (H.length < 6) return t; const med = H[Math.floor(H.length / 2)]; if (med > 2.5) return t;
   let t2 = String(t).trim(); const n0 = t2.split(/\s+/).length; if (n0 <= med + 1) return t;
   t2 = t2.replace(/^(i think (it said( to)?|its|it was|we)?|pretty sure( its)?|i guess|um+|uh+|well|ok so|so|honestly|like|just|i mean)\s+/i, '').replace(/\s+(i think|i guess|honestly|tbh|right now|at least|for now)$/i, '');
@@ -10701,10 +10712,11 @@ function speak(id, base, o = {}) {
   if (Math.random() < .03 && /\bI\b/.test(text) && text !== text.toUpperCase()) text = text.replace(/\bI\b/, (m, i) => i === 0 ? 'We' : 'we'); // a slip (their casing kept)
   let fix = null; if (!o.exact) [text, fix] = typoStep(id, text); text = PROF.clean(text); if (fix) fix = PROF.clean(fix);
   if ((o.body || o.copy) && !o.exact) { const L = MP.lastTxt || (MP.lastTxt = {}), k = id + (o.copy ? 'c' : 'b'), prev = L[k]; if (prev && prev.t.toLowerCase() === text.toLowerCase() && Date.now() - prev.at < 120000) { const sh = text === text.toUpperCase() && /[A-Z]{2}/.test(text), pre = (/^(in|im in|by|at|near) /i.test(text) ? 'still ' : /\?$|^(which|what|where|who|why|how|did|do|is|are|can)\b/i.test(text) ? pick(['so ', 'but ']) : pick(['yeah ', 'like i said ', 'still '])); const cap = !sh && /^[A-Z]/.test(text); text = sh ? pre.toUpperCase() + text : (cap ? pre[0].toUpperCase() + pre.slice(1) : pre) + text.replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase()); } L[k] = { t: text, at: Date.now() }; } /* never the exact same line twice running */
-  if (MP._spy) { MP._spy.push({ id, text, copy: !!o.copy, body: !!o.body }); return; } // tests: what it would say, as whom
+  let tail = null; if ((o.body || o.copy) && !o.exact && !o.sched && !fix) { const sp = rhySplit(id, text); if (sp) { text = sp[0]; tail = sp[1]; } } const tailGap = tail ? (rhythmOf(id) || {}).gap || 1500 : 0;
+  if (MP._spy) { MP._spy.push({ id, text, copy: !!o.copy, body: !!o.body }); if (MP._spyAll) { if (tail) MP._spy.push({ id, text: tail, part: 2, gap: tailGap, copy: !!o.copy, body: !!o.body }); if (fix) MP._spy.push({ id, text: fix, fix: 1, copy: !!o.copy, body: !!o.body }); } return; } // tests: what it would say, as whom
   const msg = { t: 'chat', from: id, text }; if (o.body) msg.body = 1;
   const out = m2 => o.only ? toPlayer(o.copy ? CP.target : o.only, m2) : o.except ? MP.roster.forEach(p => p.id !== o.except && toPlayer(p.id, m2)) : toAll(m2);
-  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy) CP.lastSaid = Date.now(); else MP.saidAt[id] = Date.now(); if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); };
+  const send = () => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) { PS.lastSaid = Date.now(); if (!o.sched) PS.nextSay = Math.max(PS.nextSay || 0, Date.now() + chatGap(id)); } if (o.copy) CP.lastSaid = Date.now(); else MP.saidAt[id] = Date.now(); if (o.copy && !o.sched) CP.nextSay = Math.max(CP.nextSay || 0, Date.now() + chatGap(id)); out(msg); if (fix) setTimeout(() => out(Object.assign({}, msg, { text: fix })), rnd(1200, 2600)); if (tail) setTimeout(() => { if ((o.body && !PS.on) || (o.copy && !CP.on)) return; if (o.body) PS.lastSaid = Date.now(); if (o.copy) CP.lastSaid = Date.now(); out(Object.assign({}, msg, { text: tail })); }, Math.max(500, tailGap * rnd(.75, 1.25))); };
   setTimeout(send, o.delay != null ? o.delay : typeDelay(id, text));
 }
 // someone talks to the worn body
@@ -11386,7 +11398,7 @@ function copyAnswer(from, text, n, c) {
   speak(CP.orig, w, { copy: true, only: CP.target });
 }
 function bodyHeard(from, text) { FR_ID = PS.id; MAN_TO = from; try { return bodyHeard0(from, text); } finally { FR_ID = null; MAN_TO = null; } }
-MP._mood = { moodH, moodNow }; MP._man = { addrOf, mannerOf, manName, manTone, traitsTo: (id, to) => { MAN_TO = to; try { return traitsOf(id); } finally { MAN_TO = null; } } };
+MP._mood = { moodH, moodNow }; MP._rhy = { rhythmOf, rhySplit }; MP._man = { addrOf, mannerOf, manName, manTone, traitsTo: (id, to) => { MAN_TO = to; try { return traitsOf(id); } finally { MAN_TO = null; } } };
 function bodyHeard0(from, text) {
   if (!PS.on || from === PS.id || ghostOf(from)) return;
   const n = nameOf(PS.id).toLowerCase(), t = norm(text), to = addressee(from, text, PS.id, [PS.x, PS.z, PS.floor], PS.lastSaid, PS.asked);
