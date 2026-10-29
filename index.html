@@ -9080,13 +9080,13 @@ function drawRoster() { $('mp_roster').innerHTML = MP.roster.map(p => `<li style
 function hostHandle(from, m) {
   if (!m || typeof m !== 'object') return;
   if (m.t === 'pos') { MP.pos[from] = m.p; track(from, m.p); return; }
-  if (m.t === 'wd') { applyDiff(m.d); bcast({ t: 'ws', d: m.d }, from); return; }
+  if (m.t === 'wd') { memDiff(from, m.d); applyDiff(m.d); bcast({ t: 'ws', d: m.d }, from); return; }
   if (m.t === 'chat') {
     const text = PROF.clean(String(m.text || '').slice(0, 200)); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
     latTrack(from, text, m.cps);
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
-    learnFrom(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
+    learnFrom(from, text); memChat(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!ghostOf(from) || ghostOf(p.id)) && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -9213,12 +9213,12 @@ function syncTick() {
   const f = flat(), d = {}; let n = 0;
   for (const k in f) if (f[k] !== MP.base[k]) { d[k] = f[k]; MP.base[k] = f[k]; n++; }
   if (!n) return;
-  if (MP.host) bcast({ t: 'ws', d }); else send(null, { t: 'wd', d });
+  if (MP.host) { memDiff(MP.me, d); bcast({ t: 'ws', d }); } else send(null, { t: 'wd', d });
 }
 const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0, +P.pitch.toFixed(2), P.jy > .05 ? 1 : 0]; })() : MP.pos[id];
 function posTick() {
   if (!MP.on || !MP.started || !X().S.started) return;
-  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +avert(PS, PS.id).toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2), PS.jump ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +avert(CP, null).toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, CP.mv && CP.mv.runOn && !CP.mirror ? 2 : 0, +(CP.pitch || 0).toFixed(2), CP.jump ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (CP.on) memRoom('~cp', [CP.x, CP.z, 0, 0, CP.floor]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +avert(PS, PS.id).toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2), PS.jump ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +avert(CP, null).toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, CP.mv && CP.mv.runOn && !CP.mirror ? 2 : 0, +(CP.pitch || 0).toFixed(2), CP.jump ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
 }
 let loopsOn = false;
 function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
@@ -9735,7 +9735,7 @@ function becomeGhost() {
   x.toast('You are a ghost now. You can drift through the house and watch the others. You cannot touch anything. Only other ghosts can hear you. Once, you can write one word in the dust: press G.', 8000);
   if (PS.on && PS.id === MP.me) MP.povUntil = Date.now() + 22000;
 }
-function makeGhost(id) { if (ghostOf(id)) return; chatStop(id); MP.ghosts.push(id); toAll({ t: 'ghosts', ids: MP.ghosts }); if (V.open) voteCheck(); }
+function makeGhost(id) { if (ghostOf(id)) return; chatStop(id); MP.ghosts.push(id); try { memAdd({ k: 'ghost', who: id }); } catch (e) {} toAll({ t: 'ghosts', ids: MP.ghosts }); if (V.open) voteCheck(); }
 function killMe(how) {
   if (MP.ghost) return; const x = X(), fd = $('fade');
   x.S.ui = true; x.unlock();
@@ -9930,14 +9930,14 @@ function inStyle(base, st) {
   return t;
 }
 MP._style = (texts, base) => inStyle(base, styleOf(texts));
-MP._styleOf = styleOf; MP._gen = (texts, cat, ctxs) => { const k = '__t' + Math.random(); MP.hist[k] = texts; if (ctxs) MP.histCtx[k] = ctxs; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
+MP._styleOf = styleOf; MP._inStyle = (b, st) => inStyle(b, st); MP._gen = (texts, cat, ctxs) => { const k = '__t' + Math.random(); MP.hist[k] = texts; if (ctxs) MP.histCtx[k] = ctxs; const out = inStyle(bankLine(cat, k), styleOf(texts)); delete MP.hist[k]; return out; };
 function copySay(base, sched) { if (!CP.on) return; speak(CP.orig, base, { copy: true, sched, only: CP.target }); }
 const cpPub = () => { toAll({ t: 'cp', c: { on: CP.on, orig: CP.orig, mirror: CP.mirror, phase: CP.phase, target: CP.target } }); voiceFx(); micGate(); drawVoice(); };
 MP.copyStart = (orig, target) => {
   const L = living(); if (CP.on || L.length < 2) return false;
   const o = L.find(p => p.id === orig) || pick(L), tg = L.find(p => p.id === target && p.id !== o.id) || pick(L.filter(p => p.id !== o.id));
   const q = posOf(tg.id); if (!q) return false;
-  Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + chatGap(o.id) * rnd(.3, 1), last: null });
+  delete MEM.rooms['~cp']; Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + chatGap(o.id) * rnd(.3, 1), last: null });
   if (window.__ENC.blocked(CP.x, CP.z)) { CP.x = q[0]; CP.z = q[1]; }
   CP.hab = habitsOf(o.id); CP.pitch = CP.hab.pitchM; CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
   MP.copyN = (MP.copyN || 0) + 1; CP.success = false; MP.copyDone = MP.copyN >= 2; cpPub(); return { orig: o.id, target: tg.id };
@@ -10159,14 +10159,14 @@ MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost };
 // ---------- her wearing a lured player's body (host runs it) ----------
 const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
 MP.track = {};
-function track(id, q) { if (!q || !MP.started) return; const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); sitTrack(id, q, t); if (t.length > 3000) t.splice(0, t.length - 3000);
+function track(id, q) { if (!q || !MP.started) return; memRoom(id, q); const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); sitTrack(id, q, t); if (t.length > 3000) t.splice(0, t.length - 3000);
   // how close they stood to the nearest other living player (only while someone was within reach)
   if (ghostOf(id)) return; let nd = 99; for (const p of MP.roster) { if (p.id === id || ghostOf(p.id)) continue; const o = posOf(p.id); if (o && o[4] === q[4]) nd = Math.min(nd, Math.hypot(o[0] - q[0], o[1] - q[1])); }
   if (nd < 8) { const P = MP.prox[id] || (MP.prox[id] = []); P.push(+nd.toFixed(2)); if (P.length > 1500) P.splice(0, P.length - 1500); } }
 MP.prox = {};
 function possess(id, q) {
   chatStop(id);
-  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: Date.now() + 40000, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
+  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: Date.now() + 40000, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, at: Date.now(), x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(fill(pick(BANK.mic), PS.id)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
@@ -11250,9 +11250,73 @@ const AANS = {
 const PLACEANS = ['ok coming', 'omw', 'ok stay there', 'which part', 'k im coming', 'ok dont move', 'coming, wait there'];
 const REPH = ['i said {last}', '{last}', '{last} lol', 'nvm', 'i said {last}, u good?', 'like i said, {last}'];
 // the thread so far decides it: personal questions, follow-ups to them, "what?", answers to its own questions. null when the thread has nothing to say
+// ---------- game memory: what really happened to each player (items, rooms, codes, puzzles, deaths), so it can answer "what was the code" or "who found the key" truthfully ----------
+// the worn body only knows what its player knew up to the moment it took them
+const MEM = { ev: [], rooms: {}, seen: {}, lastQ: {} };
+const MEM_ITEM = { keyLiving: 'the living room key', stairKey: 'the stair key', cellarKey: 'the cellar key', lDrawerKey: 'the drawer key', codebook: 'the codebook', notebook: 'the notebook', letter: 'the letter', noteFound: 'the note', daybook: 'the daybook', pipChip: 'the chip', lCrystal: 'the crystal', lTape: 'the tape', lKeys: 'the keys', mDiary: 'the diary', tDiary: 'the diary', iDiary: 'the diary', page41: 'page 41', lPlate: 'the plate', lSlate: 'the slate', glyphSketch: 'the sketch', cLog: 'the log' };
+const MEM_DID = { power: 'turned the power on', stairsOpen: 'opened the stairs', cellarOpen: 'opened the cellar', trunkOpen: 'opened the trunk', closetOpen: 'opened the closet', phoneDone: 'answered the phone', lDrawerOpen: 'opened the drawer', cGlassOpen: 'opened the glass case', videoSeen: 'watched the video', cylPlayed: 'played the cylinder' };
+const MEM_PZ = { atb: 'the atbash one', rail: 'the rail cipher', rotor: 'the rotor', dial: 'the dial', caesar: 'the caesar cipher', tap: 'the tapping one', morse: 'the morse code', a1z: 'the number cipher', ink: 'the ink one', bin: 'the binary one', mirror: 'the mirror', video: 'the video', cyl: 'the cylinder', kw: 'the keyword one', cvint: 'the wine one', cmark: 'the marks', croute: 'the route one', cbrick: 'the bricks' };
+function memAdd(e) { e.at = e.at || Date.now(); MEM.ev.push(e); if (MEM.ev.length > 200) MEM.ev.shift(); if (e.k === 'room') { const R = MEM.rooms[e.who] || (MEM.rooms[e.who] = []); R.push({ r: e.what, at: e.at }); if (R.length > 60) R.shift(); } }
+function memDiff(who, d) { if (!d || !who) return; let A = {}; try { A = (window.__ENC && window.__ENC.PURE && window.__ENC.PURE.ANSWERS) || {}; } catch (e) {}
+  for (const k in d) { let v; try { v = JSON.parse(d[k]); } catch (e) { continue; } if (!v || MEM.seen[k]) continue;
+    if (k.startsWith('solved.')) { const j = k.slice(7), a = (A[j] || [])[0]; MEM.seen[k] = 1; memAdd({ k: 'solve', who, what: MEM_PZ[j] || 'the puzzle', code: a && String(a).length < 14 ? String(a).toLowerCase() : null }); continue; }
+    if (MEM_ITEM[k]) { MEM.seen[k] = 1; memAdd({ k: 'item', who, what: MEM_ITEM[k] }); } else if (MEM_DID[k]) { MEM.seen[k] = 1; memAdd({ k: 'did', who, what: MEM_DID[k] }); } } }
+function memChat(who, text) { const t = String(text).toLowerCase(); let m = t.match(/\b(?:code|password|pass|combo|combination|answer|pin|number)\s*(?:is|was|=|:|s|'s|its|it's)?\s*['"]?([a-z]{3,12}|\d[\d -]{1,10}\d)\b/);
+  if (m && /^(the|a|it|in|on|that|this|and|for|not|what|where|here|there|under|behind|maybe|probably|somewhere|hidden|wrong|right|same)$/.test(m[1])) m = null; if (!m) m = t.match(/(?:^|\s)(\d{3,8})(?=\s|$|[?!.,])/); if (m) memAdd({ k: 'code', who, what: m[1].replace(/[ -]/g, '') }); }
+function memRoom(who, q) { if (!q || !who) return; const L = MEM.lastQ[who]; if (L && L[2] === q[4] && Math.hypot(L[0] - q[0], L[1] - q[1]) < .6) return; MEM.lastQ[who] = [q[0], q[1], q[4]]; let r = null; try { const x = X(), id = x.roomAt(q[0], q[1]); r = id && x.ROOMS[id] ? String(x.ROOMS[id].name || '').toLowerCase() : null; } catch (e) {} if (!r) return; const R = MEM.rooms[who]; if (R && R.length && R[R.length - 1].r === r) return; memAdd({ k: 'room', who, what: r }); }
+MP._mem = { MEM, add: memAdd, diff: memDiff, chat: memChat, room: memRoom, reset: () => { MEM.ev.length = 0; for (const o of [MEM.rooms, MEM.seen, MEM.lastQ]) for (const k in o) delete o[k]; } };
+// what this voice is allowed to remember: everything up to now, or for the worn body only up to when it was taken
+function memView(self) { const cut = PS.on && self === PS.id && PS.at ? PS.at : Infinity; return MEM.ev.filter(e => e.at <= cut || (e.k === 'room' && e.who === self)); }
+const memWho = (who, self, from) => who === self ? 'i' : who === from ? 'you' : (nameOf(who) || 'someone').toLowerCase();
+function memSay(e, self, from) { const w = memWho(e.who, self, from), we = (e.who === self || e.who === from) && Math.random() < .5 ? 'we' : w;
+  if (e.k === 'solve') return we + ' solved ' + e.what + (e.code && Math.random() < .5 ? ' (' + e.code + ')' : '').replace(/[()]/g, '');
+  if (e.k === 'item') return w + ' found ' + e.what; if (e.k === 'did') return we + ' ' + e.what; if (e.k === 'ghost') return w + ' died'; if (e.k === 'code') return w + ' said the code was ' + e.what; return null; }
+const MEM_FLAV = { rude: ['{x} keep up', '{x} pay attention', '{x} obviously'], joker: ['{x} lol', '{x} haha'], scared: ['{x} can we go', 'um {x}', '{x}...'], kind: ['{x} i think', 'oh {x}'], practical: ['ok so {x}', '{x}'], chill: ['{x} i think', 'eh {x}'], sarcastic: ['{x} obviously', 'uh {x}, remember'], dramatic: ['{x} omg', '{x}!!'], shy: ['um {x}', '{x} i think'], hyper: ['{x}!!', 'omg {x}'], grumpy: ['ugh {x}', '{x} obviously'], polite: ['{x}', 'I think {x}'], tryhard: ['{x} come on', '{x}, focus'], worrier: ['{x} i think?', 'um {x}'] };
+function memFlav(self, x) { let tr = 'plain'; try { tr = pickT(tmix(self)); } catch (e) {} const F = MEM_FLAV[tr]; return F && Math.random() < .45 ? pick(F).replace('{x}', x) : x; }
+const MEM_NOUN = /\b(key|keys|note|codebook|notebook|diary|letter|daybook|chip|crystal|tape|plate|slate|sketch|log|page)\b/;
+// a question about this game (not their real life): answered from what really happened, or null to let the usual talk handle it
+function memAnswer(self, from, text) {
+  const t = String(text).toLowerCase().replace(/[’`']/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(u|ya|yu)\b/g, 'you').replace(/\bur\b/g, 'your').replace(/\br\b/g, 'are').replace(/\b(what|where|who)s\b/g, '$1 is').replace(/\s+/g, ' ').trim(); if (/\b(yesterday|last (night|week|weekend|year|time we played)|irl|in real life|at school|this morning|for dinner|for lunch|on (the )?weekend|over the summer)\b/.test(t)) return null;
+  const E = memView(self), now = Date.now(), rec = E.filter(e => e.k !== 'room' && now - e.at < 900000), last = (f) => { for (let i = rec.length - 1; i >= 0; i--) if (f(rec[i])) return rec[i]; return null; };
+  const nm = (MP.roster || []).map(p => [p.id, String(p.name || '').toLowerCase()]).filter(x => x[1].length >= 2);
+  // the code / password / answer
+  if (/\b(code|password|passcode|combo|combination|pin|answer)\b/.test(t) && /\b(what|which|whats|what is|was|tell|remember|again|did we|do you know|say)\b/.test(t) && !/\b(find|where|how do|how did|figure)\b/.test(t)) {
+    const pz = Object.values(MEM_PZ).find(p => t.includes(p.replace(/^the /, '').split(' ')[0])), e = pz ? last(x => x.k === 'solve' && x.what === pz && x.code) : last(x => (x.k === 'code' && x.who !== self) || (x.k === 'solve' && x.code) || (x.k === 'code'));
+    if (!e) return null; const c = e.k === 'code' ? e.what : e.code; return memFlav(self, pick([c, 'it was ' + c, 'its ' + c, c + ' i think', 'it was ' + c + ' i think']).replace(/ i think i think/, ' i think')); }
+  // who found / has the key
+  const nn = t.match(MEM_NOUN);
+  if (nn && /\b(who|whos|who is)\b/.test(t) && /\b(found|find|got|get|has|have|picked|took|grabbed)\b/.test(t)) {
+    const q = t.match(new RegExp('\\b(\\w+) ' + nn[1] + '\\b')), qual = q && !/^(the|a|that|this|got|has|have|found|find|took|grabbed|picked)$/.test(q[1]) ? q[1] : null, base = nn[1].replace(/s$/, '');
+    const e = last(x => x.k === 'item' && x.what.includes(base) && (!qual || x.what.includes(qual))); if (!e) return memFlav(self, pick(['nobody yet', 'no one found it yet', 'we havent found it yet', 'nobody has it yet']));
+    const w = e.who; if (w === self) return memFlav(self, pick(['i did', 'me', 'i found it', 'i got it', 'i have it']));
+    if (w === from) return memFlav(self, pick(['you did', 'you found it', 'you have it', 'you did, remember']));
+    const n = (nameOf(w) || 'someone').toLowerCase(); return memFlav(self, pick([n + ' did', n + ' found it', n + ' has it', n])); }
+  if (nn && new RegExp('\\b(you|u) (find|found|get|got|grab|grabbed|have|pick up|picked up|take|took)( the| a| that| any)?( \\w+)? ' + nn[1] + '\\b').test(t)) {
+    const base = nn[1].replace(/s$/, ''), e = last(x => x.k === 'item' && x.what.includes(base)); if (!e) return memFlav(self, pick(['no not yet', 'nope not yet', 'no']));
+    if (e.who === self) return memFlav(self, pick(['yeah i got it', 'yes', 'yeah its with me', 'yep i found it']));
+    const n = e.who === from ? 'you' : (nameOf(e.who) || 'someone').toLowerCase(); return memFlav(self, pick(['no ' + n + ' did', 'nah ' + n + ' has it', 'no, ' + n + ' found it'])); }
+  // where they were before this
+  if (/\bwhere (were|was) you\b|\bwhere did you (go|run|run off to|go before)\b|\bwhere (have )?you been\b|\bwhere you been\b|\bwhere did you come from\b/.test(t)) {
+    const own = (MEM.rooms[CP.on && self === CP.orig ? '~cp' : self] || []).filter(r => r.at <= now), cur = own.length ? own[own.length - 1].r : null; let prev = null;
+    for (let i = own.length - 2; i >= 0; i--) if (own[i].r !== cur) { prev = own[i].r; break; } if (!cur) return null;
+    const the = r => /^(the )/.test(r) ? r : 'the ' + r; if (!prev) return memFlav(self, pick(['right here', 'here the whole time', 'in ' + the(cur), 'been in ' + the(cur)]));
+    return memFlav(self, pick(['in ' + the(prev), 'i was in ' + the(prev), prev, the(prev), 'went to ' + the(prev) + ' then came here'])); }
+  // have you been to the kitchen
+  { const m = t.match(/\b(?:have you been|did you go|were you|you been|you went) (?:to|in|into) (?:the )?([a-z ]{3,20}?)\??$/); if (m) { const R = (MEM.rooms[CP.on && self === CP.orig ? '~cp' : self] || []).map(r => r.r); const hit = R.find(r => r.includes(m[1].trim()) || m[1].trim().includes(r.split(' ').pop())); if (R.length) return memFlav(self, hit ? pick(['yeah', 'yes', 'yeah i was there', 'yep']) : pick(['no', 'nope', 'not yet', 'no i havent'])); } }
+  // what happened to someone / who died
+  const dead = (MP.ghosts || []).filter(g => g !== self); if (/\bwho (died|is dead|got caught|got got|is a ghost)\b|\bwho did (she|it) (get|kill|catch)\b/.test(t)) { if (!dead.length) return memFlav(self, pick(['nobody yet', 'no one yet'])); return memFlav(self, dead.map(g => (nameOf(g) || 'someone').toLowerCase()).join(' and ') + pick([' died', ' got caught', ' is dead'])); }
+  { const who = nm.find(([id, n]) => dead.includes(id) && new RegExp('\\b(what happened to|where is|wheres|where did|is) ' + n.replace(/[^a-z0-9]/g, '') + '\\b').test(t)); if (who) return memFlav(self, pick([who[1] + ' died', 'she got ' + who[1], who[1] + ' is dead', who[1] + ' got caught'])); }
+  // what did we just do / what happened
+  let hot = false; try { const C = ctxTags(self); hot = C.has('danger') || C.has('scare'); } catch (e) {}
+  if (/\bwhat (did|have) we (just )?(do|done|did)\b|\bwhat did we (do|get) (so far|before|earlier|already)\b|\bwhat did i miss\b|\bwhat have we got\b/.test(t) || (!hot && /\bwhat (just )?happened\b(?! to)/.test(t))) {
+    const R = rec.filter(e => e.k !== 'code' || e.who === self).slice(-2), S = R.map(e => memSay(e, self, from)).filter(Boolean);
+    if (!S.length) return /\bhappened\b/.test(t) ? null : memFlav(self, pick(['nothing yet', 'nothing really', 'not much yet'])); return memFlav(self, S.join(pick([' then ', ' and ', ', then ']))); }
+  return null;
+}
 function ctxReply(self, from, text, k) {
   const c = convOf(self, from), now = Date.now(), t = norm(text); convNote(c, 'them', text, k); MP._to = { id: from, at: now };
   if (k && ACCUSE.includes(k)) { c.pend = null; return null; }
+  { let mm = null; try { mm = memAnswer(self, from, text); } catch (e) {} if (mm) { c.pend = null; return { k: k && k !== 'vague' ? k : 'mem', line: mm, mem: 1 }; } } /* a question about what really happened in this game: the truth, in their words */
   if (k === 'ack' && !(c.pend && now - c.pend.at < 45000)) { let r = 0; try { r = chatPerMin(self); } catch (e) {} if (Math.random() > (r < 1 ? .05 : Math.min(.4, .05 + r * .04))) return { k: 'ack', line: null }; } // a bare ok/same mostly gets nothing back, unless they were chatty // accusations always get the full denial, never a bare yes/no
   { const own = ownLine(self, { reply: k || 'vague' }); if (own) { c.pend = null; return { k: 'own', line: own }; } } // what they themselves said when someone said this kind of thing
   const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, mix = tmix(self), tr = pickT(mix); let f = followKind(t, text); if (!f && p && p.type !== 'asked' && /^[a-z]+( [a-z]+)?\s*\?+$/i.test(String(text).trim()) && !/^(what|why|how|who|where|when|huh|really|srsly|fr|wdym)\b/i.test(String(text).trim())) f = 'guess'; if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
