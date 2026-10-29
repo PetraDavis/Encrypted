@@ -3367,8 +3367,8 @@ function morseOn(tt) { let x = tt % MTOT; for (const [on, d] of MSEG) { if (x < 
     { id: 'kucurse', p: VI(89.2, .15, 66.5), r: 1.8, label: () => 'Something pushed into the altar', act: () => cellRead('curse') },
     { id: 'kukneel', p: VI(91.1, .3, 72.3), r: 2.0, label: () => 'Kneeling stone', act: () => cellRead('kneel') },
     { id: 'kutasks', p: VI(90.6, 1.25, CR.kuin.z1 - .05), r: 2.2, label: () => 'Tablet above the stone', act: () => cellRead('tasks') },
-    { id: 'kuvow', p: VI(91.1, .05, 72.0), r: 1.6, label: () => 'Scratches under the stone', act: () => cellRead('vow') },
-    { id: 'kubeads', p: VI(92.1, .05, 71.6), r: 1.6, label: () => 'Beads on the floor', act: () => toast('A child\'s bracelet, blue and yellow beads on a thread that has rotted through. Next to it, a cut braid of hair, gone white. Next to that, a single small tooth.') },
+    { id: 'kuvow', p: VI(91.1, .05, 72.0), r: 2.1, label: () => 'Scratches under the stone', act: () => cellRead('vow') },
+    { id: 'kubeads', p: VI(92.1, .05, 71.6), r: 2.1, label: () => 'Beads on the floor', act: () => toast('A child\'s bracelet, blue and yellow beads on a thread that has rotted through. Next to it, a cut braid of hair, gone white. Next to that, a single small tooth.') },
     { id: 'kuseam', p: VI(91.5, .95, 64.2), r: 2.0, label: () => 'Bowl by the glass', act: () => toast('A clay bowl on a stone post, set close to the black glass. It is not empty. It is full of fine white hair.') },
   );
   // ---------- more notes: the masons of 1789 and the Ashgroves, 1870-1914 ----------
@@ -10563,11 +10563,12 @@ function manTone(id, to, base) { if (!to || base[0] === '\u0001') return base; c
   const strip = t => toks(t).filter(w => w !== nm && nickOf(w, id) !== to).join(' ').trim(), R = L.filter(t => MAN_RUDE.test(t)), P = L.filter(t => MAN_POL.test(t)), rr = R.length / L.length, pr = P.length / L.length;
   if (rr >= .3 && !pr) base = base.replace(/\b(please|pls|plz|sorry|thanks|thank you)\b,? ?/gi, '').replace(/\s{2,}/g, ' ').trim() || base;
   if (pr >= .3 && !rr && MAN_RUDE.test(base)) return base;
-  if (rr >= .25 && !MAN_RUDE.test(base) && !/\?\s*$/.test(base) && !/\b(nice|thanks|thank|thx|ty|sorry|my bad|together|dont worry|good job|careful|love|safe|we found|we did|aw+)\b/i.test(base) && Math.random() < rr * .8) { const J = R.map(t => String(t).trim()).filter(t => t && t.split(' ').length <= 5 && !/\?$/.test(t)); if (J.length) { const j = pick(J); let dot = false; try { dot = styleOf(moodH(id)).dotR > .4; } catch (e) {} if (!dot && !(nm && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(j)) && Math.random() < .5) return base.replace(/[!]+$/, '') + ' ' + j; MAN_JAB = j; return base; } }
-  if (pr >= .25 && !MAN_POL.test(base) && Math.random() < pr * .8) { const W = P.join(' ').toLowerCase(), has = w => new RegExp('\\b' + w + '\\b').test(W);
+  if (rr >= .25 && !MAN_RUDE.test(base) && !/\?\s*$/.test(base) && !/\b(nice|thanks|thank|thx|ty|sorry|my bad|together|dont worry|good job|careful|love|safe|we found|we did|aw+)\b/i.test(base) && Math.random() < Math.min(.95, rr * 1.15)) { const J = R.map(t => String(t).trim()).filter(t => t && t.split(' ').length <= 5 && !/\?$/.test(t)); if (J.length) { const j = pick(J); let dot = false; try { dot = styleOf(moodH(id)).dotR > .4; } catch (e) {} if (!dot && !(nm && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(j)) && Math.random() < .5) return base.replace(/[!]+$/, '') + ' ' + j; MAN_JAB = j; return base; } }
+  if (pr >= .25 && !MAN_POL.test(base) && Math.random() < Math.min(.95, pr * 1.1)) { const W = P.join(' ').toLowerCase(), has = w => new RegExp('\\b' + w + '\\b').test(W);
     if (/^(wait|come|go|stay|follow|hurry|help|look|check|stop|hide|run|get|open|try|read|use|bring|give|tell|show|lets)\b/i.test(base) && (has('please') || has('pls') || has('plz'))) return base.replace(/[.!]*$/, m => ' ' + (has('please') ? 'please' : has('pls') ? 'pls' : 'plz') + m);
     if (/^(no|nah|nope|not|cant|i cant|idk|i dont)\b/i.test(base) && (has('sorry') || has('sry'))) return (has('sorry') ? 'sorry ' : 'sry ') + base;
-    if (/^(ok|okay|sure|yes|yeah|coming|on my way|got it)\b/i.test(base) && (has('thanks') || has('thank you') || has('ty') || has('thx'))) return base.replace(/[.!]*$/, m => ' ' + (has('thanks') ? 'thanks' : has('thank you') ? 'thank you' : has('thx') ? 'thx' : 'ty') + m); }
+    if (/^(ok|okay|sure|yes|yeah|coming|on my way|got it)\b/i.test(base) && (has('thanks') || has('thank you') || has('ty') || has('thx'))) return base.replace(/[.!]*$/, m => ' ' + (has('thanks') ? 'thanks' : has('thank you') ? 'thank you' : has('thx') ? 'thx' : 'ty') + m);
+    if (!MAN_JAB) { const J = P.map(t => String(t).trim()).filter(t => t && t.split(' ').length <= 4 && t.toLowerCase() !== base.toLowerCase() && !(nm && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(t))); if (J.length) MAN_JAB = pick(J); } }
   return base; }
 function traitsOf0(id) {
   const RAW = (MP.hist[id] || []).map(String), H = RAW.map(t => t.toLowerCase()), n = H.length, c = re => H.filter(t => re.test(t)).length;
