@@ -11387,7 +11387,7 @@ H.die = () => { if (!MP.on || !MP.started || MP.roster.length < 2) return false;
 MP._ps = { possess, unpossess, possTick }; MP._heard = { copyHeard, bodyHeard };
 // the room that was not there: a grey, wrong copy of Ivy's bedroom. One spot per floor, each off a room you can always walk to;
 // it exists only while the clone is leading someone to it, on that person's floor
-const VOID_SPOTS = { 1: [{ room: 'foyer', x: -4.5, z: -6, dx: 0, dz: -1 }], 2: [{ room: 'hall2', x: -15, z: -48.5, dx: -1, dz: 0 }], 3: [{ room: 'loft', x: 9, z: -69, dx: 1, dz: 0 }], '-1': [{ room: 'gym', x: 40, z: 59, dx: -1, dz: 0 }, { room: 'breach', x: 70, z: 57.8, dx: 0, dz: -1 }], '-2': [{ room: 'hydro', x: 104, z: 51, dx: -1, dz: 0 }] };
+const VOID_SPOTS = { 1: [{ room: 'foyer', x: -4.5, z: -6, dx: 0, dz: -1 }], 2: [{ room: 'hall2', x: -15, z: -48.5, dx: -1, dz: 0 }], 3: [{ room: 'loft', x: 9, z: -69, dx: 1, dz: 0 }], '-1': [{ room: 'gym', x: 40, z: 59, dx: -1, dz: 0 }, { room: 'breach', x: 70, z: 57.8, dx: 0, dz: -1 }], '-2': [{ room: 'hydro', x: 111.4, z: 47, dx: 0, dz: -1 }] };
 /* the spot on that floor the target can walk to (the cellar has two: the gym, and the tunnel past the breach), nearest first */
 function voidSpot(fl, px, pz) { const L = VOID_SPOTS[fl]; if (!L) return -1; const x = X(), r = x.roomAt(px, pz); let best = -1, bd = 1e9; L.forEach((S, i) => { if (S.room !== r && !x.firstDoor(r, S.room)) return; const d = Math.hypot(S.x - px, S.z - pz); if (d < bd) { bd = d; best = i; } }); return best; }
 const VOID = MP._void = { x0: 23, x1: 31, z0: -7.4, z1: .6, cx: 27, cz: -3.4, spot: VOID_SPOTS[1][0], floor: 1 };
