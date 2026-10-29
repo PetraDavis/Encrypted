@@ -9133,7 +9133,7 @@ function clientHandle(m) {
     case 'apx': apparition(m.rk); return;
     case 'sws': Object.assign(SW, m.s); SW.at = Date.now(); return;
     case 'ysev': ysWarn(m); return;
-    case 'void': voidRoom(m.on); return;
+    case 'void': voidRoom(m.on, m.f); return;
     case 'vclose': voidClose(); return;
     case 'taken': addTaken(m.name); return;
     case 'kill': killMe(m.how); return;
@@ -9745,7 +9745,7 @@ function killMe(how) {
     setTimeout(() => { fd.style.transition = 'opacity 1.5s'; fd.style.opacity = 0; toHost({ t: 'dead' }); becomeGhost(); }, 3600);
   } else {
     const ys = x.ysolde, P = x.P, U = x.ysMat.uniforms, d = $('death'), inV = how === 'void';
-    const far = inV ? [VOID.x1 - 1.2, -3.4] : [P.x - Math.sin(P.yaw) * 1.1, P.z - Math.cos(P.yaw) * 1.1];
+    const far = inV ? VOID.at(6.8) : [P.x - Math.sin(P.yaw) * 1.1, P.z - Math.cos(P.yaw) * 1.1];
     setTimeout(() => { ys.visible = true; ys.position.set(far[0], 1.1, far[1]); U.op.value = 1; U.gl.value = .2; U.fx.value = 0; }, inV ? 1200 : 0);
     if (inV) setTimeout(() => { U.fx.value = 1; U.gl.value = .7; }, 2300);
     setTimeout(() => { ys.position.set(P.x - Math.sin(P.yaw) * .9, 1.1, P.z - Math.cos(P.yaw) * .9); U.fx.value = 1; try { x.noiseBurst(3000, .5, 2.5, .6, 'highpass', false); } catch (e) {} }, inV ? 2900 : 0);
@@ -9970,7 +9970,7 @@ function habitsOf(id) {
   const pauses = [], runs = [], rooms = {}, ent = {}, flOn = [], flOff = [], x = X(); let seg = null, segK = '', entry = null, lastRoom = null, flRun = 0, jmp = 0, crT = 0, bump = 0, spins = 0, circ = 0, spinAcc = 0, circAcc = 0, circN = 0;
   const close = () => { if (seg && seg.length >= 5 && H.seg[segK].length < 60) H.seg[segK].push(seg); seg = null; };
   for (let i = 1; i < tr.length; i++) {
-    const a = tr[i - 1], b = tr[i]; if (a[4] !== b[4]) { close(); continue; } n++;
+    const a = tr[i - 1], b = tr[i]; if (a[4] !== b[4]) { close(); segK = ''; continue; } n++;
     const dx = b[0] - a[0], dz = b[1] - a[1], d = Math.hypot(dx, dz), dy = wrapA(b[2] - a[2]), pa = a[8] || 0, pb = b[8] || 0, dp = pb - pa;
     turn += Math.abs(dy); jit += Math.abs(dy - prevDy); prevDy = dy; pSum += pb; if (pb > .25) up++; if (pb < -.25) down++;
     const moving = d > .04, K = moving ? 'move' : 'idle';
@@ -10056,9 +10056,9 @@ function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.h
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
   const o = posOf(CP.orig), tq = posOf(CP.target);
-  if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 10 : 14) * 60000) return copyEnd(false);
+  if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 6 : 10) * 60000) return copyEnd(false);
   /* time to lure: checked first, so standing together (mirror) or idling beside the target cannot hold it off until the copy times out */
-  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true }); CP.lureSay = now + 9000; CP.lureN = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 15000; }
+  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4] }); CP.lureSay = now + 9000; CP.lureN = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
   // everyone in one room with it: it moves as the original moves
   const L = living(), rooms = L.map(p => roomOfPos(posOf(p.id))), cr = X().roomAt(CP.x, CP.z);
   const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
@@ -10096,7 +10096,7 @@ function copyTick(dt) {
   if (CP.phase === 'taking') return;
   // lure: walk to the room that was not there, wait inside
   if (now > CP.lureEnd) return copyEnd(false);
-  if (roomOfPos(tq) === 'mpvoid' && tq[0] > 23.8) {
+  if (roomOfPos(tq) === 'mpvoid' && tq[4] === VOID.floor && VOID.uv(tq[0], tq[1])[0] > .8) {
     const tg = CP.target, nm = nameOf(tg); toAll({ t: 'vclose' }); toPlayer(tg, { t: 'kill', how: 'void' }); CP.phase = 'taking';
     CP.success = true; setTimeout(() => { const q = posOf(tg) || tq; possess(tg, q); toAll({ t: 'taken', name: nm }); copyEnd(false); }, 3800);
     return;
@@ -10104,17 +10104,17 @@ function copyTick(dt) {
   lureWalk(dt, tq, now);
 }
 /* can the target walk to the room that was not there (it opens off the east end of the downstairs hall)? */
-function lureReach(tq) { const x = X(), r = roomOfPos(tq), c = x.roomAt(CP.x, CP.z); if (!r || !c) return false; const ok = k => k === 'hall' || !!x.firstDoor(k, 'hall'); return ok(r) && ok(c); }
+function lureReach(tq) { return !!VOID_SPOTS[tq[4]] && CP.floor === tq[4] && !!roomOfPos(tq) && !!X().roomAt(CP.x, CP.z); }
 /* the copy leads: walking pace, through the doors, looking back; it stops and waits (and calls) whenever its target falls behind */
 function lureWalk(dt, tq, now) {
   const x = X(), here = x.roomAt(CP.x, CP.z), tr = roomOfPos(tq), gap = tq[4] === CP.floor ? Math.hypot(tq[0] - CP.x, tq[1] - CP.z) : 99;
   const lag = gap > 6 || (tr !== here && gap > 3.5 && here !== 'mpvoid');
   CP.eye = 1.65; CP.flash = 1;
   if (now > CP.lureSay) { CP.lureN++; CP.lureSay = now + (lag ? rnd(7, 11) : rnd(12, 18)) * 1000; const k = here === 'mpvoid' ? ['in here', 'come in', 'its in here', 'come look', 'in here, come look'] : lag ? ['follow me', 'come on', 'this way', 'over here', 'come here', 'hurry up', '{name} follow me', 'keep up'] : ['this way', 'its just over here', 'almost there', 'follow me', 'come see this']; copySay(pick(k).replace('{name}', nameOf(CP.target)), 1); }
-  if (here === 'mpvoid') { if (gap > 5) { CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; } stepTo(VOID.cx + 1.5, VOID.cz - .6, 1.4 * dt); CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; }
+  if (here === 'mpvoid') { if (gap > 5) { CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; } { const w = VOID.at(5.5, -.6); stepTo(w[0], w[1], 1.4 * dt); } CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; }
   if (lag) { CP.lagT = (CP.lagT || 0) + dt; if (CP.lagT > 1 && gap > 9 && tq[4] === CP.floor && !CP.pass) { navTo(CP, tq[0], tq[1], tr, 2.0 * dt); return; } CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; }
   CP.lagT = 0;
-  const l = navTo(CP, VOID.cx + 1.5, VOID.cz - .6, 'mpvoid', 2.3 * dt);
+  const w = VOID.at(5.5, -.6), l = navTo(CP, w[0], w[1], 'mpvoid', 2.3 * dt);
   if (l === null && !CP.pass && !x.firstDoor(here, 'mpvoid') && here !== 'mpvoid') CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z));
 }
 let cpLast = 0; setInterval(() => { const n = performance.now(), dt = cpLast ? Math.min(.5, (n - cpLast) / 1000) : .05; cpLast = n; if (MP.host && MP.started) try { copyTick(dt); } catch (e) { console.warn(e); } }, 50); // real dt: a throttled background host tab must not slow the copy down
@@ -10190,7 +10190,7 @@ function possTick(dt) {
   if (!MP.roster.some(p => p.id === PS.id)) { PS.on = false; return toAll({ t: 'ps', on: false, id: PS.id }); }
   psReport();
   if (PS.waitFor) { const W2 = PS.waitFor, q = posOf(W2.id); if (!q || ghostOf(W2.id) || now > W2.until || (q[4] === PS.floor && Math.hypot(q[0] - PS.x, q[1] - PS.z) < 2.5)) PS.waitFor = null; else { if (q[4] === PS.floor) PS.yaw = Math.atan2(-(q[0] - PS.x), -(q[1] - PS.z)); return; } } // waiting for the one who asked
-  if (x.roomAt(PS.x, PS.z) === 'mpvoid') { walkObj(PS, 21.6, -3.4, 2.2 * dt); return; }
+  if (x.roomAt(PS.x, PS.z) === 'mpvoid') { const w = VOID.at(-1.4); walkObj(PS, w[0], w[1], 2.2 * dt); return; }
   if (PS.seek) { PS.seek = false; const c = living().filter(p => p.id !== PS.id).map(p => [p, posOf(p.id)]).filter(e => e[1] && e[1][4] === PS.floor).sort((a, b) => Math.hypot(a[1][0] - PS.x, a[1][1] - PS.z) - Math.hypot(b[1][0] - PS.x, b[1][1] - PS.z)); if (c.length) { PS.fol = { id: c[0][0].id, until: now + rnd(25, 40) * 1000 }; PS.mode = 'follow'; } }
   const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
   if (now > (PS.mimicUntil || 0)) { Q.length = 0; PS.mimicLast = null; } else if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq && Math.hypot(gq[0] - lq[0], gq[1] - lq[1]) > .02) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
@@ -11385,8 +11385,14 @@ setInterval(() => {
 // normal deaths in multiplayer make ghosts
 H.die = () => { if (!MP.on || !MP.started || MP.roster.length < 2) return false; killMe('static'); return true; };
 MP._ps = { possess, unpossess, possTick }; MP._heard = { copyHeard, bodyHeard };
-// the room that was not there: off the east end of the downstairs hallway, a grey, wrong copy of Ivy's bedroom
-const VOID = { x0: 23, x1: 31, z0: -7.4, z1: .6, cx: 27, cz: -3.4 };
+// the room that was not there: a grey, wrong copy of Ivy's bedroom. One spot per floor, each off a room you can always walk to;
+// it exists only while the clone is leading someone to it, on that person's floor
+const VOID_SPOTS = { 1: { room: 'foyer', x: -4.5, z: -6, dx: 0, dz: -1 }, 2: { room: 'hall2', x: -15, z: -48.5, dx: -1, dz: 0 }, 3: { room: 'loft', x: 9, z: -69, dx: 1, dz: 0 }, '-1': { room: 'gym', x: 40, z: 59, dx: -1, dz: 0 }, '-2': { room: 'hydro', x: 104, z: 51, dx: -1, dz: 0 } };
+const VOID = MP._void = { x0: 23, x1: 31, z0: -7.4, z1: .6, cx: 27, cz: -3.4, spot: VOID_SPOTS[1], floor: 1 };
+/* u: metres into the room from its doorway, v: sideways */
+VOID.at = (u, v = 0) => { const S = VOID.spot; return [S.x + S.dx * u - S.dz * v, S.z + S.dz * u + S.dx * v]; };
+VOID.uv = (px, pz) => { const S = VOID.spot, ax = px - S.x, az = pz - S.z; return [ax * S.dx + az * S.dz, -ax * S.dz + az * S.dx]; };
+VOID.inside = (px, pz, m = 0) => { const [u, v] = VOID.uv(px, pz); return u > -m && u < 8 + m && Math.abs(v) < 4 + m; };
 const TAKEN_KEY = 'encrypted.mp.taken';
 const takenNames = () => { try { return JSON.parse(lsGet(TAKEN_KEY) || '[]'); } catch (e) { return []; } };
 function addTaken(n) { const a = takenNames(); n = String(n).toLowerCase(); if (!a.includes(n)) a.push(n); lsSet(TAKEN_KEY, JSON.stringify(a.slice(-40))); drawTaken(); }
@@ -11396,14 +11402,16 @@ function drawTaken() {
   takenNames().forEach((n, i) => { g.save(); g.translate(30 + (i % 3) * 330 + Math.sin(i * 7) * 14, 70 + Math.floor(i / 3) * 58); g.rotate(Math.sin(i * 3.1) * .05); g.fillText(n, 0, 0); g.restore(); });
   VOID.wtex.needsUpdate = true;
 }
-function voidRoom(on) {
-  const x = X(); MP.voidOn = on;
+function voidRoom(on, fl) {
+  const x = X();
   if (on) {
-    if (VOID.grp) return;
-    x.ROOMS.mpvoid = { name: '', x0: VOID.x0, z0: VOID.z0, x1: VOID.x1, z1: VOID.z1, h: 2.9, floor: 1 };
-    const d = { id: 'mpvoid', axis: 'x', x: 23, z: -3.4, a: 'hall', b: 'mpvoid', w: 1.2, open: true, unlocked: true, lock: 'arch', t: 1 };
+    if (VOID.grp) return; const S = VOID_SPOTS[fl != null ? fl : 1]; if (!S) return; MP.voidOn = true; VOID.spot = S; VOID.floor = fl != null ? +fl : 1;
+    const c0 = VOID.at(0, -4), c1 = VOID.at(8, 4);
+    x.ROOMS.mpvoid = { name: '', x0: Math.min(c0[0], c1[0]), z0: Math.min(c0[1], c1[1]), x1: Math.max(c0[0], c1[0]), z1: Math.max(c0[1], c1[1]), h: 2.9, floor: VOID.floor };
+    const d = { id: 'mpvoid', axis: S.dx ? 'x' : 'z', x: S.x, z: S.z, a: S.room, b: 'mpvoid', w: 1.2, open: true, unlocked: true, lock: 'arch', t: 1 };
     x.DOORS.push(d); x.DOOR.mpvoid = d; VOID.door = d;
-    const g = new THREE.Group(), W = VOID.x1 - VOID.x0, D = VOID.z1 - VOID.z0, H = 2.9;
+    const gO = new THREE.Group(), g = new THREE.Group(), W = VOID.x1 - VOID.x0, D = VOID.z1 - VOID.z0, H = 2.9;
+    gO.position.set(S.x, 0, S.z); gO.rotation.y = Math.atan2(-S.dz, S.dx); g.position.set(-23, 0, 3.4); gO.add(g);
     const grey = (c, r = .95) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
     const room = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), new THREE.MeshStandardMaterial({ color: 0x55575a, roughness: 1, side: THREE.BackSide }));
     room.position.set(VOID.cx + .02, H / 2, VOID.cz); g.add(room);
@@ -11442,13 +11450,13 @@ function voidRoom(on) {
     bx(.06, 2.35, .08, fm, 22.95, 1.17, -2.78); bx(.06, 2.35, .08, fm, 22.95, 1.17, -4.02); bx(.06, .1, 1.32, fm, 22.95, 2.3, -3.4);
     VOID.leaf = bx(.05, 2.25, 1.15, grey(0x3a3a3c, .8), 23.03, 1.125, -3.4); VOID.leaf.visible = false;
     const amb = new THREE.PointLight(0xb8c4c8, .35, 9, 1.4); amb.position.set(VOID.cx, 2.6, VOID.cz); g.add(amb);
-    x.scene.add(g); VOID.grp = g;
+    x.scene.add(gO); VOID.grp = gO;
   } else {
-    if (!VOID.grp) return; x.scene.remove(VOID.grp); VOID.grp = null; delete x.ROOMS.mpvoid;
+    MP.voidOn = false; if (!VOID.grp) return; x.scene.remove(VOID.grp); VOID.grp = null; VOID.leaf = null; delete x.ROOMS.mpvoid;
     const i = x.DOORS.indexOf(VOID.door); if (i >= 0) x.DOORS.splice(i, 1); delete x.DOOR.mpvoid;
-    const inV = o => o.x > 22.6 && o.x < VOID.x1 + 1 && o.z > VOID.z0 - 1 && o.z < VOID.z1 + 1;
-    const P = x.P; if (inV(P)) { P.x = 21.6; P.z = -3.4; }
-    if (MP.host) { if (inV(PS)) { PS.x = 21.6; PS.z = -3.4; PS.pass = null; } if (inV(CP)) { CP.x = 21.4; CP.z = -3.0; } }
+    const inV = (o, f) => f === VOID.floor && VOID.inside(o.x, o.z, .4), out = VOID.at(-1.4), out2 = VOID.at(-1.6, .4);
+    const P = x.P; if (inV(P, x.S.floor || 1)) { P.x = out[0]; P.z = out[1]; }
+    if (MP.host) { if (inV(PS, PS.floor)) { PS.x = out[0]; PS.z = out[1]; PS.pass = null; } if (inV(CP, CP.floor)) { CP.x = out2[0]; CP.z = out2[1]; } }
   }
 }
 function voidClose() { if (!VOID.leaf) return; VOID.leaf.visible = true; const d = VOID.door; if (d) d.open = false; try { X().noiseBurst(300, 14, .9, .2, 'bandpass', true, 700); X().tone(52, .5, .4, 'sine'); } catch (e) {} }
