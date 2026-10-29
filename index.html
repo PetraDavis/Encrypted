@@ -9133,7 +9133,7 @@ function clientHandle(m) {
     case 'apx': apparition(m.rk); return;
     case 'sws': Object.assign(SW, m.s); SW.at = Date.now(); return;
     case 'ysev': ysWarn(m); return;
-    case 'void': voidRoom(m.on, m.f); return;
+    case 'void': voidRoom(m.on, m.f, m.i); return;
     case 'vclose': voidClose(); return;
     case 'taken': addTaken(m.name); return;
     case 'kill': killMe(m.how); return;
@@ -10058,7 +10058,7 @@ function copyTick(dt) {
   const o = posOf(CP.orig), tq = posOf(CP.target);
   if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 6 : 10) * 60000) return copyEnd(false);
   /* time to lure: checked first, so standing together (mirror) or idling beside the target cannot hold it off until the copy times out */
-  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4] }); CP.lureSay = now + 9000; CP.lureN = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
+  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4], i: voidSpot(tq[4], tq[0], tq[1]) }); CP.lureSay = now + 9000; CP.lureN = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
   // everyone in one room with it: it moves as the original moves
   const L = living(), rooms = L.map(p => roomOfPos(posOf(p.id))), cr = X().roomAt(CP.x, CP.z);
   const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
@@ -10104,7 +10104,7 @@ function copyTick(dt) {
   lureWalk(dt, tq, now);
 }
 /* can the target walk to the room that was not there (it opens off the east end of the downstairs hall)? */
-function lureReach(tq) { return !!VOID_SPOTS[tq[4]] && CP.floor === tq[4] && !!roomOfPos(tq) && !!X().roomAt(CP.x, CP.z); }
+function lureReach(tq) { return CP.floor === tq[4] && !!roomOfPos(tq) && !!X().roomAt(CP.x, CP.z) && voidSpot(tq[4], tq[0], tq[1]) >= 0; }
 /* the copy leads: walking pace, through the doors, looking back; it stops and waits (and calls) whenever its target falls behind */
 function lureWalk(dt, tq, now) {
   const x = X(), here = x.roomAt(CP.x, CP.z), tr = roomOfPos(tq), gap = tq[4] === CP.floor ? Math.hypot(tq[0] - CP.x, tq[1] - CP.z) : 99;
@@ -11387,8 +11387,10 @@ H.die = () => { if (!MP.on || !MP.started || MP.roster.length < 2) return false;
 MP._ps = { possess, unpossess, possTick }; MP._heard = { copyHeard, bodyHeard };
 // the room that was not there: a grey, wrong copy of Ivy's bedroom. One spot per floor, each off a room you can always walk to;
 // it exists only while the clone is leading someone to it, on that person's floor
-const VOID_SPOTS = { 1: { room: 'foyer', x: -4.5, z: -6, dx: 0, dz: -1 }, 2: { room: 'hall2', x: -15, z: -48.5, dx: -1, dz: 0 }, 3: { room: 'loft', x: 9, z: -69, dx: 1, dz: 0 }, '-1': { room: 'gym', x: 40, z: 59, dx: -1, dz: 0 }, '-2': { room: 'hydro', x: 104, z: 51, dx: -1, dz: 0 } };
-const VOID = MP._void = { x0: 23, x1: 31, z0: -7.4, z1: .6, cx: 27, cz: -3.4, spot: VOID_SPOTS[1], floor: 1 };
+const VOID_SPOTS = { 1: [{ room: 'foyer', x: -4.5, z: -6, dx: 0, dz: -1 }], 2: [{ room: 'hall2', x: -15, z: -48.5, dx: -1, dz: 0 }], 3: [{ room: 'loft', x: 9, z: -69, dx: 1, dz: 0 }], '-1': [{ room: 'gym', x: 40, z: 59, dx: -1, dz: 0 }, { room: 'breach', x: 70, z: 57.8, dx: 0, dz: -1 }], '-2': [{ room: 'hydro', x: 104, z: 51, dx: -1, dz: 0 }] };
+/* the spot on that floor the target can walk to (the cellar has two: the gym, and the tunnel past the breach), nearest first */
+function voidSpot(fl, px, pz) { const L = VOID_SPOTS[fl]; if (!L) return -1; const x = X(), r = x.roomAt(px, pz); let best = -1, bd = 1e9; L.forEach((S, i) => { if (S.room !== r && !x.firstDoor(r, S.room)) return; const d = Math.hypot(S.x - px, S.z - pz); if (d < bd) { bd = d; best = i; } }); return best; }
+const VOID = MP._void = { x0: 23, x1: 31, z0: -7.4, z1: .6, cx: 27, cz: -3.4, spot: VOID_SPOTS[1][0], floor: 1 };
 /* u: metres into the room from its doorway, v: sideways */
 VOID.at = (u, v = 0) => { const S = VOID.spot; return [S.x + S.dx * u - S.dz * v, S.z + S.dz * u + S.dx * v]; };
 VOID.uv = (px, pz) => { const S = VOID.spot, ax = px - S.x, az = pz - S.z; return [ax * S.dx + az * S.dz, -ax * S.dz + az * S.dx]; };
@@ -11402,10 +11404,10 @@ function drawTaken() {
   takenNames().forEach((n, i) => { g.save(); g.translate(30 + (i % 3) * 330 + Math.sin(i * 7) * 14, 70 + Math.floor(i / 3) * 58); g.rotate(Math.sin(i * 3.1) * .05); g.fillText(n, 0, 0); g.restore(); });
   VOID.wtex.needsUpdate = true;
 }
-function voidRoom(on, fl) {
+function voidRoom(on, fl, si) {
   const x = X();
   if (on) {
-    if (VOID.grp) return; const S = VOID_SPOTS[fl != null ? fl : 1]; if (!S) return; MP.voidOn = true; VOID.spot = S; VOID.floor = fl != null ? +fl : 1;
+    if (VOID.grp) return; const S = (VOID_SPOTS[fl != null ? fl : 1] || [])[si || 0]; if (!S) return; MP.voidOn = true; VOID.spot = S; VOID.floor = fl != null ? +fl : 1;
     const c0 = VOID.at(0, -4), c1 = VOID.at(8, 4);
     x.ROOMS.mpvoid = { name: '', x0: Math.min(c0[0], c1[0]), z0: Math.min(c0[1], c1[1]), x1: Math.max(c0[0], c1[0]), z1: Math.max(c0[1], c1[1]), h: 2.9, floor: VOID.floor };
     const d = { id: 'mpvoid', axis: S.dx ? 'x' : 'z', x: S.x, z: S.z, a: S.room, b: 'mpvoid', w: 1.2, open: true, unlocked: true, lock: 'arch', t: 1 };
