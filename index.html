@@ -10063,7 +10063,7 @@ function copyTick(dt) {
   const o = posOf(CP.orig), tq = posOf(CP.target);
   if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 6 : 10) * 60000) return copyEnd(false);
   /* time to lure: checked first, so standing together (mirror) or idling beside the target cannot hold it off until the copy times out */
-  if (CP.phase === 'follow' && now > CP.lureAt) { if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4], i: voidSpot(tq[4], tq[0], tq[1]) }); CP.lureSay = now + rnd(5500, 7500); CP.lureN = 0; CP.takeAt = 0; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
+  if (CP.phase === 'follow' && now > CP.lureAt && !(CP.pzJob && CP.pzJob.arr && now < CP.lureAt + 20000)) { /* already at a puzzle: finish it first */ if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4], i: voidSpot(tq[4], tq[0], tq[1]) }); CP.lureSay = now + rnd(5500, 7500); CP.lureN = 0; CP.takeAt = 0; CP.lureT0 = now; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
   if (CP.phase === 'follow' && puzWalk(CP, dt, 'copy', now)) { if (CP.mirror) { CP.mirror = false; cpPub(); } CP.last = o.slice(); CP.trail = []; return; }
   // everyone in one room with it: it moves as the original moves
   const L = living(), rooms = L.map(p => roomOfPos(posOf(p.id))), cr = X().roomAt(CP.x, CP.z);
@@ -10104,6 +10104,7 @@ function copyTick(dt) {
   if (now > CP.lureEnd) return copyEnd(false);
   if (roomOfPos(tq) === 'mpvoid' && tq[4] === VOID.floor && VOID.uv(tq[0], tq[1])[0] > .8) {
     /* never taken on a single call: if they walked in before it called again, it calls them in once more first */
+    if (!CP.lureN && !((CP.lastSaid || 0) > (CP.lureT0 || 0))) { CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; } /* its opening call first, always */
     if (!CP.lureN) { CP.lureN = 1; CP.lureSay = now + 15000; copySay(pick(['in here', 'come in', 'its in here', 'come look', 'in here, come look']), 1); CP.callAt = now; CP.takeAt = now + 12000; return; }
     if (CP.takeAt && now < CP.takeAt) { CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); if (!((CP.lastSaid || 0) > CP.callAt && now > CP.lastSaid + rnd(1500, 2500))) return; CP.takeAt = 0; } /* the call has to reach them (it types it first) before it takes them */
     const tg = CP.target, nm = nameOf(tg); toAll({ t: 'vclose' }); toPlayer(tg, { t: 'kill', how: 'void' }); CP.phase = 'taking';
