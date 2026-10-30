@@ -11605,7 +11605,7 @@ function isAsk(text) { return /\b(can|could|would|will) (you|u|ya)\b|\b(pls|plz|
 function pzRequest(o, who, from, text) { if (!isAsk(text)) return false; const T = reqTarget(text); if (!T) return false; const say = whoSay(who), S = X().S, now = Date.now(), fl = o.floor || 1, id = who === 'poss' ? PS.id : CP.orig;
   if (T.kind === 'pz') { const pz = window.__ENC.PUZ.find(q => q.id === T.id);
     if (S.solved[T.id]) { say(pick(['thats done already', 'we did that one', 'already open', 'thats already done'])); return true; }
-    if (!(pz.found && pz.found())) { say(pick(['where is that', 'havent seen that one', 'idk where that is', 'what one', 'we havent found that yet'])); return true; }
+    if (!(pz.found && pz.found())) { say(pick(['where is that', 'havent seen that one', 'idk where that is', 'dont know where that is', 'we havent found that yet', 'havent been there'])); return true; }
     const d = pzDecide(o, who, T.id); if (d === 'leave') { say(Math.random() < .5 ? stuckLine(id) : pick(['idk how to do that one', 'no idea how', 'u do it', 'i suck at these', 'idk how tbh'])); return true; } }
   if (T.e.fl !== fl && !(who === 'poss' && floorRoute(fl, T.e.fl))) { say(pick(['im not ' + (T.e.fl > fl ? 'up' : 'down') + ' there', 'cant get there from here', 'how do i get there', 'not on this floor'])); return true; }
   if (T.e.fl === fl && x0Room(o) && x0Room(o) !== T.e.room && !walkDoor(x0Room(o), T.e.room)) { say(pick(['its locked', 'cant get in there', 'door wont open', 'how do i get in there'])); return true; }
