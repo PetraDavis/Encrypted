@@ -9269,11 +9269,11 @@ function avPose(a, dt, d, cr, now, ghost) {
   a.ph += a.v * dt / step * Math.PI; if (w < .02) a.ph += (Math.round(a.ph / Math.PI) * Math.PI - a.ph) * Math.min(1, dt * 4);
   const s = Math.sin(a.ph), amp = Math.asin(Math.min(.9, step / 1.48)) * w, br = Math.sin(now / 900 + a.br) * (1 - w);
   const kn = ph => -Math.max(0, Math.sin(ph + .6)) * (.25 + .7 * w) * w;
-  a.legL.rotation.x = s * amp + c * 1.4; a.legR.rotation.x = -s * amp + c * 1.4;
-  a.legL.knee.rotation.x = kn(a.ph) - c * 2.4; a.legR.knee.rotation.x = kn(a.ph + Math.PI) - c * 2.4;
-  const dip = Math.abs(Math.cos(a.ph)) * .035 * w, sink = .48 * c;
+  a.legL.rotation.x = s * amp + c * 1.5; a.legR.rotation.x = -s * amp + c * 1.5;
+  a.legL.knee.rotation.x = kn(a.ph) - c * 2.6; a.legR.knee.rotation.x = kn(a.ph + Math.PI) - c * 2.6;
+  const dip = Math.abs(Math.cos(a.ph)) * .035 * w, sink = .55 * c;
   a.hips.position.y = .78 - sink - dip; a.upper.position.y = .78 - sink - dip + br * .006;
-  a.upper.rotation.x = .06 * w + .5 * c; a.upper.rotation.z = s * .025 * w; a.upper.rotation.y = -s * .07 * w;
+  a.upper.rotation.x = .06 * w + .22 * c; a.upper.rotation.z = s * .025 * w; a.upper.rotation.y = -s * .07 * w;
   a.legL.position.y = a.legR.position.y = .74 - sink - dip; a.upper.scale.set(1 + br * .008, 1, 1 + br * .012);
   a.headG.rotation.x = a.pitch * .9 - a.upper.rotation.x * .7; a.headG.rotation.y = -a.upper.rotation.y;
   a.armL.rotation.x = -s * .28 * w + .08 + c * .3; a.armL.rotation.z = -.07 - br * .01;
