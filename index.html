@@ -10074,7 +10074,7 @@ function copyTick(dt) {
     CP.yaw = o[2]; CP.eye = o[3]; CP.jump = o[9] || 0; CP.flash = o[6] ? 1 : 0; CP.last = o.slice(); CP.trail = []; return;
   }
   CP.last = o.slice(); CP.eye = 1.65;
-  if (now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(toTarget(() => bankLine(Math.random() < .3 ? 'lure' : pickCat(CP.orig), CP.orig)), 1); }
+  if (CP.phase === 'follow' && now > CP.nextSay) { CP.nextSay = now + chatGap(CP.orig); copySay(toTarget(() => bankLine(Math.random() < .3 ? 'lure' : pickCat(CP.orig), CP.orig)), 1); } /* once it is leading them in, only its calls */
   if (CP.phase === 'follow') {
     const tr = CP.trail, lp = tr[tr.length - 1]; if (!lp || Math.hypot(tq[0] - lp[0], tq[1] - lp[1]) > .25 || tq[4] !== lp[4]) tr.push(tq.slice());
     const Hb = CP.hab || (CP.hab = habitsOf(CP.orig)), M = CP.mv || (CP.mv = { pauseUntil: 0, runUntil: 0, crouchUntil: 0, look: 0, idleT: 0 });
