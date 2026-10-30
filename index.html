@@ -9249,17 +9249,37 @@ function makeAvatar(id, o = {}) {
   const head = mesh(new THREE.IcosahedronGeometry(.13, 1), skin, 0, 1.6, 0);
   const hair = mesh(new THREE.SphereGeometry(.135, 8, 5, 0, Math.PI * 2, 0, Math.PI * .5), dark, 0, 1.62, .01);
   const limb = (len, r, m) => { const g = new THREE.Group(); const o = mesh(new THREE.CylinderGeometry(r, r * .85, len, 5), m, 0, -len / 2, 0); g.add(o); return g; };
-  const armL = limb(.6, .055, mat), armR = limb(.6, .055, mat), legL = limb(.74, .075, dark), legR = limb(.74, .075, dark);
+  const leg = () => { const g = limb(.37, .075, dark), kn = limb(.37, .066, dark); kn.position.y = -.37; g.add(kn); g.knee = kn; return g; };
+  const armL = limb(.6, .055, mat), armR = limb(.6, .055, mat), legL = leg(), legR = leg();
   armL.position.set(-.235, 1.4, 0); armR.position.set(.235, 1.4, 0); armL.rotation.z = -.07; armR.rotation.z = .07; legL.position.set(-.09, .74, 0); legR.position.set(.09, .74, 0);
   const torch = mesh(new THREE.BoxGeometry(.05, .05, .16), new THREE.MeshBasicMaterial({ color: 0xfff0d8 }), 0, -.58, -.07); armR.add(torch); armR.rotation.x = .9;
   const headG = new THREE.Group(); headG.position.set(0, 1.55, 0); head.position.set(0, .05, 0); hair.position.set(0, .07, .01); headG.add(head, hair);
-  fig.add(torso, hips, neck, headG, armL, armR, legL, legR);
+  const upper = new THREE.Group(); upper.position.y = .78; for (const o of [torso, neck, headG, armL, armR]) { o.position.y -= .78; upper.add(o); }
+  fig.add(upper, hips, legL, legR);
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTex(o.name || nameOf(id), col), transparent: true, depthWrite: false, opacity: o.ghost ? .55 : 1 })); tag.scale.set(1.1, .275, 1); tag.position.y = 2.0;
   if (o.ghost) torch.visible = false; torchRef = torch;
   grp.add(fig, tag); X().scene.add(grp);
-  return MP.av[id] = { headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, tag, armL, armR, legL, legR, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
+  return MP.av[id] = { headG, pitch: 0, torch: torchRef, kind: o.kind || '', name: o.name || nameOf(id), color: col, grp, fig, upper, hips, tag, armL, armR, legL, legR, v: 0, cr: 0, br: Math.random() * 9, x: null, z: 0, yaw: 0, eye: 1.65, ph: 0, tagKey: '' };
 }
 function removeAvatar(id) { const a = MP.av[id]; if (!a) return; X().scene.remove(a.grp); delete MP.av[id]; }
+/* walk: stride follows real ground speed so feet plant, knees bend on the swing, hips dip at each footfall, small guarded arm swing, crouch bends instead of squashing */
+function avPose(a, dt, d, cr, now, ghost) {
+  const v = dt > 0 ? Math.min(7, d / dt) : 0; a.v += (v - a.v) * Math.min(1, dt * 10); a.cr += (cr - a.cr) * Math.min(1, dt * 8);
+  const w = Math.min(1, a.v / 1.2), c = a.cr, step = .38 + Math.min(.32, a.v * .09) - c * .12;
+  a.ph += a.v * dt / step * Math.PI; if (w < .02) a.ph += (Math.round(a.ph / Math.PI) * Math.PI - a.ph) * Math.min(1, dt * 4);
+  const s = Math.sin(a.ph), amp = Math.asin(Math.min(.9, step / 1.48)) * w, br = Math.sin(now / 900 + a.br) * (1 - w);
+  const kn = ph => -Math.max(0, Math.sin(ph + .6)) * (.25 + .7 * w) * w;
+  a.legL.rotation.x = s * amp + c * 1.4; a.legR.rotation.x = -s * amp + c * 1.4;
+  a.legL.knee.rotation.x = kn(a.ph) - c * 2.4; a.legR.knee.rotation.x = kn(a.ph + Math.PI) - c * 2.4;
+  const dip = Math.abs(Math.cos(a.ph)) * .035 * w, sink = .48 * c;
+  a.hips.position.y = .78 - sink - dip; a.upper.position.y = .78 - sink - dip + br * .006;
+  a.upper.rotation.x = .06 * w + .5 * c; a.upper.rotation.z = s * .025 * w; a.upper.rotation.y = -s * .07 * w;
+  a.legL.position.y = a.legR.position.y = .74 - sink - dip; a.upper.scale.set(1 + br * .008, 1, 1 + br * .012);
+  a.headG.rotation.x = a.pitch * .9 - a.upper.rotation.x * .7; a.headG.rotation.y = -a.upper.rotation.y;
+  a.armL.rotation.x = -s * .28 * w + .08 + c * .3; a.armL.rotation.z = -.07 - br * .01;
+  a.armR.rotation.x = .9 + a.pitch * .9 - a.upper.rotation.x + s * .06 * w;
+  if (ghost) { a.legL.rotation.x *= .5; a.legR.rotation.x *= .5; }
+}
 let avLast = performance.now();
 function avLoop() {
   requestAnimationFrame(avLoop); const now = performance.now(), rdt = (now - avLast) / 1000, dt = Math.min(.05, rdt); avLast = now;
@@ -9279,13 +9299,13 @@ function avLoop() {
     const a = MP.av[id] || makeAvatar(id, { kind, ghost: kind === 'ghost', copy: kind === 'copy', name: p.name, color: p.color });
     let k = kind === 'copy' && CP.mirror ? .6 : .2; const gap = a.x === null ? 99 : Math.hypot(q[0] - a.x, q[1] - a.z), fl = q[4] || 1;
     if (a.x === null || a.fl !== fl || gap > (kind === 'copy' ? 15 : 4)) { a.x = q[0]; a.z = q[1]; } else if (gap > 4) k = Math.max(k, .35); a.fl = fl; /* the copy and the worn body glide back after a stall, they never blink across a room */
-    const sp = Math.hypot(q[0] - a.x, q[1] - a.z); a.ph += Math.min(sp, .12) * 9; const sw = Math.sin(a.ph) * Math.min(1, sp * 12) * .55;
-    a.pitch += ((q[8] || 0) - a.pitch) * .25; a.headG.rotation.x = a.pitch * .9; a.legL.rotation.x = sw; a.legR.rotation.x = -sw; a.armL.rotation.x = -sw * .8; a.armR.rotation.x = .9 + a.pitch * .9 + sw * .12; // head and torch follow where they look
+    a.pitch += ((q[8] || 0) - a.pitch) * .25; const ox = a.x, oz = a.z;
     a.x += (q[0] - a.x) * k; a.z += (q[1] - a.z) * k; a.yaw += (((q[2] - a.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k; a.eye += (q[3] - a.eye) * k;
-    a.q = q; a.jy = (a.jy || 0) + ((q[9] ? .32 : 0) - (a.jy || 0)) * .35; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.ph) * .06 : a.jy;
+    a.q = q; a.jy = (a.jy || 0) + ((q[9] ? .32 : 0) - (a.jy || 0)) * .35; a.fig.position.y = kind === 'ghost' ? .25 + Math.sin(now / 600 + a.br) * .04 : a.jy;
+    avPose(a, dt, Math.hypot(a.x - ox, a.z - oz), Math.min(1, Math.max(0, (1.65 - a.eye) / .65)), now, kind === 'ghost');
     if (a.torch && kind !== 'ghost') { let on = q[6] !== 0; if (id === 'poss' && on) { const gh = MP.roster.some(r => ghostOf(r.id) && MP.pos[r.id] && Math.hypot(MP.pos[r.id][0] - a.x, MP.pos[r.id][1] - a.z) < 3.5) || (MP.ghost && Math.hypot(X().P.x - a.x, X().P.z - a.z) < 3.5); if (gh && Math.random() < .12) on = false; } a.torch.visible = on; }
     if (id === 'poss' && !PS.falling) { if (a.glitch) { a.tag.material.map = a.tagNorm; a.glitch = 0; } else if (Math.random() < .0006) { a.tagNorm = a.tag.material.map; a.tagLow = a.tagLow || tagTex(p.name.toLowerCase(), a.color); a.tag.material.map = a.tagLow; a.glitch = 1; } }
-    a.grp.position.set(a.x, 0, a.z); a.fig.rotation.y = a.yaw; a.fig.scale.y = Math.max(.6, a.eye / 1.65);
+    a.grp.position.set(a.x, 0, a.z); a.fig.rotation.y = a.yaw;
     a.tag.position.y = 2.0 * Math.max(.6, a.eye / 1.65);
     a.grp.visible = (q[4] || 1) === (S.floor || 1) && !q[5];
     const lost = MP.d >= .75 && MP.learned.some(l => l.id === p.id) && kind !== 'ghost', key = lost ? 'lost' : 'ok';
