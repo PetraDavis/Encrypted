@@ -10017,7 +10017,7 @@ function habitsOf(id) {
   close(); if (cur > 3) pauses.push(cur / 10); if (!n) return H;
   // rooms they kept coming back to (entries count most, time spent breaks ties), and the distance they kept from the others
   const tot = Object.values(rooms).reduce((a, b) => a + b, 0) || 1, score = r => (ent[r] || 0) + 3 * rooms[r] / tot;
-  const px = (MP.prox[id] || []).slice().sort((a, b) => a - b); H.near = px.length >= 20 ? Math.max(.9, Math.min(4, px[Math.floor(px.length / 2)])) : 1.6; H.ret = Object.keys(rooms).sort((a, b) => score(b) - score(a)).slice(0, 3); H.retW = Object.fromEntries(H.ret.map(r => [r, score(r)]));
+  const px = (MP.prox[id] || []).slice().sort((a, b) => a - b); H.near = px.length >= 20 ? Math.max(.9, Math.min(4, px[Math.floor(px.length / 2)])) : 1.6; const ld = (MP.lead[id] || []).slice().sort((a, b) => a - b); H.lead = ld.length >= 20 ? Math.max(-3, Math.min(3, ld[Math.floor(ld.length / 2)])) : 0; H.ret = Object.keys(rooms).sort((a, b) => score(b) - score(a)).slice(0, 3); H.retW = Object.fromEntries(H.ret.map(r => [r, score(r)]));
   H.flOn = flOn.slice(-60); H.flOff = flOff.slice(-60); H.jumpR = jmp / n * 10; H.crTog = crT / n * 10; H.bumpR = bump / n * 10; H.spinR = still ? spins / still * 10 : 0; H.circR = mv ? circ / mv * 10 : 0;
   return Object.assign(H, { sprint: mv ? run / mv : 0, pauseRate: pauses.length / n * 10, stillF: still / n, pauseLen: pauses.length ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 1, idleTurn: still ? idleTurn / still * 10 : .3, turn: turn / n * 10, flash: fl / n, flToggle: flT / n * 10, crouch: cr / n,
     fav: H.ret.length ? H.ret : Object.entries(rooms).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]), n, pitchM: pSum / n, upR: up / n, downR: down / n, strafeR: mv ? strafe / mv : 0, wallD: mv ? wd / mv : 1.2, speed: wn ? spd / wn : 2.4 /* walking pace only: sprints have their own speed */, jitter: jit / n * 10, pauses, runs });
@@ -10079,7 +10079,7 @@ function quirkStep(o, H, M, dt, moving) {
   if (moving && Math.random() < (H.bumpR || 0) * dt * .5) { Q.bump = now + rnd(300, 1100); MP.qLog && (MP.qLog.bump = (MP.qLog.bump || 0) + 1); }
   return false;
 }
-MP._hab = { habitsOf, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { typing: (a, b, c) => typing(a, b, c), track: (a, b) => track(a, b), chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id), typeDelay: (id, t) => typeDelay(id, t) };
+MP._hab = { habitsOf, leadSpot, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { typing: (a, b, c) => typing(a, b, c), track: (a, b) => track(a, b), chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id), typeDelay: (id, t) => typeDelay(id, t) };
 function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
@@ -10195,8 +10195,12 @@ MP.track = {};
 function track(id, q) { if (!q || !MP.started) return; memRoom(id, q); const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); sitTrack(id, q, t); if (t.length > 3000) t.splice(0, t.length - 3000);
   // how close they stood to the nearest other living player (only while someone was within reach)
   if (ghostOf(id)) return; let nd = 99; for (const p of MP.roster) { if (p.id === id || ghostOf(p.id)) continue; const o = posOf(p.id); if (o && o[4] === q[4]) nd = Math.min(nd, Math.hypot(o[0] - q[0], o[1] - q[1])); }
-  if (nd < 8) { const P = MP.prox[id] || (MP.prox[id] = []); P.push(+nd.toFixed(2)); if (P.length > 1500) P.splice(0, P.length - 1500); } }
-MP.prox = {};
+  if (nd < 8) { const P = MP.prox[id] || (MP.prox[id] = []); P.push(+nd.toFixed(2)); if (P.length > 1500) P.splice(0, P.length - 1500); }
+  // out in front or trailing behind: where they walked relative to the nearest moving player, along that player's heading
+  if (nd < 6 && q[7] >= 1) { let best = null, bd = 6; for (const p of MP.roster) { if (p.id === id || ghostOf(p.id)) continue; const o = posOf(p.id); if (!o || o[4] !== q[4] || !(o[7] >= 1)) continue; const d = Math.hypot(o[0] - q[0], o[1] - q[1]); if (d < bd) { bd = d; best = o; } }
+    if (best) { const L = MP.lead[id] || (MP.lead[id] = []); L.push(+(-(q[0] - best[0]) * Math.sin(best[2]) - (q[1] - best[1]) * Math.cos(best[2])).toFixed(2)); if (L.length > 1500) L.splice(0, L.length - 1500); } } }
+MP.prox = {}; MP.lead = {};
+function leadSpot(H, q) { const k = H.lead || 0; return [q[0] - Math.sin(q[2]) * k, q[1] - Math.cos(q[2]) * k]; }
 function possess(id, q) {
   chatStop(id);
   Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: Date.now() + 40000, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, at: Date.now(), x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
@@ -10239,8 +10243,8 @@ function possTick(dt) {
   if (!PS.hide && floorMove(PS, dt, now)) return; /* the group went up or down (or a found puzzle is waiting there): take the stairs the way they did */
   if (PS.hide) { if (now > PS.hide.until) PS.hide = null; else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
   if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || q[4] !== PS.floor || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; }
-    const H = PS.hab || (PS.hab = habitsOf(PS.id)), M = PS.mv || (PS.mv = {}); torchStep(PS, H, M); if (quirkStep(PS, H, M, dt, true)) return; PS.eye = M.crouch ? 1.0 : 1.65; const d = Math.hypot(q[0] - PS.x, q[1] - PS.z);
-    if (d > (H.near || 1.6) + .4) { navTo(PS, q[0], q[1], x.roomAt(q[0], q[1]), (d > 5 ? 3.2 : 2.2) * dt * (now < (PS.slowUntil || 0) ? .55 : 1)); } else { M.lk = M.lk || null; lookStep(PS, H, M, dt, false, PS.yaw); } return; }
+    const H = PS.hab || (PS.hab = habitsOf(PS.id)), M = PS.mv || (PS.mv = {}); torchStep(PS, H, M); if (quirkStep(PS, H, M, dt, true)) return; PS.eye = M.crouch ? 1.0 : 1.65; const lw = q[7] >= 1 && Math.abs(H.lead || 0) >= .8, ls = lw ? leadSpot(H, q) : q, tg = window.__ENC.blocked(ls[0], ls[1]) ? q : ls, d = Math.hypot(tg[0] - PS.x, tg[1] - PS.z);
+    if (d > (lw ? .5 : (H.near || 1.6) + .4)) { navTo(PS, tg[0], tg[1], x.roomAt(tg[0], tg[1]), (d > 5 ? 3.2 : 2.2) * dt * (now < (PS.slowUntil || 0) ? .55 : 1)); } else { M.lk = M.lk || null; lookStep(PS, H, M, dt, false, PS.yaw); } return; }
   if (PS.mode === 'replay' && !PS.snip && Math.random() < .25) { const H = PS.hab || (PS.hab = habitsOf(PS.id)); if ((MP.prox[PS.id] || []).length >= 20 || now > (PS.folNext || 0)) { PS.folNext = now + rnd(30, 60) * 1000; const c = living().filter(p => p.id !== PS.id).map(p => [p, posOf(p.id)]).filter(e => e[1] && e[1][4] === PS.floor && Math.hypot(e[1][0] - PS.x, e[1][1] - PS.z) < 10); if (c.length) { PS.fol = { id: pick(c)[0].id, until: now + rnd(10, 22) * 1000 }; PS.mode = 'follow'; return; } } } // stays near someone at the distance they always kept
   if (PS.mode === 'replay') {
     if (!PS.snip) { const tr = MP.track[PS.id] || []; if (tr.length < 40) { PS.mode = 'note'; return; } const len = Math.floor(rnd(80, 200)); let st = Math.floor(rnd(0, Math.max(1, tr.length - len - 1)));
@@ -10565,7 +10569,7 @@ function lenPick(gen, id, k) { const H = moodH(id).map(t => String(t).trim().spl
   for (let i = 0; i < k; i++) { const t = gen(); let n; try { n = String(inStyle(t, st)).trim().split(/\s+/).length; } catch (e) { n = String(t).trim().split(/\s+/).length; } const said = RS.includes(String(t).replace(/^\u0001/, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()); c.push([t, Math.pow(H.filter(h => Math.abs(h - n) <= (n > 6 ? 1 : 0)).length + .2, 3) * Math.pow(fitQ(t), 1.6) * fitV(t) * fitT(t) * (said ? .12 : 1), n, said]); }
   if (c.every(x => x[3])) return null;
   /* a long typer's turn for a long line, and nothing here is long: two thoughts run together, the way they write */
-  if (want >= 7 && c.every(x => x[2] <= want - 3)) { const a2 = c.filter(x => !x[3]).sort((p, q) => q[2] - p[2]); if (a2.length >= 2 && !/^\u0001/.test(a2[0][0] + a2[1][0])) return String(a2[0][0]).replace(/[.!?]+$/, '') + pick([' and ', ', ', ' and honestly ', ' but ', ', also ']) + String(a2[1][0]).replace(/^[A-Z](?=[a-z])/, c2 => c2.toLowerCase()); } /* everything here was said just now: try another kind of line */
+  if (want >= 7 && c.every(x => x[2] <= want - 3)) { const nz = t => String(t).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim(), a2 = c.filter(x => !x[3]).sort((p, q) => q[2] - p[2]).filter((x, i, A) => !A.slice(0, i).some(y => nz(y[0]).includes(nz(x[0])) || nz(x[0]).includes(nz(y[0])))); if (a2.length >= 2 && !/^\u0001/.test(a2[0][0] + a2[1][0])) return String(a2[0][0]).replace(/[.!?]+$/, '') + pick([' and ', ', ', ' and honestly ', ' but ', ', also ']) + String(a2[1][0]).replace(/^[A-Z](?=[a-z])/, c2 => c2.toLowerCase()); } /* everything here was said just now: try another kind of line */
   /* a short typer's turn to say something short, and nothing here is short: one of their own short lines instead */
   if (!refPZ && want <= 3 && !c.some(x => x[2] <= (want <= 2 ? want + 1 : want))) { const RS6 = RS.slice(-8), sh = moodH(id).filter(t => String(t).trim().split(/\s+/).length <= 2 && !NOECHO.test(t) && !KEEP_RE.test(t) && !/\?$/.test(t) && !RS6.includes(String(t).toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim())); const SB = Math.random() < .65 ? shortBank(Math.min(3, want + 1)).filter(x => !/[{]/.test(x) && x.toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(Boolean).every(w => V[w]) && !RS.includes(x.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim())) : []; if (SB.length) return pick(SB); /* now and then a short line of the game's, but only in words they use */
     if (sh.length) return '\u0001' + pick(sh); }
