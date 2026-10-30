@@ -10188,7 +10188,7 @@ function torchHit(from, on) {
   if (on === 'poss') { allClear(); return unpossess('torch:' + from); }
   if (MP.roster.some(p => p.id === on) && !ghostOf(on)) toPlayer(on, { t: 'kill', how: 'torch' });
 }
-MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost };
+MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost, terse: (id, t) => terse(id, t) };
 // ---------- her wearing a lured player's body (host runs it) ----------
 const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
 MP.track = {};
@@ -10755,7 +10755,7 @@ function rhySplit(id, text) { const R = rhythmOf(id); if (!R || !R.splitR || /^\
 function terse(id, t) { const H = moodH(id).map(x => stripEmos(String(x)).trim()).filter(Boolean).map(x => x.split(/\s+/).length).sort((a, b) => a - b); if (H.length < 6) return t; const med = H[Math.floor(H.length / 2)]; if (med > 2.5) return t;
   let t2 = String(t).trim(); const n0 = t2.split(/\s+/).length; if (n0 <= med + 1) return t;
   t2 = t2.replace(/^(i think (it said( to)?|its|it was|we)?|pretty sure( its)?|i guess|um+|uh+|well|ok so|so|honestly|like|just|i mean)\s+/i, '').replace(/\s+(i think|i guess|honestly|tbh|right now|at least|for now)$/i, '');
-  if (t2.split(/\s+/).length > med + 2) { const cut = t2.split(/[,;]|\s(?=(?:im|i'm|ur|just|can we|but|and|lag|so|because|cause|not)\s)/i)[0].trim(); if (cut.split(/\s+/).length >= 1 && cut.length >= 2) t2 = cut; }
+  if (t2.split(/\s+/).length > med + 2) { const parts = t2.split(/[,;]|\s(?=(?:im|i'm|ur|just|can we|but|and|lag|so|because|cause|not)\s)/i).map(x => (x || '').trim()).filter(x => x.length >= 2), nm = String(nameOf(id) || '').toLowerCase(), claim = x => (nm && x.toLowerCase().includes(nm)) || /\b(not (the )?(clone|copy|her|possessed)|the real|real one|its me|im real)\b/i.test(x); const cut = parts.find(claim) || parts.find(x => !/^(bro|ok|okay|lol|um+|uh+|wait|dude|yo|no|yeah|i get it)$/i.test(x)) || parts[0]; if (cut) t2 = cut; }
   return t2 && t2.length > 1 ? t2 : t; }
 function speak(id, base, o = {}) {
   if ((o.body || o.copy) && !o.sched && !o.exact && base[0] !== '\u0001') base = terse(id, base);
@@ -11122,6 +11122,7 @@ const PTOPIC = [
   ['family', /\b(got|have|any) (any )?(siblings|brothers|sisters|bros|sis)\b|\bsiblings\b|\b(your|ur|you have (a |any )?) ?(mom|mum|mother|dad|father|sister|brother|siblings?|parents|family|grandma|nan|cousin)s?\b/, 'my family'],
   ['past', /\byesterday\b|\blast (night|week|weekend|time we)\b|\bwhat did we (do|play)\b|\bremember when we\b|\bwhat did (we|i) (do|say) (before|last|earlier|at)\b|\bwhat did you (get|do|have|eat|play) (for|on|at|last|over|this)\b|\bwhat did (we|you) (eat|have) (at|for)\b|\b(christmas|xmas|summer|holiday|vacation)\b/, 'what we did'],
   ['phone', /\b(your|ur) (phone|number|insta|snap|discord|username|tag|gamertag|email)\b|\bphone number\b/, 'my number'],
+  ['fun', /\bwhat do (you|u) do (for fun|after school|on (the )?weekends?|in (your|ur) free time|all day)\b|\bhobb(y|ies)\b|\bfree time\b/, 'what i do for fun'],
   ['games', /\b(what|which) (other )?games? (do )?you (play|like)\b|\b(your|ur) (main|rank|level)\b|\bhow long (have )?you (been )?play(ing|ed)\b|\bfirst time playing\b|\b(what|which) (console|consoles|phone|pc|setup)\b|\b(your|ur|you have (a|an)?) ?(console|xbox|playstation|ps5|ps4|switch|pc|setup)\b|\bplayed this before\b|\bwhen did you (start|get)\b/, 'my games'],
 ];
 function pTopic(t) { for (const [k, re, w] of PTOPIC) if (re.test(t)) { let topic = w; if (k === 'fav') { const m = t.match(/\bfav\w* (\w+)/); if (m && !/^(is|thing|one|of|in)$/.test(m[1])) topic = 'my favourite ' + m[1]; } return { k, topic }; } return null; }
@@ -11179,7 +11180,7 @@ const POPEN = {
   gamer: ["thats not part of the quest lol", "after we beat the level", "focus, were mid run", "later, i gotta grind this"],
 };
 const PFU = {
-  plain: { yes: ["you should've remembered. i am not going to tell you.", 'wow. then im not telling u', 'u should know that lol. not telling', 'thats sad lol, figure it out'], no: ['then why are u asking lol', 'so u know, cool', 'then u dont need me to tell u', 'lol ok then'], insist: ['nope, u should know', 'not telling, u forgot', 'u can remember on ur own lol', 'no lol'], why: ['because u should know that', 'cause u forgot, thats why', 'u should just know lol', 'because'], reason: ['weird thing to ask now', 'ok well i forgot too lol', 'random but ok'], ok: ['lol ok', 'ok', 'k'], laugh: ['its not funny lol', 'lol'], guess: ['maybe lol', 'not saying', 'close i guess'], again: ['u already asked that lol', 'u asked me that already', 'still not telling lol'], close: ['can we drop it', 'ok im done talking about this', 'lets just play lol'] },
+  plain: { more: ['thats about it lol', 'idk thats it really', 'not much else tbh', 'eh thats all i got'], which: ['idk just the usual', 'all kinds tbh', 'hard to pick one', 'the normal ones lol'], how: ['just a feeling', 'i just do lol', 'trust me', 'cause it makes sense'], yes: ["you should've remembered. i am not going to tell you.", 'wow. then im not telling u', 'u should know that lol. not telling', 'thats sad lol, figure it out'], no: ['then why are u asking lol', 'so u know, cool', 'then u dont need me to tell u', 'lol ok then'], insist: ['nope, u should know', 'not telling, u forgot', 'u can remember on ur own lol', 'no lol'], why: ['because u should know that', 'cause u forgot, thats why', 'u should just know lol', 'because'], reason: ['weird thing to ask now', 'ok well i forgot too lol', 'random but ok'], ok: ['lol ok', 'ok', 'k'], laugh: ['its not funny lol', 'lol'], guess: ['maybe lol', 'not saying', 'close i guess'], again: ['u already asked that lol', 'u asked me that already', 'still not telling lol'], close: ['can we drop it', 'ok im done talking about this', 'lets just play lol'] },
   rude: { yes: ['wow ur so bad at this', 'lol figure it out urself', 'not telling u now, thats embarrassing', 'skill issue'], no: ['then stop asking dumb stuff', 'so why ask lol', 'ok genius'], insist: ['no lol', 'nope. not telling u', 'make me lol', 'ask nicer'], why: ['cause its funny watching u try', 'because ur annoying lol', 'cause i dont want to'], reason: ['ur so random', 'ok weirdo', 'thats so random'], ok: ['lol', 'ok and', 'whatever'], laugh: ['ur not funny', 'lol shut up'], guess: ['wrong lol', 'lmao no', 'not even close'], again: ['bro u asked that already', 'still not telling u lol', 'ur so annoying lol'], close: ['drop it lol', 'stop asking', 'move on noob'] },
   joker: { yes: ['lol u forgot?? im insulted', 'wow ok i see how it is lol', 'i forgot too tbh'], no: ['then u already know lol', 'ok so why ask lol', 'lol trick question'], insist: ['ok fine, im actually a ghost', 'only if u carry me this round', 'its a secret lol', 'ill tell u for 5 bucks'], why: ['its funnier this way', 'cause its top secret lol', 'mystery is my thing'], reason: ['lol ok', 'u writing a book about me?', 'interview with a ghost lol'], ok: ['lol', 'ok ok'], laugh: ['im hilarious i know', 'lmao', 'thank u thank u'], guess: ['wrong lol', 'lol close', 'nope, guess again', 'warmer lol'], again: ['same answer lol', 'u asked that already lol'], close: ['ok the bit is over lol', 'lets just play lol'] },
   kind: { yes: ['aw thats ok, ill tell u when we get out', 'its ok lol, later', 'haha its fine, after this ok?'], no: ['oh ok, then u know lol', 'aw ok', 'ok good lol'], insist: ['later i promise', 'ill tell u after, promise', 'ok ok, after we get out'], why: ['its a long story, after we get out ok?', 'cause we should focus, later ok', 'we gotta focus first'], reason: ['aw ok, ill tell u later', 'haha ok, after', 'lol ok, after this'], ok: ['ok :)', 'thanks lol', 'ok'], laugh: ['haha', 'lol :)'], guess: ['haha maybe', 'ill tell u later', 'kinda lol'], again: ['haha u asked already, later ok?', 'still later lol'], close: ['lets keep going ok?', 'ok lets focus lol'] },
@@ -11325,6 +11326,9 @@ function followKind(t, raw) {
   if (/^(fine|ok|okay|k|whatever|wow)\b.*\b(do not|dont) tell\b|\b(forget it|keep (it|ur secrets?)|be like that|nvm|never ?mind)\b/.test(s + ' ' + rw)) return 'ok';
   if (/^(because|cause|cuz|bc|since)\b/.test(s)) return 'reason';
   if (/\bguess\b|^\d{1,4}\??$|\b(is it|it is|its|are you|you are) (\w+ ){0,2}\d+\b|\b(is it|it is|its|are you|you are) (?!serious|ok|kidding|joking|real|sure|scared|mad|fine)\w+ (right|yeah|yes|correct)\??$|^(is it|are you) (?!serious|ok|kidding|joking|real|sure|scared|mad|fine)\w+\?$/.test(s)) return 'guess';
+  if (/^(and )?(what else|anything else|and then|then what|what then|what more|and|more|go on|keep going)\??$/.test(s)) return 'more';
+  if (/^(what kind|which one|which ones|which|like what|what type|what sort|such as|for example|example|what like)\b/.test(s)) return 'which';
+  if (/^(how do (u|you) know|how would (u|you) know|how so|says who|how (u|you) know|source)\b/.test(s)) return 'how';
   if (/^(why|why not|how come|but why|why tho|why though|whys that|why is that|why would|why wont you|why cant you|why do you care|why is it|y tho)\b/.test(s)) return 'why';
   if (/\b(just tell|tell me|come on|cmon|say it|pls|plz|please)\b/.test(rw.replace(/([a-z])\1{2,}/g, '$1'))) return 'insist';
   if (/\b(just tell|tell me|say it|spill|i wanna know|i want to know|just say|just answer|answer (it|me|the question)|come on|tell us|pretty please|please|its not that hard|u have to|you have to)\b/.test(s)) return 'insist';
@@ -11436,6 +11440,7 @@ function ctxReply(self, from, text, k) {
   }
   const mine = lastMine(c);
   if (f === 'why' && !p && !(k && k !== 'vague' && BANK[k]) && mine && now - mine.at < 40000) return out('whyact', pick(BANK.whyact), null); /* why it said that: a reason, not a shrug */
+  if (f === 'how' && !p && mine && now - mine.at < 40000) return out('whyact', pick(BANK.whyact), null); /* how it knows what it just said: its reason */
   if (f === 'what' && mine && now - mine.at < 40000) { const last = mine.text.replace(/[?!.]+$/, ''); return out('rephrase', pick(REPH).replace('{last}', last), c.pend ? Object.assign({}, c.pend, { at: now }) : null); }
   if (p && p.type === 'asked' && /\bwhere\b/i.test(p.line) && /\b(kitchen|library|attic|cellar|basement|hall|hallway|foyer|study|bedroom|bathroom|stairs|upstairs|downstairs|office|nursery|here|there|room|closet|lounge|dining)\b/.test(t)) return out('ans.place', pick(PLACEANS), null);
   if (!p || !f) return null;
