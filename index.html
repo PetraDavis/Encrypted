@@ -9291,7 +9291,7 @@ function avLoop() {
   if (MP.readT0 && $('note').hidden) { const sec = (Date.now() - MP.readT0) / 1000; MP.readT0 = 0; if (sec > 1 && sec < 600) toHost({ t: 'readt', sec }); }
   if (!MP.on) return;
   const S = X().S;
-  const figs = MP.roster.filter(p => p.id !== MP.me).filter(p => MP.ghost || !ghostOf(p.id)).map(p => ({ id: p.id, p, kind: ghostOf(p.id) ? 'ghost' : 'live' })); // the living never see ghosts
+  const figs = MP.roster.filter(p => p.id !== MP.me).filter(p => MP.ghost || !ghostOf(p.id)).filter(p => MP.ghost || !(PS.on && p.id === PS.id)).map(p => ({ id: p.id, p, kind: ghostOf(p.id) ? 'ghost' : 'live' })); // the living never see ghosts
   if (CP.on && MP.pos.copy) { const o = MP.roster.find(p => p.id === CP.orig); if (o) figs.push({ id: 'copy', p: o, kind: 'copy' }); }
   if (PS.on && MP.pos.poss) { const o = MP.roster.find(p => p.id === PS.id); if (o) figs.push({ id: 'poss', p: o, kind: 'copy' }); }
   if (PS.falling && Date.now() - (PS.fallAt || 0) > 4500) PS.falling = null; /* the fall is over even if its timer was starved */
@@ -10213,6 +10213,7 @@ function possess(id, q) {
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(fill(pick(BANK.mic), PS.id)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
+  setTimeout(() => { if (PS.on && PS.id === id) makeGhost(id); }, 8000); /* the host marks the taken player dead itself, so a lost or late 'dead' from their side cannot leave them walking among the living */
 }
 function unpossess(why) { if (!PS.on) return; PS.on = false; PS.endWhy = why || 'freed'; toAll({ t: 'psgone', q: [PS.x, PS.z, PS.yaw, 1.65, PS.floor, 0] }); toAll({ t: 'ps', on: false, id: PS.id }); }
 function bodyFall(q) {
