@@ -10254,6 +10254,7 @@ function possTick(dt) {
   if (PS.hide && !PS.hide.cut && (PS.pzJob || puzPick(PS, 'poss', now))) { PS.hide.cut = 1; PS.hide.until = Math.min(PS.hide.until, now + rnd(3000, 6000)); }
   if (!PS.hide && puzWalk(PS, dt, 'poss', now)) return;
   if (!PS.hide && floorMove(PS, dt, now)) return; /* the group went up or down (or a found puzzle is waiting there): take the stairs the way they did */
+  if (!PS.hide && !PS.unhide && x.roomAt(PS.x, PS.z) !== 'mpvoid' && E.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); /* never left standing inside furniture, whatever put it there */
   if (PS.unhide) { if (walkObj(PS, PS.unhide[0], PS.unhide[1], 2.2 * dt) < .1) PS.unhide = null; return; } /* steps back out of the hiding place the way a player does, not stuck inside the furniture */
   if (PS.hide) { if (now > PS.hide.until) { PS.hide = null; if (E.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); } else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
   if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || q[4] !== PS.floor || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; }
