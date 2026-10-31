@@ -11595,9 +11595,11 @@ function pzSeen(pid) { for (const p of living()) pzaOf(p.id).seen[pid] = 1; }
 setInterval(() => { if (!MP.on || !MP.host) return; const S = X().S, now = Date.now(); for (const p of living()) { const q = posOf(p.id); if (!q) continue; for (const pid in SOLVE.found) { if (/!$/.test(pid) || S.solved[pid]) continue; const e = puzEntry(pid); if (!e || e.fl !== q[4]) continue; const R = pzaOf(p.id), k = '_near_' + pid; if (Math.hypot(e.x - q[0], e.z - q[1]) < 2.2) { R[k] = R[k] || now; if (now - R[k] > 2500 && !R.tried[pid]) pzNote(p.id, pid, 'walk'); } else R[k] = 0; } } }, 500);
 function attemptRate(id) { const R = pzaOf(id), s = Object.keys(R.seen).length, t = Object.keys(R.tried).filter(k => R.seen[k]).length; return Math.max(.05, Math.min(1, (t + 2) / (s + 2))); }
 function giveUpRate(id) { const R = pzaOf(id), t = Object.keys(R.tried).length; return Math.max(.04, Math.min(.6, (R.stuckN + .3) / (t + 3))); }
-MP._pza = { attemptRate, giveUpRate, pzaOf, decide: (who, pid) => pzDecide({}, who, pid), stuckLine };
+MP._pza = { attemptRate, giveUpRate, pzaOf, askedDecide, decide: (who, pid) => pzDecide({}, who, pid), stuckLine };
 /* whether it has a go at this one: decided once per puzzle, at the player's own rate */
 function pzDecide(o, who, pid) { const D = o.pzD || (o.pzD = {}); if (D[pid]) return D[pid]; const id = who === 'poss' ? PS.id : CP.orig; return D[pid] = Math.random() >= attemptRate(id) ? 'leave' : Math.random() < giveUpRate(id) ? 'fail' : 'try'; }
+/* asked straight out after deciding to leave it: goes and has a go, and gives up in their own way at about their give-up rate */
+function askedDecide(id) { return Math.random() < Math.max(.3, giveUpRate(id)) ? 'fail' : 'try'; }
 const STUCK_BANK = ['idk how to do this one', 'im stuck on this', 'no idea what this means', 'i give up on this one', 'this makes no sense to me', 'idk how', 'cant figure this out'];
 function stuckLine(id) { const own = (MP.stuck[id] || []).filter(t => t.length < 60); return own.length && Math.random() < .7 ? pick(own) : pick(STUCK_BANK); }
 function whoSay(who) { return who === 'poss' ? t => bodySay(t, { whole: 1 }) : t => copySay(t, 0, 1); }
@@ -11628,7 +11630,7 @@ function pzRequest(o, who, from, text) { if (!isAsk(text)) return false; const f
   if (T.kind === 'pz') { const pz = window.__ENC.PUZ.find(q => q.id === T.id);
     if (S.solved[T.id]) { say(pick(['thats done already', 'we did that one', 'already open', 'thats already done'])); return true; }
     if (!(pz.found && pz.found())) { say(pick(['where is that', 'havent seen that one', 'idk where that is', 'dont know where that is', 'we havent found that yet', 'havent been there'])); return true; }
-    const d = pzDecide(o, who, T.id); if (d === 'leave') o.pzD[T.id] = Math.random() < Math.max(.3, giveUpRate(id)) ? 'fail' : 'try'; } /* asked straight out, it at least goes and has a go */
+    const d = pzDecide(o, who, T.id); if (d === 'leave') o.pzD[T.id] = askedDecide(id); } /* asked straight out, it at least goes and has a go */
   if (T.kind === 'note') { const rn = String((X().ROOMS[T.e.room] || {}).name || '').toLowerCase(); if (rn && !Object.values(MEM.rooms || {}).some(L => (L || []).some(v => String(v && typeof v === 'object' ? (v.r || v[0] || '') : v).toLowerCase() === rn))) { say(pick(['where is that', 'idk where that is', 'dont know where that is', 'nobody has been there yet', 'havent been there'])); return true; } }
   if (T.e.fl !== fl && !(who === 'poss' && floorRoute(fl, T.e.fl))) { say(pick(['im not ' + (T.e.fl > fl ? 'up' : 'down') + ' there', 'cant get there from here', 'how do i get there', 'not on this floor'])); return true; }
   if (T.e.fl === fl && x0Room(o) && x0Room(o) !== T.e.room && !walkDoor(x0Room(o), T.e.room)) { say(pick(['its locked', 'cant get in there', 'door wont open', 'how do i get in there'])); return true; }
