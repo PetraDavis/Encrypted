@@ -11038,7 +11038,7 @@ function intentOf0(raw, selfName, fz) {
     if (/^(dunno|dno|idk|idek|no idea|not sure)$/.test(t0)) return 'maybe';
     if (/^(meh+|eh+|mid)$/.test(t0)) return 'meh';
     if (/^(what (are|r) (u|you) (up to|doing)|wyd|wht r u doing)$/.test(t0)) return 'doing';
-    if (/^(stop( it| that| pls| please)?|stoppp+)$/.test(t0)) return 'stop'; }
+    if (/^stop( it| that| pls| please)?$/.test(t0)) return 'stop'; }
   // "special": sincere with hearts/kind words, a dig with 💀/lol/sarcasm, otherwise ask
   if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return /\b(ur|you|youre|you're|u)\b/i.test(raw) ? 'mock' : 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
   if (/\b(ur|you'?re|you are|u r|u are)( so| really| such an?| very)? (smart|genius|brave|helpful|talented|useful|quick|fast|clever|cool|brilliant|amazing|funny)\b/i.test(raw) && (/💀|🙄|😒|\b(wow|sure|oh yeah|yeah right|totally)\b|\/s\b/iu.test(raw) || (!/\bfunny\b/i.test(raw) && /😭|\b(lo+l|lmf?ao)\b/iu.test(raw)))) return 'mock';
