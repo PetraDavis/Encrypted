@@ -9120,7 +9120,7 @@ function clientHandle(m) {
       return;
     case 'roster': MP.roster = m.roster; drawRoster(); for (const id in MP.av) if (!MP.roster.some(p => p.id === id)) removeAvatar(id); voiceSync(); drawVoice(); return;
     case 'start': startClient(m.world, null, m.fresh); return;
-    case 'pos': for (const id in m.a) if (id !== MP.me) MP.pos[id] = m.a[id]; if (!m.a.copy) delete MP.pos.copy; if (!m.a.poss) delete MP.pos.poss; return;
+    case 'pos': if (m.g && m.g.join() !== MP.ghosts.join()) clientHandle({ t: 'ghosts', ids: m.g.slice() }); for (const id in m.a) if (id !== MP.me) MP.pos[id] = m.a[id]; if (!m.a.copy) delete MP.pos.copy; if (!m.a.poss) delete MP.pos.poss; return;
     case 'ws': applyDiff(m.d); return;
     case 'chat': chatLine(m.from, m.text, m.body); if (m.ap) apparition(m.ap); return;
     case 'psdo': if (MP.ghost) addMsg(esc(m.text), 'bodyme sys'); return;
@@ -9223,7 +9223,7 @@ function syncTick() {
 const posOf = id => id === MP.me ? (() => { const P = X().P, S = X().S; const p = S.hidden ? S.preHide || P : P; return [+p.x.toFixed(2), +p.z.toFixed(2), +P.yaw.toFixed(2), +P.eye.toFixed(2), S.floor || 1, S.hidden ? 1 : 0, X().flashOn ? 1 : 0, P.running ? 2 : P.moving ? 1 : 0, +P.pitch.toFixed(2), P.jy > .05 ? 1 : 0]; })() : MP.pos[id];
 function posTick() {
   if (!MP.on || !MP.started || !X().S.started) return;
-  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (CP.on) memRoom('~cp', [CP.x, CP.z, 0, 0, CP.floor]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +avert(PS, PS.id).toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2), PS.jump ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +avert(CP, null).toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, CP.mv && CP.mv.runOn && !CP.mirror ? 2 : 0, +(CP.pitch || 0).toFixed(2), CP.jump ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos }); } else send(null, { t: 'pos', p: posOf(MP.me) });
+  if (MP.host) { swHostTick(); MP.pos[MP.me] = posOf(MP.me); track(MP.me, MP.pos[MP.me]); if (CP.on) memRoom('~cp', [CP.x, CP.z, 0, 0, CP.floor]); if (PS.on) MP.pos.poss = [+PS.x.toFixed(2), +PS.z.toFixed(2), +avert(PS, PS.id).toFixed(2), PS.eye, PS.floor, 0, PS.flash ? 1 : 0, 0, +(PS.pitch || 0).toFixed(2), PS.jump ? 1 : 0]; else delete MP.pos.poss; if (CP.on) MP.pos.copy = [+CP.x.toFixed(2), +CP.z.toFixed(2), +avert(CP, null).toFixed(2), CP.eye, CP.floor, 0, CP.flash ? 1 : 0, CP.mv && CP.mv.runOn && !CP.mirror ? 2 : 0, +(CP.pitch || 0).toFixed(2), CP.jump ? 1 : 0]; else delete MP.pos.copy; bcast({ t: 'pos', a: MP.pos, g: MP.ghosts }); /* the ghost list rides on every pos tick so a dropped 'ghosts' message cannot leave a victim visible */ } else send(null, { t: 'pos', p: posOf(MP.me) });
 }
 let loopsOn = false;
 function commonLoops() { if (loopsOn) return; loopsOn = true; setInterval(posTick, 100); setInterval(syncTick, 300); requestAnimationFrame(avLoop); }
