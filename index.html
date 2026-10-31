@@ -10366,7 +10366,7 @@ const BANK = {
   leadwhy: ['i thought there was something here', 'i didnt mean to lead u anywhere', 'i was just exploring', 'i thought this was the way out', 'i saw something here, i swear', 'idk i got lost too', 'i thought the {item} was here', 'sorry i thought it was this way'],
   trustme: ['u can trust me, its {self}', 'why wouldnt u trust me, its {self}', 'ok dont then, im still {self}', 'i get it but its really me, {self}', 'trust me pls, im {self}', 'bro its {self}, u know me', 'fair but im still {self}', 'u trusted {self} five minutes ago lol', 'what did i do? its {self}'],
   dotest: ['im not doing that lol, im {self}', 'why would i do that, its {self}', 'its {self}, stop being weird', 'lol no, im {self}', 'ok ok im fine, im {self}', 'im not doing tricks lol, im {self}', 'im ok, im {self}, chill', 'no lol, its {self}, im fine', 'ur being weird, its {self}'],
-  backoff: ['ok ok sorry', 'i wasnt following u lol', 'fine ill go', 'i just didnt wanna be alone', 'k sorry', 'im going im going', 'wow ok', 'sorry, didnt mean to crowd u'],
+  run: ['RUN', 'going', 'omw', 'where to', 'go go', 'which way', 'im running', 'wait for me'], help: ['whats wrong', 'where r u', 'coming', 'omw whats happening', 'what happened', 'im coming hold on', 'wait where'], stop: ['ok ok', 'stop what', 'fine', 'k sorry', 'what did i do', 'ok im stopping'], prove: ['ask me something then', 'like what', 'idk what to say, its me', 'its me i swear', 'what do u want me to say', 'ask me anything'], backoff: ['ok ok sorry', 'i wasnt following u lol', 'fine ill go', 'i just didnt wanna be alone', 'k sorry', 'im going im going', 'wow ok', 'sorry, didnt mean to crowd u'],
   helpyou: ['where are u?? coming', 'what happened', 'omw where r u', 'hold on im coming', 'whats wrong??', 'where?? which room', 'im coming, keep talking', 'hide! im coming'],
   whereother: ['{other}'],
   split: ['ok ill take the {next}', 'no lets stay together', 'fine, ill do the {here}', 'bad idea but ok', 'ok who goes where', 'i\'ll check the {next} then', 'splitting up never works in movies'],
@@ -11024,6 +11024,21 @@ function intentOf0(raw, selfName, fz) {
   if (/^\s*(bffr|be fr|be serious)\s*[?!.]*\s*$/i.test(raw)) return 'serious';
   if (/\block (in|tf in)\b/i.test(raw)) return 'lockin';
   if (/\b(it'?s|it is|we'?re|we are|were) (so |actually )?over\b|^\s*so over\s*$/i.test(raw)) return 'over';
+  { const t0 = raw.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim(); /* plain readings people use a lot */
+    if (/^(something|smth|sth) (is |seems )?(off|wrong|weird) (about|with) (u|you)\b|\b(u|you) (dont|don't|never) (talk|type|act|text) like (that|this)\b|\bthats not (how|what) (u|you) (talk|type|say)\b|\bwho (keeps|kept|is|was) (turning|switching|messing with|closing|opening) (the )?(lights?|doors?)\b/.test(t0)) return 'sus';
+    if (/\b(say|tell me) (something|smth) only (u|you|the real \w+) (would|wud) know\b/.test(t0)) return 'prove';
+    if (/\b(stop|quit) (standing|following|walking|creeping) (behind|next to|so close|right behind|me)\b|\bget away from me\b|\bback off\b|\bstop following\b/.test(t0)) return 'backoff';
+    if (/\b(im|i'm|i am) (freaking|freakin|lowkey freaking) out\b|^freaking out\b|\bsomething (just )?(touched|grabbed|brushed|breathed on|pulled)\b/.test(t0)) return 'imscared';
+    if (/^(go ?){2,}$|^(run ?){1,3}$|^move move\b/.test(t0)) return 'run';
+    if (/^(wow|oh wow) (amazing|great|incredible|brilliant|genius|fantastic|stellar) (work|job|move|plan|idea)$/.test(t0)) return 'mock';
+    if (/\b(cant|can't|cannot) stop laughing\b|\bdying of laughter\b/.test(t0)) return 'laughs';
+    if (/^(someone|somebody|anyone|any1) help( me)?( pls| please| plz)?$|^help( me)?( pls| please| plz)?$/.test(t0)) return 'help';
+    if (/^how (does|do) (this|it|that) (even )?work$|^how do (i|u|you|we) (use|work) (this|it|that)$/.test(t0)) return 'controls';
+    if (/^(ez+|easy+|gg ez+)$/.test(t0)) return 'gg';
+    if (/^(dunno|dno|idk|idek|no idea|not sure)$/.test(t0)) return 'maybe';
+    if (/^(meh+|eh+|mid)$/.test(t0)) return 'meh';
+    if (/^(what (are|r) (u|you) (up to|doing)|wyd|wht r u doing)$/.test(t0)) return 'doing';
+    if (/^(stop( it| that| pls| please)?|stoppp+)$/.test(t0)) return 'stop'; }
   // "special": sincere with hearts/kind words, a dig with 💀/lol/sarcasm, otherwise ask
   if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return /\b(ur|you|youre|you're|u)\b/i.test(raw) ? 'mock' : 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
   if (/\b(ur|you'?re|you are|u r|u are)( so| really| such an?| very)? (smart|genius|brave|helpful|talented|useful|quick|fast|clever|cool|brilliant|amazing|funny)\b/i.test(raw) && (/💀|🙄|😒|\b(wow|sure|oh yeah|yeah right|totally)\b|\/s\b/iu.test(raw) || (!/\bfunny\b/i.test(raw) && /😭|\b(lo+l|lmf?ao)\b/iu.test(raw)))) return 'mock';
