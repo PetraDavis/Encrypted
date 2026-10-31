@@ -9086,10 +9086,11 @@ function hostHandle(from, m) {
   if (m.t === 'chat') {
     const text = PROF.clean(String(m.text || '').slice(0, 200)); if (!text.trim()) return;
     if (KEEP_RE.test(text)) { MP.kept.push({ from, text }); sendIntel({ kept: MP.kept.length }); return; }
+    if (!ghostOf(from)) { /* nothing is learned from a ghost: only from how they played alive */
     latTrack(from, text, m.cps); pzStuckLearn(from, text);
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
     { const so = MP.scareOpen[from]; if (so && Date.now() - so < 12000) { MP.reactN[from] = (MP.reactN[from] || 0) + 1; (MP.reactLat[from] || (MP.reactLat[from] = [])).push(Date.now() - so); MP.scareOpen[from] = 0; } } /* how often, and how soon, they say something when the house gets them */
-    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; { const HA = MP.histAt[from] || (MP.histAt[from] = []); while (HA.length < (MP.hist[from] || []).length) HA.push(null); HA.length = (MP.hist[from] || []).length; HA.push(Date.now()); } { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now();
+    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; { const HA = MP.histAt[from] || (MP.histAt[from] = []); while (HA.length < (MP.hist[from] || []).length) HA.push(null); HA.length = (MP.hist[from] || []).length; HA.push(Date.now()); } { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now(); }
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!ghostOf(from) || ghostOf(p.id)) && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -10138,7 +10139,7 @@ function copyTick(dt) {
 }
 /* the take: the body it now wears carries on with whatever puzzle it was part-way through as the copy, not starting it over */
 function copyTake(tg, q) { const J = CP.pzJob, cj = J && !J.note && !X().S.solved[J.id] ? J.id : null; possess(tg, q); toAll({ t: 'taken', name: nameOf(tg) });
-  if (cj && PS.on) { (PS.pzD || (PS.pzD = {}))[cj] = 'try'; if (PS.pzSkip) delete PS.pzSkip[cj]; const c = SOLVE.jobs['copy:' + cj], p = SOLVE.jobs['poss:' + cj]; if (c) SOLVE.jobs['poss:' + cj] = { id: cj, at: p ? Math.min(p.at, c.at) : c.at }; PS.pzJob = null; PS.seek = false; PS.mimicUntil = Math.min(PS.mimicUntil || 0, Date.now() + 10000); }
+  if (cj && PS.on) { (PS.pzD || (PS.pzD = {}))[cj] = 'try'; if (PS.pzSkip) delete PS.pzSkip[cj]; const c = SOLVE.jobs['copy:' + cj], p = SOLVE.jobs['poss:' + cj]; if (c) SOLVE.jobs['poss:' + cj] = { id: cj, at: p ? Math.min(p.at, c.at) : c.at }; PS.pzJob = null; PS.seek = false; }
   copyEnd(false); }
 MP._cpTake = copyTake;
 /* can the target walk to the room that was not there (it opens off the east end of the downstairs hall)? */
@@ -10197,7 +10198,7 @@ MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost, terse: (id, t) => te
 // ---------- her wearing a lured player's body (host runs it) ----------
 const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
 MP.track = {};
-function track(id, q) { if (!q || !MP.started) return; memRoom(id, q); const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); sitTrack(id, q, t); if (t.length > 3000) t.splice(0, t.length - 3000);
+function track(id, q) { if (!q || !MP.started || ghostOf(id)) return; memRoom(id, q); const t = MP.track[id] || (MP.track[id] = []); t.push(q.slice()); sitTrack(id, q, t); if (t.length > 3000) t.splice(0, t.length - 3000);
   // how close they stood to the nearest other living player (only while someone was within reach)
   if (ghostOf(id)) return; let nd = 99; for (const p of MP.roster) { if (p.id === id || ghostOf(p.id)) continue; const o = posOf(p.id); if (o && o[4] === q[4]) nd = Math.min(nd, Math.hypot(o[0] - q[0], o[1] - q[1])); }
   if (nd < 8) { const P = MP.prox[id] || (MP.prox[id] = []); P.push(+nd.toFixed(2)); if (P.length > 1500) P.splice(0, P.length - 1500); }
@@ -10208,7 +10209,7 @@ MP.prox = {}; MP.lead = {};
 function leadSpot(H, q) { const k = H.lead || 0; return [q[0] - Math.sin(q[2]) * k, q[1] - Math.cos(q[2]) * k]; }
 function possess(id, q) {
   chatStop(id);
-  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: Date.now() + 40000, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, at: Date.now(), x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
+  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: 0, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, at: Date.now(), x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(fill(pick(BANK.mic), PS.id)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
@@ -10237,7 +10238,7 @@ function possTick(dt) {
   if (PS.waitFor) { const W2 = PS.waitFor, q = posOf(W2.id); if (!q || ghostOf(W2.id) || now > W2.until || (q[4] === PS.floor && Math.hypot(q[0] - PS.x, q[1] - PS.z) < 2.5)) PS.waitFor = null; else { if (q[4] === PS.floor) PS.yaw = Math.atan2(-(q[0] - PS.x), -(q[1] - PS.z)); return; } } // waiting for the one who asked
   if (x.roomAt(PS.x, PS.z) === 'mpvoid') { const w = VOID.at(-1.4); walkObj(PS, w[0], w[1], 2.2 * dt); return; }
   if (PS.seek) { PS.seek = false; const c = living().filter(p => p.id !== PS.id).map(p => [p, posOf(p.id)]).filter(e => e[1] && e[1][4] === PS.floor).sort((a, b) => Math.hypot(a[1][0] - PS.x, a[1][1] - PS.z) - Math.hypot(b[1][0] - PS.x, b[1][1] - PS.z)); if (c.length) { PS.fol = { id: c[0][0].id, until: now + rnd(25, 40) * 1000 }; PS.mode = 'follow'; } }
-  const gq = ghostOf(PS.id) && MP.pos[PS.id], Q = PS.mimicQ || (PS.mimicQ = []);
+  const gq = null, Q = PS.mimicQ || (PS.mimicQ = []);
   if (now > (PS.mimicUntil || 0)) { Q.length = 0; PS.mimicLast = null; } else if (gq && gq[4] === PS.floor && Math.hypot(gq[0] - PS.x, gq[1] - PS.z) < 4) { const lq = PS.mimicLast; if (lq && Math.hypot(gq[0] - lq[0], gq[1] - lq[1]) > .02) Q.push({ at: now + 1000, dx: gq[0] - lq[0], dz: gq[1] - lq[1], yaw: gq[2] }); PS.mimicLast = gq.slice(); } else PS.mimicLast = null;
   if (Q.length) { while (Q.length && Q[0].at <= now) { const m = Q.shift(); if (Math.hypot(m.dx, m.dz) < 1) slideBy(PS, m.dx, m.dz); PS.yaw = m.yaw; } return; }
   if (now > PS.nextSay) { PS.nextSay = now + Math.min(45000, chatGap(PS.id)); const cat = pickCat(PS.id); const line = bankLine(cat, PS.id); bodySay(line, { sched: 1 }); if (/^brb$/.test(line)) { PS.afk = now + rnd(30, 90) * 1000; } }
@@ -11618,7 +11619,7 @@ function pzRequest(o, who, from, text) { if (!isAsk(text)) return false; const f
   if (T.kind === 'pz') { const pz = window.__ENC.PUZ.find(q => q.id === T.id);
     if (S.solved[T.id]) { say(pick(['thats done already', 'we did that one', 'already open', 'thats already done'])); return true; }
     if (!(pz.found && pz.found())) { say(pick(['where is that', 'havent seen that one', 'idk where that is', 'dont know where that is', 'we havent found that yet', 'havent been there'])); return true; }
-    const d = pzDecide(o, who, T.id); if (d === 'leave') o.pzD[T.id] = 'try'; } /* asked straight out, it at least goes and has a go */
+    const d = pzDecide(o, who, T.id); if (d === 'leave') o.pzD[T.id] = Math.random() < Math.max(.3, giveUpRate(id)) ? 'fail' : 'try'; } /* asked straight out, it at least goes and has a go */
   if (T.kind === 'note') { const rn = String((X().ROOMS[T.e.room] || {}).name || '').toLowerCase(); if (rn && !Object.values(MEM.rooms || {}).some(L => (L || []).some(v => String(v && typeof v === 'object' ? (v.r || v[0] || '') : v).toLowerCase() === rn))) { say(pick(['where is that', 'idk where that is', 'dont know where that is', 'nobody has been there yet', 'havent been there'])); return true; } }
   if (T.e.fl !== fl && !(who === 'poss' && floorRoute(fl, T.e.fl))) { say(pick(['im not ' + (T.e.fl > fl ? 'up' : 'down') + ' there', 'cant get there from here', 'how do i get there', 'not on this floor'])); return true; }
   if (T.e.fl === fl && x0Room(o) && x0Room(o) !== T.e.room && !walkDoor(x0Room(o), T.e.room)) { say(pick(['its locked', 'cant get in there', 'door wont open', 'how do i get in there'])); return true; }
