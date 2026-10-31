@@ -10081,7 +10081,7 @@ function quirkStep(o, H, M, dt, moving) {
   return false;
 }
 MP._hab = { habitsOf, leadSpot, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { typing: (a, b, c) => typing(a, b, c), track: (a, b) => track(a, b), chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id), typeDelay: (id, t) => typeDelay(id, t) };
-function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
+function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); solidStep(CP, dx / l * st, dz / l * st); CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
   const o = posOf(CP.orig), tq = posOf(CP.target);
@@ -10225,7 +10225,14 @@ function psReport() { const r = X().roomAt(PS.x, PS.z); if (r && r !== PS.repRoo
 function bodySay(base, o) { if (!PS.on) return; speak(PS.id, base, Object.assign({ body: true }, o)); }
 // a step that slides along walls and furniture instead of stopping dead, like a player's movement
 function slideBy(o, dx, dz) { const B = window.__ENC.blocked; if (!B(o.x + dx, o.z + dz)) { o.x += dx; o.z += dz; } else if (!B(o.x + dx, o.z)) o.x += dx; else if (!B(o.x, o.z + dz)) o.z += dz; }
-function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); o.x += dx / l * st; o.z += dz / l * st; o.yaw = Math.atan2(-dx, -dz); return l; }
+function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); solidStep(o, dx / l * st, dz / l * st); o.yaw = Math.atan2(-dx, -dz); return l; }
+/* a step never goes into furniture or a wall from open floor: it slides along it like a player would (a doorway pass and an exit from a hiding place start inside, so those still move) */
+function solidStep(o, sx, sz) { const B = window.__ENC && window.__ENC.blocked; if (!B || B(o.x, o.z)) { o.x += sx; o.z += sz; return; } if (!B(o.x + sx, o.z + sz)) { o.x += sx; o.z += sz; } else if (!B(o.x + sx, o.z)) o.x += sx; else if (!B(o.x, o.z + sz)) o.z += sz; }
+function lineClear(ax, az, bx, bz) { const B = window.__ENC.blocked, l = Math.hypot(bx - ax, bz - az), n = Math.ceil(l / .2); for (let i = 1; i < n; i++) { const t = i / n; if (B(ax + (bx - ax) * t, az + (bz - az) * t)) return false; } return true; }
+/* across a room to a spot: straight if nothing is in the way, else round the furniture on the room grid */
+function walkRound(o, tx, tz, step, room) { const l = Math.hypot(tx - o.x, tz - o.z); if (l < .05 || lineClear(o.x, o.z, tx, tz) || !room) return walkObj(o, tx, tz, step);
+  let G = o._gp; if (!G || G.room !== room || Math.hypot(G.tx - tx, G.tz - tz) > .5 || G.i >= G.P.length) { const R = gridPath(room, o, (gx, gz) => Math.hypot(gx - tx, gz - tz) < .6); G = o._gp = { room, tx, tz, P: R ? R.path : [], i: 0 }; }
+  const w = G.P[G.i]; if (!w) return walkObj(o, tx, tz, step); if (walkObj(o, w.x, w.z, step) < .15) G.i++; return l; }
 const NOTE_RE = /note|letter|diary|log|book|page|card|paper|list|daybook|sheet|^v_|^m_|ld/i;
 // as often as they spoke up when it was them, after as long as they took, in what they said then
 function reactOf(id) { const n = MP.scareN[id] || 0, r = MP.reactN[id] || 0, L = (MP.reactLat[id] || []).slice().sort((a, b) => a - b); return { rate: n >= 3 ? r / n : .6, lat: L.length ? L[L.length >> 1] : rnd(900, 2600) }; }
@@ -10247,6 +10254,7 @@ function possTick(dt) {
   if (PS.hide && !PS.hide.cut && (PS.pzJob || puzPick(PS, 'poss', now))) { PS.hide.cut = 1; PS.hide.until = Math.min(PS.hide.until, now + rnd(3000, 6000)); }
   if (!PS.hide && puzWalk(PS, dt, 'poss', now)) return;
   if (!PS.hide && floorMove(PS, dt, now)) return; /* the group went up or down (or a found puzzle is waiting there): take the stairs the way they did */
+  if (!PS.hide && !PS.unhide && x.roomAt(PS.x, PS.z) !== 'mpvoid' && E.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); /* never left standing inside furniture, whatever put it there */
   if (PS.unhide) { if (walkObj(PS, PS.unhide[0], PS.unhide[1], 2.2 * dt) < .1) PS.unhide = null; return; } /* steps back out of the hiding place the way a player does, not stuck inside the furniture */
   if (PS.hide) { if (now > PS.hide.until) { PS.hide = null; if (E.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); } else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
   if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || q[4] !== PS.floor || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; }
@@ -10270,14 +10278,14 @@ function possTick(dt) {
   // walk to a real note and say so
   if (!PS.goal) {
     const cands = E.I.filter(i => i.p && NOTE_RE.test(i.id) && x.roomAt(i.p.x, i.p.z) && (x.ROOMS[x.roomAt(i.p.x, i.p.z)].floor || 1) === PS.floor);
-    if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi]; PS.goal = { x: g.p.x, z: g.p.z, room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; PS.pass = null;
+    if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi], gs = freeNear(g.p.x, g.p.z) || [g.p.x, g.p.z]; PS.goal = { x: gs[0], z: gs[1], room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; /* stands in front of it, not inside the table it is on */ PS.pass = null;
   }
   const G = PS.goal; PS.eye = 1.65; const PH = PS.hab || (PS.hab = habitsOf(PS.id)), PM = PS.mv || (PS.mv = {}), px0 = PS.x, pz0 = PS.z; torchStep(PS, PH, PM); if (quirkStep(PS, PH, PM, dt, true)) return;
   setTimeout(() => { if (PS.on && PS.goal === G) { const mvd = Math.hypot(PS.x - px0, PS.z - pz0) > .001; lookStep(PS, PH, PM, dt, mvd, mvd ? Math.atan2(-(PS.x - px0), -(PS.z - pz0)) : PS.yaw); } }, 0);
   if (now > G.until) { PS.goal = null; PS.mode = 'replay'; return; }
   if (PS.pass) { if (walkObj(PS, PS.pass[0], PS.pass[1], 4.0 * dt) < .1) PS.pass = null; return; }
   const here = x.roomAt(PS.x, PS.z);
-  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ toPlayer(PS.id, { t: 'psdo', text: 'your body stops to read something' }); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
+  if (here === G.room) { if (walkRound(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt, here) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ toPlayer(PS.id, { t: 'psdo', text: 'your body stops to read something' }); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
   const d = here && x.firstDoor(here, G.room);
   if (!d) { PS.goal = null; PS.mode = 'replay'; return; }
   if (walkObj(PS, d.x, d.z, 4.0 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); PS.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
@@ -10528,6 +10536,15 @@ function ctxTags(id, o = {}) { if (MP._ctxNow) return MP._ctxNow; const T = new 
   return T; }
 const KEYT = t => /^(danger|scare|greet|odd|idle|room|found|q|far|near)$/.test(t) || t.startsWith('r:');
 const SHOUT = k => { const L = k.replace(/[^A-Za-z]/g, ''), U = k.replace(/[^A-Z]/g, ''); return (L.length >= 3 && U.length / L.length > .7) || /!{2,}/.test(k); };
+/* a line of theirs that names a thing (a cutscene, a door, the fridge, a person) is only said again where that thing is true now */
+const CUT_RE = /\b(cut ?scenes?|cinematics?|intro|cut scene)\b/i, DOORISH = /\b(door|keypad|lock|locked|code)\b/i;
+let THING_W = null; function thingWords() { if (THING_W) return THING_W; const M = new Map(), STOPW = /^(the|a|an|of|and|with|from|door|note|page|log|room|wall|small|old|big|little|left|right)$/; for (const it of window.__ENC.I) { if (!it.p) continue; let lb = ''; try { lb = typeof it.label === 'function' ? it.label() || '' : it.label || ''; } catch (e) {} for (const w of String(lb).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/)) if (w.length >= 4 && !STOPW.test(w)) (M.get(w) || M.set(w, []).get(w)).push(it); } return THING_W = M; }
+function thingsTrue(k, id) { const lo = String(k).toLowerCase(), q = whereIs(id), now = Date.now(); if (!q) return true;
+  if (CUT_RE.test(lo) && now - (MP.t0 || 0) > 90000) return false; /* the cutscene is at the start (and the end): not mid-game */
+  if (DOORISH.test(lo) && !X().DOORS.some(d => Math.hypot(d.x - q[0], d.z - q[1]) < 4 && (X().ROOMS[d.a] || {}).floor === (X().ROOMS[d.b] || {}).floor && ((X().ROOMS[d.a] || {}).floor || 1) === q[4])) return false;
+  const TW = thingWords(); for (const w of lo.replace(/[^a-z ]/g, ' ').split(/\s+/)) { const L = w.length >= 4 && (TW.get(w) || TW.get(w.replace(/s$/, ''))); if (!L) continue; if (!L.some(it => { const r = X().roomAt(it.p.x, it.p.z); return r && ((X().ROOMS[r].floor || 1) === q[4]) && Math.hypot(it.p.x - q[0], it.p.z - q[1]) < 7; })) return false; }
+  for (const p of MP.roster || []) { const n = String(p.name || '').toLowerCase(); if (n.length >= 2 && p.id !== id && new RegExp('\\b' + n.replace(/[^a-z0-9]/g, '') + '\\b').test(lo) && ghostOf(p.id) && !/\b(dead|died|gone|ghost|rip|got)\b/.test(lo)) return false; }
+  return true; }
 function ownLine(id, o = {}) { const H = MP.hist[id] || [], C0 = MP.histCtx[id] || []; if (H.length < 8) return null;
   const now = Date.now(), U = MP.ownUsed[id] || (MP.ownUsed[id] = {}), C = o.tags || ctxTags(id, { self: o.self != null ? o.self : (PS.on && id === PS.id ? (PS.lastSaid ? 9 : 0) : CP.on && id === CP.orig ? (CP.lastSaid ? 9 : 0) : 9), reply: o.reply }), freq = {};
   for (const t of H) { const k = t.trim(); freq[k] = (freq[k] || 0) + 1; }
@@ -10539,6 +10556,7 @@ function ownLine(id, o = {}) { const H = MP.hist[id] || [], C0 = MP.histCtx[id] 
     for (const g of ['odd', 'found', 'q']) if (T2.has(g) && !C.has(g) && !T2.has('idle')) m *= .35;
     if ((T2.has('danger') || T2.has('scare')) && !C.has('danger') && !C.has('scare')) return; // urgent lines only when it is urgent again
     if (RN.length) { const lo = k.toLowerCase(), m = RN.find(r => lo.includes(r)); if (m && !(hereR && hereR.includes(m))) return; } // a line naming a room is only true again in that room
+    if (!thingsTrue(k, id)) return;
     if ((T2.has('far') && C.has('near')) || (T2.has('near') && C.has('far'))) m *= .3; if (T2.has('greet') && !C.has('greet')) return;
     S[k] = (S[k] || 0) + m * Math.sqrt(freq[k]); });
   const E = Object.entries(S); if (!E.length) return null; const tot = E.reduce((a, e) => a + e[1], 0);
@@ -11687,11 +11705,11 @@ function navTo(o, tx, tz, room, step) {
   const x = X();
   if (o.pass) { if (walkObj(o, o.pass[0], o.pass[1], step) < .1) o.pass = null; return null; }
   const here = x.roomAt(o.x, o.z);
-  if (!here || here === room) return walkObj(o, tx, tz, step);
+  if (!here || here === room) return walkRound(o, tx, tz, step, here);
   const d = walkDoor(here, room); if (!d) return waitAtDoor(o, here, room, tx, tz, step);
   if (d.portal) { if (walkObj(o, d.x, d.z, step) < .6) { o.x = d.arr[0]; o.z = d.arr[1]; } return null; }
   if (!d.open && Math.hypot(d.x - o.x, d.z - o.z) < 1.3) openFor(d); /* reaches out and opens it */
-  if (walkObj(o, d.x, d.z, step) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); o.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
+  if (walkRound(o, d.x, d.z, step, here) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); o.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
   return null;
 }
 setInterval(() => {
@@ -11702,7 +11720,7 @@ setInterval(() => {
 }, 90000);
 // normal deaths in multiplayer make ghosts
 H.die = () => { if (!MP.on || !MP.started || MP.roster.length < 2) return false; killMe('static'); return true; };
-MP._crowd = { crowdOf, crowdFit };
+MP._crowd = { crowdOf, crowdFit, thingsTrue }; MP._own = (id, extra) => { const T = ctxTags(id, { self: 9 }); for (const g of extra || []) T.add(g); return ownLine(id, { tags: T }); };
 MP._ps = { possess, unpossess, possTick, bodyHide, speakT: (id, t) => speak(id, t, { body: true, whole: 1 }) }; MP._heard = { copyHeard, bodyHeard };
 // the room that was not there: a grey, wrong copy of Ivy's bedroom. One spot per floor, each off a room you can always walk to;
 // it exists only while the clone is leading someone to it, on that person's floor
