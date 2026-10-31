@@ -10366,7 +10366,7 @@ const BANK = {
   leadwhy: ['i thought there was something here', 'i didnt mean to lead u anywhere', 'i was just exploring', 'i thought this was the way out', 'i saw something here, i swear', 'idk i got lost too', 'i thought the {item} was here', 'sorry i thought it was this way'],
   trustme: ['u can trust me, its {self}', 'why wouldnt u trust me, its {self}', 'ok dont then, im still {self}', 'i get it but its really me, {self}', 'trust me pls, im {self}', 'bro its {self}, u know me', 'fair but im still {self}', 'u trusted {self} five minutes ago lol', 'what did i do? its {self}'],
   dotest: ['im not doing that lol, im {self}', 'why would i do that, its {self}', 'its {self}, stop being weird', 'lol no, im {self}', 'ok ok im fine, im {self}', 'im not doing tricks lol, im {self}', 'im ok, im {self}, chill', 'no lol, its {self}, im fine', 'ur being weird, its {self}'],
-  backoff: ['ok ok sorry', 'i wasnt following u lol', 'fine ill go', 'i just didnt wanna be alone', 'k sorry', 'im going im going', 'wow ok', 'sorry, didnt mean to crowd u'],
+  run: ['RUN', 'going', 'omw', 'where to', 'go go', 'which way', 'im running', 'wait for me'], help: ['whats wrong', 'where r u', 'coming', 'omw whats happening', 'what happened', 'im coming hold on', 'wait where'], stop: ['ok ok', 'stop what', 'fine', 'k sorry', 'what did i do', 'ok im stopping'], prove: ['ask me something then', 'like what', 'idk what to say, its me', 'its me i swear', 'what do u want me to say', 'ask me anything'], backoff: ['ok ok sorry', 'i wasnt following u lol', 'fine ill go', 'i just didnt wanna be alone', 'k sorry', 'im going im going', 'wow ok', 'sorry, didnt mean to crowd u'],
   helpyou: ['where are u?? coming', 'what happened', 'omw where r u', 'hold on im coming', 'whats wrong??', 'where?? which room', 'im coming, keep talking', 'hide! im coming'],
   whereother: ['{other}'],
   split: ['ok ill take the {next}', 'no lets stay together', 'fine, ill do the {here}', 'bad idea but ok', 'ok who goes where', 'i\'ll check the {next} then', 'splitting up never works in movies'],
@@ -10538,10 +10538,10 @@ const KEYT = t => /^(danger|scare|greet|odd|idle|room|found|q|far|near)$/.test(t
 const SHOUT = k => { const L = k.replace(/[^A-Za-z]/g, ''), U = k.replace(/[^A-Z]/g, ''); return (L.length >= 3 && U.length / L.length > .7) || /!{2,}/.test(k); };
 /* a line of theirs that names a thing (a cutscene, a door, the fridge, a person) is only said again where that thing is true now */
 const CUT_RE = /\b(cut ?scenes?|cinematics?|intro|cut scene)\b/i, DOORISH = /\b(door|keypad|lock|locked|code)\b/i;
-let THING_W = null; function thingWords() { if (THING_W) return THING_W; const M = new Map(), STOPW = /^(the|a|an|of|and|with|from|door|note|page|log|room|wall|small|old|big|little|left|right)$/; for (const it of window.__ENC.I) { if (!it.p) continue; let lb = ''; try { lb = typeof it.label === 'function' ? it.label() || '' : it.label || ''; } catch (e) {} for (const w of String(lb).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/)) if (w.length >= 4 && !STOPW.test(w)) (M.get(w) || M.set(w, []).get(w)).push(it); } return THING_W = M; }
+let THING_W = null; function thingWords() { if (THING_W) return THING_W; const M = new Map(), STOPW = /^(the|a|an|of|and|with|from|door|note|page|log|room|wall|small|old|big|little|left|right|locked|lock|enter|open|code|word|something|under|behind|beside|above|into|tucked|folded|choose|empty|inner|back|down|upstairs|downstairs|there|here|this|that|these|those)$/; for (const it of window.__ENC.I) { if (!it.p) continue; let lb = ''; try { lb = typeof it.label === 'function' ? it.label() || '' : it.label || ''; } catch (e) {} for (const w of String(lb).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/)) if (w.length >= 4 && !STOPW.test(w)) (M.get(w) || M.set(w, []).get(w)).push(it); } for (const [w, L] of [...M]) if (new Set(L.map(it => window.__ENC.roomAt(it.p.x, it.p.z))).size >= 3) M.delete(w); /* a word on things in many rooms (paper, scratches, hide) names nothing in particular */ return THING_W = M; }
 function thingsTrue(k, id) { const lo = String(k).toLowerCase(), q = whereIs(id), now = Date.now(); if (!q) return true;
   if (CUT_RE.test(lo) && now - (MP.t0 || 0) > 90000) return false; /* the cutscene is at the start (and the end): not mid-game */
-  if (DOORISH.test(lo) && !X().DOORS.some(d => Math.hypot(d.x - q[0], d.z - q[1]) < 4 && (X().ROOMS[d.a] || {}).floor === (X().ROOMS[d.b] || {}).floor && ((X().ROOMS[d.a] || {}).floor || 1) === q[4])) return false;
+  if (DOORISH.test(lo)) { const hr = X().roomAt(q[0], q[1]); if (!X().DOORS.some(d => (d.a === hr || d.b === hr || Math.hypot(d.x - q[0], d.z - q[1]) < 4) && ((X().ROOMS[d.a] || {}).floor || 1) === q[4]) && !window.__ENC.I.some(it => it.p && /door|keypad|lock/i.test(String(typeof it.label === 'function' ? '' : it.label)) && Math.hypot(it.p.x - q[0], it.p.z - q[1]) < 7)) return false; } /* a door line holds in any room with a door or keypad, on this floor */
   const TW = thingWords(); for (const w of lo.replace(/[^a-z ]/g, ' ').split(/\s+/)) { const L = w.length >= 4 && (TW.get(w) || TW.get(w.replace(/s$/, ''))); if (!L) continue; if (!L.some(it => { const r = X().roomAt(it.p.x, it.p.z); return r && ((X().ROOMS[r].floor || 1) === q[4]) && Math.hypot(it.p.x - q[0], it.p.z - q[1]) < 7; })) return false; }
   for (const p of MP.roster || []) { const n = String(p.name || '').toLowerCase(); if (n.length >= 2 && p.id !== id && new RegExp('\\b' + n.replace(/[^a-z0-9]/g, '') + '\\b').test(lo) && ghostOf(p.id) && !/\b(dead|died|gone|ghost|rip|got)\b/.test(lo)) return false; }
   return true; }
@@ -11024,6 +11024,21 @@ function intentOf0(raw, selfName, fz) {
   if (/^\s*(bffr|be fr|be serious)\s*[?!.]*\s*$/i.test(raw)) return 'serious';
   if (/\block (in|tf in)\b/i.test(raw)) return 'lockin';
   if (/\b(it'?s|it is|we'?re|we are|were) (so |actually )?over\b|^\s*so over\s*$/i.test(raw)) return 'over';
+  { const t0 = raw.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim(); /* plain readings people use a lot */
+    if (/^(something|smth|sth) (is |seems )?(off|wrong|weird) (about|with) (u|you)\b|\b(u|you) (dont|don't|never) (talk|type|act|text) like (that|this)\b|\bthats not (how|what) (u|you) (talk|type|say)\b|\bwho (keeps|kept|is|was) (turning|switching|messing with|closing|opening) (the )?(lights?|doors?)\b/.test(t0)) return 'sus';
+    if (/\b(say|tell me) (something|smth) only (u|you|the real \w+) (would|wud) know\b/.test(t0)) return 'prove';
+    if (/\b(stop|quit) (standing|following|walking|creeping) (behind|next to|so close|right behind|me)\b|\bget away from me\b|\bback off\b|\bstop following\b/.test(t0)) return 'backoff';
+    if (/\b(im|i'm|i am) (freaking|freakin|lowkey freaking) out\b|^freaking out\b|\bsomething (just )?(touched|grabbed|brushed|breathed on|pulled)\b/.test(t0)) return 'imscared';
+    if (/^(go ?){2,}$|^(run ?){1,3}$|^move move\b/.test(t0)) return 'run';
+    if (/^(wow|oh wow) (amazing|great|incredible|brilliant|genius|fantastic|stellar) (work|job|move|plan|idea)$/.test(t0)) return 'mock';
+    if (/\b(cant|can't|cannot) stop laughing\b|\bdying of laughter\b/.test(t0)) return 'laughs';
+    if (/^(someone|somebody|anyone|any1) help( me)?( pls| please| plz)?$|^help( me)?( pls| please| plz)?$/.test(t0)) return 'help';
+    if (/^how (does|do) (this|it|that) (even )?work$|^how do (i|u|you|we) (use|work) (this|it|that)$/.test(t0)) return 'controls';
+    if (/^(ez+|easy+|gg ez+)$/.test(t0)) return 'gg';
+    if (/^(dunno|dno|idk|idek|no idea|not sure)$/.test(t0)) return 'maybe';
+    if (/^(meh+|eh+|mid)$/.test(t0)) return 'meh';
+    if (/^(what (are|r) (u|you) (up to|doing)|wyd|wht r u doing)$/.test(t0)) return 'doing';
+    if (/^stop( it| that| pls| please)?$/.test(t0)) return 'stop'; }
   // "special": sincere with hearts/kind words, a dig with 💀/lol/sarcasm, otherwise ask
   if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return /\b(ur|you|youre|you're|u)\b/i.test(raw) ? 'mock' : 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
   if (/\b(ur|you'?re|you are|u r|u are)( so| really| such an?| very)? (smart|genius|brave|helpful|talented|useful|quick|fast|clever|cool|brilliant|amazing|funny)\b/i.test(raw) && (/💀|🙄|😒|\b(wow|sure|oh yeah|yeah right|totally)\b|\/s\b/iu.test(raw) || (!/\bfunny\b/i.test(raw) && /😭|\b(lo+l|lmf?ao)\b/iu.test(raw)))) return 'mock';
