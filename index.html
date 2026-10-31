@@ -10278,14 +10278,14 @@ function possTick(dt) {
   // walk to a real note and say so
   if (!PS.goal) {
     const cands = E.I.filter(i => i.p && NOTE_RE.test(i.id) && x.roomAt(i.p.x, i.p.z) && (x.ROOMS[x.roomAt(i.p.x, i.p.z)].floor || 1) === PS.floor);
-    if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi]; PS.goal = { x: g.p.x, z: g.p.z, room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; PS.pass = null;
+    if (!cands.length) { PS.mode = 'replay'; return; } const visits = {}; for (const q of MP.track[PS.id] || []) { const r = x.roomAt(q[0], q[1]); if (r) visits[r] = (visits[r] || 0) + 1; } const wsum = cands.map(c => 1 + (visits[x.roomAt(c.p.x, c.p.z)] || 0)); let rr = Math.random() * wsum.reduce((a, b) => a + b, 0), gi = 0; while (gi < cands.length - 1 && (rr -= wsum[gi]) > 0) gi++; const g = cands[gi], gs = freeNear(g.p.x, g.p.z) || [g.p.x, g.p.z]; PS.goal = { x: gs[0], z: gs[1], room: x.roomAt(g.p.x, g.p.z), until: now + 90000 }; /* stands in front of it, not inside the table it is on */ PS.pass = null;
   }
   const G = PS.goal; PS.eye = 1.65; const PH = PS.hab || (PS.hab = habitsOf(PS.id)), PM = PS.mv || (PS.mv = {}), px0 = PS.x, pz0 = PS.z; torchStep(PS, PH, PM); if (quirkStep(PS, PH, PM, dt, true)) return;
   setTimeout(() => { if (PS.on && PS.goal === G) { const mvd = Math.hypot(PS.x - px0, PS.z - pz0) > .001; lookStep(PS, PH, PM, dt, mvd, mvd ? Math.atan2(-(PS.x - px0), -(PS.z - pz0)) : PS.yaw); } }, 0);
   if (now > G.until) { PS.goal = null; PS.mode = 'replay'; return; }
   if (PS.pass) { if (walkObj(PS, PS.pass[0], PS.pass[1], 4.0 * dt) < .1) PS.pass = null; return; }
   const here = x.roomAt(PS.x, PS.z);
-  if (here === G.room) { if (walkObj(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ toPlayer(PS.id, { t: 'psdo', text: 'your body stops to read something' }); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
+  if (here === G.room) { if (walkRound(PS, G.x, G.z, (Math.hypot(G.x - PS.x, G.z - PS.z) > 2.5 ? 4.0 : 2.4) * dt, here) < 1.1) { if (Date.now() > PS.nextSay) bodySay(bankLine('note', PS.id)); /* only if they would have been talking anyway */ toPlayer(PS.id, { t: 'psdo', text: 'your body stops to read something' }); PS.waitUntil = Date.now() + PS.readSec * rnd(.8, 1.25) * 1000; PS.goal = null; PS.mode = 'replay'; } return; }
   const d = here && x.firstDoor(here, G.room);
   if (!d) { PS.goal = null; PS.mode = 'replay'; return; }
   if (walkObj(PS, d.x, d.z, 4.0 * dt) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); PS.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
