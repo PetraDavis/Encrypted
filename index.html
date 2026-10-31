@@ -10081,7 +10081,7 @@ function quirkStep(o, H, M, dt, moving) {
   return false;
 }
 MP._hab = { habitsOf, leadSpot, habitStep, lookStep, torchStep, avert, quirkStep }; MP._chat = { typing: (a, b, c) => typing(a, b, c), track: (a, b) => track(a, b), chatPerMin: id => chatPerMin(id), chatGap: id => chatGap(id), typeDelay: (id, t) => typeDelay(id, t) };
-function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); CP.x += dx / l * st; CP.z += dz / l * st; CP.yaw = Math.atan2(-dx, -dz); return l; }
+function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); solidStep(CP, dx / l * st, dz / l * st); CP.yaw = Math.atan2(-dx, -dz); return l; }
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
   const o = posOf(CP.orig), tq = posOf(CP.target);
@@ -10225,7 +10225,14 @@ function psReport() { const r = X().roomAt(PS.x, PS.z); if (r && r !== PS.repRoo
 function bodySay(base, o) { if (!PS.on) return; speak(PS.id, base, Object.assign({ body: true }, o)); }
 // a step that slides along walls and furniture instead of stopping dead, like a player's movement
 function slideBy(o, dx, dz) { const B = window.__ENC.blocked; if (!B(o.x + dx, o.z + dz)) { o.x += dx; o.z += dz; } else if (!B(o.x + dx, o.z)) o.x += dx; else if (!B(o.x, o.z + dz)) o.z += dz; }
-function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); o.x += dx / l * st; o.z += dz / l * st; o.yaw = Math.atan2(-dx, -dz); return l; }
+function walkObj(o, tx, tz, dist) { const dx = tx - o.x, dz = tz - o.z, l = Math.hypot(dx, dz); if (l < .01) return l; const st = Math.min(l, dist); solidStep(o, dx / l * st, dz / l * st); o.yaw = Math.atan2(-dx, -dz); return l; }
+/* a step never goes into furniture or a wall from open floor: it slides along it like a player would (a doorway pass and an exit from a hiding place start inside, so those still move) */
+function solidStep(o, sx, sz) { const B = window.__ENC && window.__ENC.blocked; if (!B || B(o.x, o.z)) { o.x += sx; o.z += sz; return; } if (!B(o.x + sx, o.z + sz)) { o.x += sx; o.z += sz; } else if (!B(o.x + sx, o.z)) o.x += sx; else if (!B(o.x, o.z + sz)) o.z += sz; }
+function lineClear(ax, az, bx, bz) { const B = window.__ENC.blocked, l = Math.hypot(bx - ax, bz - az), n = Math.ceil(l / .2); for (let i = 1; i < n; i++) { const t = i / n; if (B(ax + (bx - ax) * t, az + (bz - az) * t)) return false; } return true; }
+/* across a room to a spot: straight if nothing is in the way, else round the furniture on the room grid */
+function walkRound(o, tx, tz, step, room) { const l = Math.hypot(tx - o.x, tz - o.z); if (l < .05 || lineClear(o.x, o.z, tx, tz) || !room) return walkObj(o, tx, tz, step);
+  let G = o._gp; if (!G || G.room !== room || Math.hypot(G.tx - tx, G.tz - tz) > .5 || G.i >= G.P.length) { const R = gridPath(room, o, (gx, gz) => Math.hypot(gx - tx, gz - tz) < .6); G = o._gp = { room, tx, tz, P: R ? R.path : [], i: 0 }; }
+  const w = G.P[G.i]; if (!w) return walkObj(o, tx, tz, step); if (walkObj(o, w.x, w.z, step) < .15) G.i++; return l; }
 const NOTE_RE = /note|letter|diary|log|book|page|card|paper|list|daybook|sheet|^v_|^m_|ld/i;
 // as often as they spoke up when it was them, after as long as they took, in what they said then
 function reactOf(id) { const n = MP.scareN[id] || 0, r = MP.reactN[id] || 0, L = (MP.reactLat[id] || []).slice().sort((a, b) => a - b); return { rate: n >= 3 ? r / n : .6, lat: L.length ? L[L.length >> 1] : rnd(900, 2600) }; }
@@ -11687,11 +11694,11 @@ function navTo(o, tx, tz, room, step) {
   const x = X();
   if (o.pass) { if (walkObj(o, o.pass[0], o.pass[1], step) < .1) o.pass = null; return null; }
   const here = x.roomAt(o.x, o.z);
-  if (!here || here === room) return walkObj(o, tx, tz, step);
+  if (!here || here === room) return walkRound(o, tx, tz, step, here);
   const d = walkDoor(here, room); if (!d) return waitAtDoor(o, here, room, tx, tz, step);
   if (d.portal) { if (walkObj(o, d.x, d.z, step) < .6) { o.x = d.arr[0]; o.z = d.arr[1]; } return null; }
   if (!d.open && Math.hypot(d.x - o.x, d.z - o.z) < 1.3) openFor(d); /* reaches out and opens it */
-  if (walkObj(o, d.x, d.z, step) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); o.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
+  if (walkRound(o, d.x, d.z, step, here) < .3) { const to = d.a === here ? d.b : d.a, R = x.ROOMS[to], dir = d.axis === 'x' ? Math.sign((R.x0 + R.x1) / 2 - d.x) : Math.sign((R.z0 + R.z1) / 2 - d.z); o.pass = d.axis === 'x' ? [d.x + dir * .9, d.z] : [d.x, d.z + dir * .9]; }
   return null;
 }
 setInterval(() => {
