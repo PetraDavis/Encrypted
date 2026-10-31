@@ -10415,6 +10415,7 @@ const BANK = {
   success: ['YES', 'lets gooo', 'nice!!', 'finally', 'W', 'ok nice'],
   fail: ['ugh', 'noo', 'try again', 'hm maybe the order is wrong', 'damn', 'ok what else'],
   tryit: ['ok trying', 'k', 'one sec', 'ok', 'trying it'],
+  favgame: ['none of them lol', 'whichever one has the exit', 'none, this house sucks', 'the one without her in it lol', 'ask me when were out'],
   noteq: ['i didnt read it', 'idk i didnt get that far', 'havent seen it', 'which note', 'read it urself lol'],
   rush: ['im coming', 'ok ok', 'coming', 'omw', 'chill im coming'],
   almost: ['finally', 'lets gooo', 'we got this', 'yesss', 'dont jinx it lol'],
@@ -11028,7 +11029,7 @@ function intentOf0(raw, selfName, fz) {
   { const t0 = raw.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim(); /* plain readings people use a lot */
     if (/^(something|smth|sth) (is |seems )?(off|wrong|weird) (about|with) (u|you)\b|\b(u|you) (dont|don't|never) (talk|type|act|text) like (that|this)\b|\bthats not (how|what) (u|you) (talk|type|say)\b|\bwho (keeps|kept|is|was) (turning|switching|messing with|closing|opening) (the )?(lights?|doors?)\b/.test(t0)) return 'sus';
     if (/\b(say|tell me) (something|smth) only (u|you|the real \w+) (would|wud) know\b/.test(t0)) return 'prove';
-    if (/\b(stop|quit) (standing|following|walking|creeping) (behind|next to|so close|right behind|me)\b|\bget away from me\b|\bback off\b|\bstop following\b/.test(t0)) return 'backoff';
+    if (/\b(stop|quit) (standing|following|walking|creeping) (behind|next to|so close|right behind|me)\b|\bget away from me\b|\bback off\b|\bstop following\b|\bget off (my|me) (back|case)\b/.test(t0)) return 'backoff';
     if (/\b(im|i'm|i am) (freaking|freakin|lowkey freaking) out\b|^freaking out\b|\bsomething (just )?(touched|grabbed|brushed|breathed on|pulled)\b/.test(t0)) return 'imscared';
     if (/^(go ?){2,}$|^(run ?){1,3}$|^move move\b/.test(t0)) return 'run';
     if (/^(wow|oh wow) (amazing|great|incredible|brilliant|genius|fantastic|stellar) (work|job|move|plan|idea)$/.test(t0)) return 'mock';
@@ -11039,13 +11040,20 @@ function intentOf0(raw, selfName, fz) {
     if (/^(dunno|dno|idk|idek|no idea|not sure)$/.test(t0)) return 'maybe';
     if (/^(meh+|eh+|mid)$/.test(t0)) return 'meh';
     if (/^(what (are|r) (u|you) (up to|doing)|wyd|wht r u doing)$/.test(t0)) return 'doing';
-    if (/^stop( it| that| pls| please)?$/.test(t0)) return 'stop'; }
+    if (/^stop( it| that| pls| please)?$/.test(t0)) return 'stop';
+    if (/^who (just )?(opened|closed|shut|slammed|locked|unlocked) (that|the|this) door$|^what the (actual|actual hell|actual heck|actual frick)$/.test(t0)) return 'wtf';
+    if (/^count off\b|^(roll ?call|sound off|headcount|head count)\b/.test(t0)) { ROLL = pick(['here', 'me', 'still here', 'here!', 'im here']); return 'rollcall'; }
+    if (/^(watch out|look out|careful)( theres something| shes| its)? behind (u|you|ya)\b|^(watch|look) (out|behind) (u|you)$/.test(t0)) return 'danger';
+    if (/^(anyone|any1|anybody|someone|hello|helo|hellooo*)$/.test(t0) && /\?/.test(raw)) { ROLL = pick(['here', 'me', 'still here', 'here!', 'im here']); return 'rollcall'; }
+    if (/^what (does|did) (the|that|this|it) (note|letter|paper|page|diary|card|journal) (say|said)\b|^what (was|is) (on|in) the (note|letter|paper|page|diary|card)$/.test(t0)) return 'noteq';
+    if (/^(whats|what is) (ur|your|you|u) (fav|fave|favorite|favourite) (room|puzzle|part|spot|hiding spot|place)( in here| here| so far| in this house)?$/.test(t0)) return 'favgame';
+    if (/\bwhere (is|are|r) (the|my|our) (attic|cellar|kitchen|library|study|basement|office|bedroom|nursery|front|back|exit|door) (key|keys|code|note|candle)\b/.test(t0)) return 'whereitem'; }
   // "special": sincere with hearts/kind words, a dig with 💀/lol/sarcasm, otherwise ask
   if (/\bspecial\b/i.test(raw) && !/\bspecial (key|door|room|item|code|thing|place)/i.test(raw)) { if (/<3|❤|♥|🥰|😍|🥺|\bto me\b|\bthank|\blove\b|\bmean(s)? (a lot|so much)/iu.test(raw)) return 'love'; if (/💀|😭|😂|🙄|\b(lo+l|lmf?ao|haha\w*|wow|sure|real(ly)? special|oh|ok+)\b/iu.test(raw)) return /\b(ur|you|youre|you're|u)\b/i.test(raw) ? 'mock' : 'insult'; if (/\b(ur|you|youre|you're|u|is|r|are)( so| very| kinda| real)? special\b/i.test(raw)) return 'specialq'; }
   if (/\b(ur|you'?re|you are|u r|u are)( so| really| such an?| very)? (smart|genius|brave|helpful|talented|useful|quick|fast|clever|cool|brilliant|amazing|funny)\b/i.test(raw) && (/💀|🙄|😒|\b(wow|sure|oh yeah|yeah right|totally)\b|\/s\b/iu.test(raw) || (!/\bfunny\b/i.test(raw) && /😭|\b(lo+l|lmf?ao)\b/iu.test(raw)))) return 'mock';
   if (/\bzest(y|ie|ier|iest)\b/i.test(raw)) return 'mock'; // a tease: read it, never say it
   if (/\bthanks? (for nothing|a lot)\b|^\s*(wow|great|gee) thanks\b/i.test(raw) && !/\b(for (the|ur|your|helping|waiting|saving))\b/i.test(raw)) return 'mock';
-  if (/^\s*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw)) return 'laughs';
+  if (/^\s*((bro|lol|lmao|omg) )*(i'?m |im )?(dead+|weak|crine|crying|deceased|screaming|wheezing)\b[\s💀😭😂!]*$/iu.test(raw) && (/[💀😭😂]/u.test(raw) || !/^\s*((bro|lol|lmao|omg) )*(i'?m |im )?crying\b/i.test(raw) || /^\s*(i'?m |im )?crying\s*$/i.test(raw))) return 'laughs';
   const em = String(raw); // text faces, read before punctuation is folded away
   { const F = (re) => new RegExp('(^|\\s)(' + re + ')(?=\\s|$)').test(em); if (F('<\\/3')) return 'comfort'; if (F('T_T|T\\.T|;_;|;-;|:-?c|QQ')) return 'comfort'; if (F('D:|:-?O|:-?o|o_o|O_O|0_0|o\\.o|O\\.O|o_O|O_o')) return 'wtf'; if (F('>?:-?3c?|[xX]3+|\\^[wWvV]\\^|>[wW]<|uwu|UwU|owo|OwO|c:|C:')) return 'happy'; if (F(':-?[pP]|;-?[pP]|xP|XP')) return 'laughs'; } // more text faces
   { const e0 = em.replace(/[\s\uFE0F\u200D]/g, ''); if (e0 && !/[a-z0-9]/i.test(e0)) { if (/^[😨😱😰😧😖🫣]+$/u.test(e0)) return 'imscared'; if (/^[🤨🧐]+$/u.test(e0)) return 'sus'; if (/^👀+$/u.test(e0)) return 'wtf'; if (/^🙏+$/u.test(e0)) return 'thanks'; if (/^[👍👌🤝✅]+$/u.test(e0)) return 'ack'; if (/^[🔥💯🐐👑]+$/u.test(e0)) return 'praise'; } } // a bare emoji says something too
@@ -11062,7 +11070,7 @@ function intentOf0(raw, selfName, fz) {
   { const sn = (selfName || '').toLowerCase().replace(/[^a-z0-9]/g, ''), ns = (MP.roster || []).map(p => String(p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')).filter(n => n.length >= 2 && n !== sn); // blaming someone else
     if (sn && new RegExp('^((hey |yo |oi )?' + sn + '+[?! ]*){2,}$').test(t.replace(/\s+/g, ' ') + ' ')) return 'called';
     if (sn && (new RegExp('\\b' + sn + ' (is|s) (dead|a ghost|gone|down)\\b|\\bis ' + sn + ' (a ghost|dead)\\b|\\bwe lost ' + sn + '\\b|\\b' + sn + ' (died|got caught)\\b').test(t))) return 'alive';
-    if (ns.length) { const N = '(' + ns.join('|') + ')'; if (new RegExp('^(i think |i bet |pretty sure |ngl |tbh |honestly )*(its|it is) (definitely |def |prob |probably |totally |so )*' + N + '[?!]*$').test(tt) || new RegExp('^' + N + ' (is|has to be|must be) (lying|the copy|the clone|sus|fake|a copy|a clone|the fake|the imposter|not real)\\b').test(tt) || new RegExp('^(vote|lets vote|i vote|voting) (out )?' + N + '\\b').test(tt)) return 'accuseother'; } }
+    if (ns.length) { const N = '(' + ns.join('|') + ')'; if (new RegExp('^(i think |i bet |pretty sure |ngl |tbh |honestly )*(its|it is) (definitely |def |prob |probably |totally |so )*' + N + '( tbh| ngl| lol| fr| honestly| imo)*[?!]*$').test(tt) || new RegExp('^' + N + ' (is|has to be|must be) (lying|the copy|the clone|sus|fake|a copy|a clone|the fake|the imposter|not real)\\b').test(tt) || new RegExp('^(vote|lets vote|i vote|voting) (out )?' + N + '\\b').test(tt)) return 'accuseother'; } }
   { const k = whyOf(tt, raw); if (k) return k; } /* why they said it (sarcasm, doubt, agreeing, a joke owned up, a correction, panic), before the keywords */
   for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(tt) : m.test(tt)) return k;
   const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || (bare.startsWith(selfName) && bare.length <= selfName.length + 3))))) return 'called';
@@ -11531,7 +11539,7 @@ function bodyHeard0(from, text) {
 function bodyAnswer(from, text, n, t, k, now, to) {
   if (k === 'affirmreal') { bodySay(fill(fresh(persona(k, PS.id)), PS.id)); if (Math.random() < .3) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
   if (k === 'denyclone') { bodySay(fill(fresh(persona(k, PS.id)), PS.id)); const r2 = Math.random(); if (r2 < .3) setTimeout(() => bodySay(fill(fresh('accuse'), PS.id)), rnd(3000, 7000)); else if (r2 < .5) setTimeout(() => bodySay(fill(fresh('offended'), PS.id)), rnd(2500, 5000)); return; }
-  if (k === 'note') return noteAnswer(t);
+  if (k === 'note' || k === 'noteq') return noteAnswer(t);
   if (k === 'laughs') { if (Math.random() < .6) bodySay(bankLine('laughs', PS.id)); return; }
   if (k === 'solve') return solveFor(from);
   // asked to wait, stop, come back or slow down: it really does
@@ -11551,7 +11559,7 @@ function noteAnswer(t) {
   const hit = R.find(r => (r.title + ' ' + r.snip).toLowerCase().split(/[^a-z]+/).some(w => w.length > 4 && t.includes(w)));
   if (hit && hit.snip) { const w = hit.snip.split(' ').slice(0, 10 + Math.floor(rnd(0, 6))).join(' ').toLowerCase(); return bodySay(pick(['it said something like ', 'i think it was like ', 'something about ']) + '"' + w + '..."'); }
   if (R.length && Math.random() < .5) return bodySay(pick(['i didnt read that one', 'which note', 'never saw that one', 'idk i didnt read it']));
-  bodySay(pick(['something about a key?', 'it was about the kitchen i think', 'cant remember, something about a door', 'i think it said to go upstairs']));
+  bodySay(fill(fresh('noteq'), PS.id));
 }
 // asked to work a puzzle out: a stalling line, then the right answer, a little too soon
 function solveFor(from) {
