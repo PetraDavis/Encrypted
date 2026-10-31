@@ -9969,7 +9969,7 @@ MP.copyStart = (orig, target) => {
   const o = L.find(p => p.id === orig) || pick(L), tg = L.find(p => p.id === target && p.id !== o.id) || pick(L.filter(p => p.id !== o.id));
   const q = posOf(tg.id); if (!q) return false;
   delete MEM.rooms['~cp']; Object.assign(CP, { on: true, orig: o.id, target: tg.id, x: q[0] - Math.sin(q[2]) * -3, z: q[1] - Math.cos(q[2]) * -3, yaw: q[2], floor: q[4], eye: 1.65, mirror: false, trail: [], t0: Date.now(), lureAt: Date.now() + rnd(70, 130) * 1000, phase: 'follow', nextSay: Date.now() + chatGap(o.id) * rnd(.3, 1), last: null });
-  if (window.__ENC.blocked(CP.x, CP.z)) { CP.x = q[0]; CP.z = q[1]; }
+  if (window.__ENC.blocked(CP.x, CP.z) || X().roomAt(CP.x, CP.z) !== X().roomAt(q[0], q[1])) { CP.x = q[0]; CP.z = q[1]; } /* starts in the room they are in, never behind a wall or a shut door */
   CP.hab = habitsOf(o.id); CP.pitch = CP.hab.pitchM; CP.flash = CP.hab.flash > .5 ? 1 : 0; CP.mv = { pauseUntil: 0, runUntil: 0, runOn: false, crouchUntil: 0, look: 0, idleT: 0, fav: null };
   MP.copyN = (MP.copyN || 0) + 1; CP.success = false; MP.copyDone = MP.copyN >= 2; cpPub(); return { orig: o.id, target: tg.id };
 };
@@ -10096,7 +10096,7 @@ function copyTick(dt) {
   const mirror = CP.phase === 'follow' && rooms.every(r => r && r === rooms[0]) && cr === rooms[0];
   if (mirror !== CP.mirror) { CP.mirror = mirror; cpPub(); }
   if (mirror) {
-    if (CP.last) { const dx = o[0] - CP.last[0], dz = o[1] - CP.last[1]; if (Math.hypot(dx, dz) < 1.5) { const B = window.__ENC.blocked; if (!B(CP.x + dx, CP.z + dz)) { CP.x += dx; CP.z += dz; } else if (!B(CP.x + dx, CP.z)) CP.x += dx; else if (!B(CP.x, CP.z + dz)) CP.z += dz; } } // slides along walls and furniture like a player would
+    if (CP.last) { const dx = o[0] - CP.last[0], dz = o[1] - CP.last[1]; if (Math.hypot(dx, dz) < 1.5) { const B0 = window.__ENC.blocked, B = (px, pz) => B0(px, pz) || !cpCanReach([px, pz]); if (!B(CP.x + dx, CP.z + dz)) { CP.x += dx; CP.z += dz; } else if (!B(CP.x + dx, CP.z)) CP.x += dx; else if (!B(CP.x, CP.z + dz)) CP.z += dz; } } // slides along walls and furniture like a player would
     CP.yaw = o[2]; CP.eye = o[3]; CP.jump = o[9] || 0; CP.flash = o[6] ? 1 : 0; CP.last = o.slice(); CP.trail = []; return;
   }
   CP.last = o.slice(); CP.eye = 1.65;
@@ -10117,7 +10117,7 @@ function copyTick(dt) {
     if (hs.paused && tr.length < 30) { lookStep(CP, Hb, M, dt, false, CP.yaw); return; } // they stop and look; it does too (unless it is falling far behind)
     const x0 = CP.x, z0 = CP.z, sp = (now < (CP.slowUntil || 0) ? .55 : 1) * (Hb.seg && Hb.seg.move.length && !M.runOn ? (M.lastSp || Hb.speed) : hs.speed);
     if (tr.length && tr[0][4] === CP.floor && Math.hypot(tr[0][0] - CP.x, tr[0][1] - CP.z) > 6) { if (tq[4] === CP.floor) { const tr0 = roomOfPos(tq); navTo(CP, tq[0], tq[1], tr0, 3.6 * dt); tr.length = 0; tr.push(tq.slice()); return; } }
-    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], sp * dt) < .1) { tr.shift(); continue; } break; }
+    while (tr.length) { const w = tr[0]; if (w[4] !== CP.floor || Math.hypot(w[0] - CP.x, w[1] - CP.z) > 6) { if (w[4] === CP.floor && !cpCanReach(w)) { tr.shift(); continue; } /* never through a closed door: that waypoint is dropped and it waits on its side */ CP.x = w[0]; CP.z = w[1]; CP.floor = w[4]; tr.shift(); continue; } if (stepTo(w[0], w[1], sp * dt) < .1) { tr.shift(); continue; } break; }
     // keep their distance from walls (huggers hug, middle-walkers keep to the middle)
     const wd = wallDist(CP.x, CP.z), E = window.__ENC; if (Hb.wallD && Math.abs(wd - Hb.wallD) > .3) { const r = X().roomAt(CP.x, CP.z), R = r && X().ROOMS[r]; if (R) { const cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2, k = (wd < Hb.wallD ? .4 : -.4) * dt, nx = CP.x + (cx - CP.x) * k * .2, nz = CP.z + (cz - CP.z) * k * .2; if (!E.blocked(nx, nz)) { CP.x = nx; CP.z = nz; } } }
     const ddx = CP.x - x0, ddz = CP.z - z0, jump = Math.hypot(ddx, ddz) > 1; if (!jump && dt > 0) { M.vx = (M.vx || 0) * .7 + ddx / dt * .3; M.vz = (M.vz || 0) * .7 + ddz / dt * .3; } // smoothed heading, so tiny steps do not spin the head
@@ -10145,6 +10145,8 @@ function copyTake(tg, q) { const J = CP.pzJob, cj = J && !J.note && !X().S.solve
   copyEnd(false); }
 MP._cpTake = copyTake;
 /* can the target walk to the room that was not there (it opens off the east end of the downstairs hall)? */
+/* can it walk from where it stands to that spot through open doors (or is it the same room)? */
+function cpCanReach(q) { const x = X(), a = x.roomAt(CP.x, CP.z), b = x.roomAt(q[0], q[1]); return !a || !b || a === b || !!x.firstDoor(a, b); }
 function lureReach(tq) { const x = X(), a = x.roomAt(CP.x, CP.z), b = roomOfPos(tq); return CP.floor === tq[4] && !!b && !!a && (a === b || !!x.firstDoor(a, b)) && voidSpot(tq[4], tq[0], tq[1]) >= 0; } /* and it can walk to them: not shut behind a closed door it slipped past while following */
 /* the copy leads: walking pace, through the doors, looking back; it stops and waits (and calls) whenever its target falls behind */
 function lureWalk(dt, tq, now) {
@@ -10155,7 +10157,7 @@ function lureWalk(dt, tq, now) {
   if (here === 'mpvoid') { if (gap > 5) { CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; } { const w = VOID.at(5.5, -.6); stepTo(w[0], w[1], 1.4 * dt); } CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; }
   if (lag) { CP.lagT = (CP.lagT || 0) + dt; if (CP.lagT > 1 && gap > 9 && tq[4] === CP.floor && !CP.pass) { navTo(CP, tq[0], tq[1], tr, 2.0 * dt); return; } CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; }
   CP.lagT = 0;
-  { const K = CP.stk || (CP.stk = { x: CP.x, z: CP.z, t: now }); if (Math.hypot(CP.x - K.x, CP.z - K.z) > .4) { K.x = CP.x; K.z = CP.z; K.t = now; } else if (now - K.t > 3000) { /* pinned on furniture or a door frame while leading: a person steps aside, and after a while walks round to the doorway */ const B = window.__ENC.blocked, d = x.firstDoor(here, 'mpvoid'); if (now - K.t > 8000 && d && !B(d.x, d.z)) { CP.x = d.x; CP.z = d.z; K.t = now; } else { const a = CP.yaw + (Math.random() < .5 ? 1.57 : -1.57), nx = CP.x - Math.sin(a) * .5, nz = CP.z - Math.cos(a) * .5; if (!B(nx, nz)) { CP.x = nx; CP.z = nz; } } } }
+  { const K = CP.stk || (CP.stk = { x: CP.x, z: CP.z, t: now }); if (Math.hypot(CP.x - K.x, CP.z - K.z) > .4) { K.x = CP.x; K.z = CP.z; K.t = now; } else if (now - K.t > 3000) { /* pinned on furniture or a door frame while leading: a person steps aside, and after a while walks round to the doorway */ const B = window.__ENC.blocked, d = x.firstDoor(here, 'mpvoid'); if (now - K.t > 8000 && d && !B(d.x, d.z)) { CP.x = d.x; CP.z = d.z; K.t = now; } else { const a = CP.yaw + (Math.random() < .5 ? 1.57 : -1.57), nx = CP.x - Math.sin(a) * .5, nz = CP.z - Math.cos(a) * .5; if (!B(nx, nz) && x.roomAt(nx, nz) === here) { CP.x = nx; CP.z = nz; } } } }
   const w = VOID.at(5.5, -.6), l = navTo(CP, w[0], w[1], 'mpvoid', 2.3 * dt);
   if (l === null && !CP.pass && !x.firstDoor(here, 'mpvoid') && here !== 'mpvoid') CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z));
 }
