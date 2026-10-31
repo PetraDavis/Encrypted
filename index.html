@@ -10422,6 +10422,8 @@ const BANK = {
   fail: ['ugh', 'noo', 'try again', 'hm maybe the order is wrong', 'damn', 'ok what else'],
   tryit: ['ok trying', 'k', 'one sec', 'ok', 'trying it'],
   favgame: ['none of them lol', 'whichever one has the exit', 'none, this house sucks', 'the one without her in it lol', 'ask me when were out'],
+  myname: ['ur {name} lol', '{name}??', 'its {name}, why', '{name} obviously', 'ur {name}, duh', '{name}. why lol'],
+  solve: ['idk honestly', 'no clue yet', 'dont ask me lol', 'hmm no idea', 'idk, still thinking', 'no idea tbh'],
   noteq: ['i didnt read it', 'idk i didnt get that far', 'havent seen it', 'which note', 'read it urself lol'],
   rush: ['im coming', 'ok ok', 'coming', 'omw', 'chill im coming'],
   almost: ['finally', 'lets gooo', 'we got this', 'yesss', 'dont jinx it lol'],
@@ -10518,6 +10520,7 @@ function fill0(t, id) {
   if (/\{been\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['nothing yet', 'not really', 'nope, u?', 'not yet', 'havent found much']); t = t.replace(/\{been\}/g, () => pick(R)); }
   if (/\{seen\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['havent seen it', 'no idea', 'idk, didnt see it']); t = t.replace(/\{seen\}/g, () => pick(R)); }
   if (/\{name\}/.test(t) && MP._to && Date.now() - MP._to.at < 8000 && MP._to.id !== id) { const p2 = (MP.roster || []).find(p => p.id === MP._to.id); if (p2) t = t.replace(/\{name\}/g, () => nickFor(id, p2)); }
+  if (/^(ur |its )?\{name\}/.test(t) && /\{name\}/.test(t)) return pick(['u know ur name lol', 'why lol', 'lol what']); /* myname with no one to name: never a raw placeholder */
   const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
   const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
   const H0 = MP.hist[id] || [], cntW = re => H0.filter(t => re.test(t)).length, addr = ['twin', 'bestie', 'bro', 'gang'].find(w => cntW(new RegExp('(^|\\s)' + w + '(\\s|$)', 'i')) >= 2);
@@ -11039,6 +11042,9 @@ function intentOf0(raw, selfName, fz) {
   if (/\b(it'?s|it is|we'?re|we are|were) (so |actually )?over\b|^\s*so over\s*$/i.test(raw)) return 'over';
   { const t0 = raw.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim(); /* plain readings people use a lot */
     if (/^(something|smth|sth) (is |seems )?(off|wrong|weird) (about|with) (u|you)\b|\b(u|you) (dont|don't|never) (talk|type|act|text) like (that|this)\b|\bthats not (how|what) (u|you) (talk|type|say)\b|\bwho (keeps|kept|is|was) (turning|switching|messing with|closing|opening) (the )?(lights?|doors?)\b/.test(t0)) return 'sus';
+    if (selfName) { const m = t0.match(/\b(has|have|did) (anyone|anybody|any1|someone|you|u|yall|u guys) (seen|see|found) (\w+)/); if (m && m[4] === String(selfName).toLowerCase().replace(/[^a-z0-9]/g, '')) return 'where'; } /* asked of the very one they are looking for: say where i am */
+    if (/^(so |ok |wait |lol |quick )?(whats|what is|what's|wats|wuts) my name\b|^(do (u|you)|u) (even )?know (my name|who i am)\b|^say my name\b/.test(t0)) return 'myname'; /* answered with their real name, no dodge */
+    if (/^(so |ok |guys |wait )?(whats|what is|what's|wats) the (code|combination|combo|password|pin)( again)?\s*\??$/.test(t0)) return 'code'; /* a plain code question: what they know about the code (memory) */
     if (/\b(say|tell me) (something|smth) only (u|you|the real \w+) (would|wud) know\b/.test(t0)) return 'prove';
     if (/\b(stop|quit) (standing|following|walking|creeping) (behind|next to|so close|right behind|me)\b|\bget away from me\b|\bback off\b|\bstop following\b|\bget off (my|me) (back|case)\b/.test(t0)) return 'backoff';
     if (/\b(im|i'm|i am) (freaking|freakin|lowkey freaking) out\b|^freaking out\b|\bsomething (just )?(touched|grabbed|brushed|breathed on|pulled)\b/.test(t0)) return 'imscared';
