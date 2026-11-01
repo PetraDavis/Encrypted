@@ -10520,7 +10520,7 @@ function fill0(t, id) {
   if (/\{been\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['nothing yet', 'not really', 'nope, u?', 'not yet', 'havent found much']); t = t.replace(/\{been\}/g, () => pick(R)); }
   if (/\{seen\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['havent seen it', 'no idea', 'idk, didnt see it']); t = t.replace(/\{seen\}/g, () => pick(R)); }
   if (/\{name\}/.test(t) && MP._to && Date.now() - MP._to.at < 8000 && MP._to.id !== id) { const p2 = (MP.roster || []).find(p => p.id === MP._to.id); if (p2) t = t.replace(/\{name\}/g, () => nickFor(id, p2)); }
-  if (/^(ur |its )?\{name\}/.test(t) && /\{name\}/.test(t)) return pick(['u know ur name lol', 'why lol', 'lol what']); /* myname with no one to name: never a raw placeholder */
+  if (/\{name\}/.test(t) && BANK.myname && BANK.myname.includes(t)) return pick(['u know ur name lol', 'why lol', 'lol what']); /* myname with no one to name: never a raw placeholder */
   const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
   const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
   const H0 = MP.hist[id] || [], cntW = re => H0.filter(t => re.test(t)).length, addr = ['twin', 'bestie', 'bro', 'gang'].find(w => cntW(new RegExp('(^|\\s)' + w + '(\\s|$)', 'i')) >= 2);
