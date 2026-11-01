@@ -10317,7 +10317,7 @@ const BANK = {
   whyact: ['thought i heard something', 'just checking', 'it felt right', 'looking for the key', 'i wanted to see', 'no reason', 'seemed like a good idea', 'i got lost'],
   whyfollow: ['dont wanna be alone', 'safer together', 'im not, just going this way', 'you seem to know where to go', 'its creepy alone'],
   specialq: ['special how lol', 'special how lol', 'special how?', 'wdym special lol'],
-  vague: ['idk', 'why are you asking that', 'huh lol', 'what', 'huh?', 'not sure', 'wdym', 'why', 'dunno', 'what do u mean', 'does it matter', 'ask someone else lol', 'hm?', 'say that again', 'i dont get it', 'wait what'],
+  vague: ['idk', 'huh lol', 'huh?', 'not sure', 'wdym', 'dunno', 'what do u mean', 'hm?', 'say that again', 'wait what', 'idk tbh', 'hmm not sure'],
   lure: ['follow me', 'come with me', 'this way', 'i found this room', 'come look', '{here}, come here, i found something', 'guys over here', 'come to the {here}', 'theres a door here', 'over here', 'follow me', 'i found a way through', 'come see this', 'this room wasnt here before right', 'come to the {here}', '{name} come here', 'theres something you need to see', 'found a door that wasnt there', 'come here quick', 'its just over here'],
   note: ['hey i found a note', 'found a note here', 'theres a note here', 'come read this', 'another note', 'found something to read', 'theres writing here', 'note here', 'theres a note in the {here}', 'found {note}', 'come read this in the {here}', 'another note in the {here}', 'this note is creepy', 'theres a page on the floor here'],
   greet: ['hey', 'hi', 'yo', 'hey hey', 'hello', 'sup', 'hiya', 'heyy', 'hey guys', 'yo whats up', 'hi hi', 'hey {name}', 'hey hey hey', 'oh hey', 'yoo'],
@@ -10441,7 +10441,8 @@ const BANK = {
   imat: ['ok coming', 'k omw', 'which one', 'ok stay there', 'wait for me', 'ok im coming', 'coming dont move', 'ok whats there'],
   stayme: ['im not going anywhere', 'im right here', 'i wont leave u', 'ok ok im staying', 'im here dw', 'not leaving, promise', 'stick with me then'],
   sawher: ['WHERE', 'which way did she go', 'dont move', 'omg did she see u', 'hide hide', 'ok im not moving', 'which room??', 'wait where??'],
-  bareyn: ['?', 'what', 'huh?', 'yeah what?', 'ok...?', 'what lol', 'wdym', 'what about it', 'uh ok?', 'ok and?'],
+  havekey: ['{keyans}'],
+  bareyn: ['?', 'yeah what?', 'ok', 'mhm', 'what lol', 'ok lol', 'huh?', 'oh ok'],
   hideq: ['ok ok', 'where??', 'hiding', 'going going', 'which one??', 'theres no room lol', 'ok move over', 'k im hiding', 'is she coming??', 'ok shh'],
   personal: ['old enough lol', 'why do u wanna know', 'lol random', 'focus on the game', 'idk, why', 'ask me later lol', 'thats random'],
   request: ['ill try', 'i cant lol', 'how', 'ok one sec', 'where is it', 'idk if i can', 'ok wait'],
@@ -10509,6 +10510,18 @@ function mixLine(t, id) { if (!t || t[0] === '\u0001' || !id || Math.random() >=
   if (F.tail && F.tail.length && !/[?]$/.test(lo) && !/\b(lol|tho|i guess|fr|gg|ez|great|please|jk|ngl|noob|quick|stay close|we got this|im scared|i cant|i think|dont leave me|carefully)[.!]*$|[😭💀]$|<3$|!!$/u.test(lo)) O.push(() => { const tl = pick(F.tail.filter(x => (!/ /.test(x) || (own >= 3 && !/^(lol|what|huh)\b/.test(lo))) && (x !== '<3' || /\b(thank|thanks|ty|love|miss|sorry|ur fine|its ok|proud|best|we got this|stay close|together)\b/.test(lo)))) || ''; return !tl ? t : tl === '!!' ? t.replace(/[.!]*$/, '!!') : /^[a-z]+ [a-z]+/.test(tl) && !/^(i guess|i think)$/.test(tl) ? t.replace(/[.!]+$/, '') + ', ' + tl : t.replace(/[.!]+$/, '') + ' ' + tl; });
   if (!O.length) return t; const out = pick(O)(), add = out.toLowerCase().replace(lo, '|'), grim = /\b(doomed|die|dying|dead|hate|cant|never|worst|sucks|scared|terrified|bad idea|no|nope|dont|stop)\b/.test(lo), harsh = /\b(noob|bozo|cope|trash|useless|shut up|diff|stay mad)\b/.test(lo), up = /\b(got this|yay|lets go|so good|nice|love|thanks|ty|same|me too|cool)\b|!!/.test(lo);
   if ((grim || harsh) && /we got this|lets go|^yes|<3|!!|^aw|u ok|stay close/.test(add)) return t; if (up && /doomed|great\.|i cant|^ugh/.test(add)) return t; return out; } // a second manner only where the moods agree
+/* asked about a key: the team's real keys (shared state everyone sees), never a guess */
+function keyAnswer(q) {
+  const S = X().S || {}; q = String(q).toLowerCase();
+  const K = [{ n: 'brass key', lock: 'living room door', has: S.keyLiving === true, used: S.keyLiving === 'used', w: /brass|living/ }, { n: 'padlock key', lock: 'staircase padlock', has: !!S.stairKey && !S.stairsOpen, used: !!S.stairsOpen, w: /stair|padlock|upstairs|desk/ },
+    { n: 'cellar key', lock: 'cellar doors', has: !!S.cellarKey && !S.cellarOpen, used: !!S.cellarOpen, w: /cellar|garden|basement/ }, { n: 'little glass key', lock: 'drawer in the workshop', has: !!S.lDrawerKey && !S.lDrawerOpen, used: !!S.lDrawerOpen, w: /glass|drawer|black/ }];
+  const named = K.filter(k => k.w.test(q)), L = named.length ? named : K, hold = L.filter(k => k.has), used = L.filter(k => k.used);
+  if (hold.length) { const k = hold[hold.length - 1]; return pick(['yeah we got the ' + k.n + ', its for the ' + k.lock, 'we have it, the ' + k.n + '. its for the ' + k.lock, 'yeah, the ' + k.n + '. it opens the ' + k.lock]); }
+  if (named.length && used.length) return pick(['we already used it', 'already used that one', 'that ones used already']);
+  if (named.length) return pick(['not yet, no ' + named[0].n + ' yet', 'no, havent found the ' + named[0].n]);
+  if (used.length) return pick(['we used it already, need to find the next one', 'no, the last one is used, we need another']);
+  return pick(['no, nobody found a key yet', 'no, we havent found one', 'nope, still looking']);
+}
 function fill0(t, id) {
   if (/\{scared\}/.test(t) && !scaredRoom(id)) return pick(['a bit ngl', 'kinda', 'not really', 'yeah kinda']);
   if (/\{laugh\}/.test(t)) { let l = 'lol'; try { l = styleOf(MP.hist[id] || []).laugh || 'lol'; } catch (e) {} t = t.replace(/\{laugh\}/g, l); }
@@ -10520,6 +10533,7 @@ function fill0(t, id) {
   if (/\{been\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['nothing yet', 'not really', 'nope, u?', 'not yet', 'havent found much']); t = t.replace(/\{been\}/g, () => pick(R)); }
   if (/\{seen\}/.test(t)) { const R = seenRooms(id); if (!R.length) return pick(['havent seen it', 'no idea', 'idk, didnt see it']); t = t.replace(/\{seen\}/g, () => pick(R)); }
   if (/\{name\}/.test(t) && MP._to && Date.now() - MP._to.at < 8000 && MP._to.id !== id) { const p2 = (MP.roster || []).find(p => p.id === MP._to.id); if (p2) t = t.replace(/\{name\}/g, () => nickFor(id, p2)); }
+  if (/\{keyans\}/.test(t)) return keyAnswer(MP._askText || '');
   if (/\{name\}/.test(t) && BANK.myname && BANK.myname.includes(t)) return pick(['u know ur name lol', 'why lol', 'lol what']); /* myname with no one to name: never a raw placeholder */
   const S = X().S, x = X(), q = PS.on && id === PS.id ? [PS.x, PS.z] : posOf(id), hr = q && x.roomAt(q[0], q[1]), here = hr && x.ROOMS[hr] ? x.ROOMS[hr].name.toLowerCase() : 'hallway';
   const others = living().filter(p => p.id !== id), self = (nameOf(id) || 'me').toLowerCase();
@@ -11014,11 +11028,38 @@ const INTENTS = [
   ['yesno', /^(is|are|do|does|did|can|could|should|will|would|have|has|was|were|you|want)\b/],
 ];
 // fuzzy reading only when the plain one found nothing
-function intentOf(raw, selfName) { const parts = String(raw).split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(x => /[a-z]/i.test(x));
+function intentOf(raw, selfName) { MP._askText = String(raw); const parts = String(raw).split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(x => /[a-z]/i.test(x));
   if (parts.length > 1) { const ks = parts.map(x => intentOf1(x, selfName)), FILL = new Set(['waitok', 'ack', 'laughs', 'yes', 'no', 'happy', 'greet', 'meh', 'vague', 'maybe', 'sorry', null]); // several sentences: a leaving line wins, else the last thing that says something
     if (['brb', 'bye'].includes(ks[0])) return ks[0]; for (let i = ks.length - 1; i >= 0; i--) if (!FILL.has(ks[i])) return ks[i]; }
   return intentOf1(raw, selfName); }
 function intentOf1(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
+/* what kind of thing was said, by its form, when no more specific reading took it (round 5: general speech acts, not phrases) */
+function actOf(t, raw) {
+  const YOU = '(you|u|ya|yall|you guys|u guys)', SOME = '(someone|somebody|anyone|anybody|any1|one of (you|u)( guys)?|you guys|u guys|yall)';
+  if (/\b(captain obvious|sherlock|einstein|genius|smart one|mastermind|hero|picasso)\s*[?!]*$/.test(t) && /\b(great|nice|good|amazing|brilliant|wow|well done|job|work|plan|idea|one|move|thinking|thanks|smart)\b/.test(t)) return 'mock';
+  if (/\b(SO|REALLY|TOTALLY|SUPER|VERY|SUCH)\b/.test(raw) && /\b(helpful|useful|smart|clever|great|amazing|brilliant|fast|quick|good|genius)\b/i.test(raw) && /^(oh |wow |ok |yeah |oh yeah |oh wow )*(that was|thats|that is|you are|your|you were|that helped|this is)?\b/.test(t)) return 'mock';
+  if (/\b(good|nice|great) (job|work|going|one) (breaking|ruining|losing|getting (us|me) (killed|caught|lost)|wasting|killing|messing)\b/.test(t)) return 'mock';
+  if (/^(hello |hey |hi |um |uh )?(is |are )?(anyone|anybody|any1|someone|somebody|everyone|people) (still )?(there|here|around|alive|left|on|online|awake)\b/.test(t)) { ROLL = pick(['here', 'me', 'still here', 'here!', 'im here']); return 'rollcall'; }
+  if (/^(do|did|have|has) (you|u|we|anyone|anybody|someone) (have|got|get|grab|take|pick up|find|found|picked up|grabbed|took)( up)? (the|a|any|that|our) (\w+ )?keys?\b|^(who|whos|who is) (has|got|have|is holding|took|grabbed|picked up) (the|a|that) (\w+ )?keys?\b|^(where is|wheres) (the )?keys? (now|rn|then)$|^(did|do|have) we (got|get|have|find|found) (the|a|that) (\w+ )?keys?( yet)?\b/.test(t)) return 'havekey';
+  if (new RegExp('^(can|could|will|would) ' + SOME + ' (please |pls |just |quickly )?(check|look|read|grab|get|open|try|go|come|help|find|bring|hold|use|turn|press|watch|search|carry|take|pick)\\b').test(t) || new RegExp('^' + SOME + ' (please |pls |just )?(check|look|read|grab|get|open|try|go|come|help|find|bring|hold|use|turn|press|watch|search)\\b.*\\b(pls|please|plz)$').test(t)) return 'request';
+  if (/^(ok |so |but )?how (do|does|are|r|can|should|would|will|is) (we|i|you|u|anyone|someone) (even )?(meant to |supposed to |gonna |going to |ever )?(open|unlock|get past|get through|get in|get into|get out|get up|get down|solve|beat|pass|break|use|do) /.test(t + ' ') && !/\b(journal|doors|map|menu|inventory|chat|settings|notes|torch|flashlight|crouch|jump|sprint)\b/.test(t)) return 'solve';
+  if (/^(how is it going|how are you( doing| holding up| feeling)?|how you doing|how are ya|hows things|how are things|whats up with you|what is up with you|how you holding up|hru|you holding up)( now| rn| right now| tho| bro| lol)?$/.test(t)) return 'ok';
+  if (/\b(you|u) (do not|dont|never|usually do not|dont usually|do not usually|always|would never|wouldnt) (usually |normally )?(say|type|talk|write|text|spell|use caps|act like)\b|^since when do (you|u) (say|type|talk|write|use)\b|\b(thats|that is|this is) (not|so not) (like )?(you|u|how you)\b|\b(you|u) (sound|type|talk) (different|weird|off|strange)\b/.test(t)) return 'sus';
+  if (/^(ok |wait |um |so )?who (just )?(turned|switched|shut|closed|opened|slammed|locked|touched|moved|knocked|broke|messed with|keeps|is (turning|closing|opening|touching))\b/.test(t)) return 'wtf';
+  if (/\b(that|thats|that is|that was|ok thats|ok that is|you are|your|youre|so|lol thats) (so |really |actually |kinda |lowkey |pretty )?(funny|hilarious)\b/.test(t)) return 'laughs';
+  if (/^(lets go+|we did it|yes+|finally|w)( we did it| we got it| finally| lets go+| yes+)+[!]*$|^we (did it|got it|made it)\b/.test(t)) return 'success';
+  if (/^(dont|do not) worry\b|\b(we will|well|were gonna|we are gonna|we are going to|its gonna|it is gonna|it is going to|it will|itll|everything is gonna|everything will|gonna) (be )?(ok|okay|fine|alright|make it|get out|survive|be ok)\b|^(we got this|we can do this|we have got this)\b/.test(t)) return 'reassured';
+  if (/^(chill|relax|calm down|chill out|take it easy|cool it|easy|breathe)( bro| dude| man| lol| pls| please| ok| omg)*$/.test(t)) return 'calmme';
+  if (/^(omg |bro |ugh |lol )?(i (can not|cant)( even| rn| anymore| with this| with you)*|im so done|i am so done|i am done|im done)( lol| rn| right now| omg| bro)*$/.test(t)) return 'meh';
+  if (/^(ugh |k |ok |eh |fine |oh |lol )?(whatever|who cares|i do not care|idc|fine|meh)( then| lol| bro| ok)*$/.test(t)) return 'meh';
+  if (/^(nice+|sweet|awesome|neat|yay+|woo+|wo+h?o+|yess+|epic|dope|sick|lit|amazing|lets go+|yippee+)( lol| ok| bro| guys)*[!]*$/.test(t)) return 'happy';
+  if (/^(perhaps|probably|possibly|maybe|could be|might be|kinda|sort of|i guess)( lol| tho)?$/.test(t)) return 'maybe';
+  if (/^(not really|nah not really|kinda not|not rly|not exactly)$/.test(t)) return 'no';
+  if (!/\?/.test(t) && !/^(please |pls )?(do not|dont)\b/.test(t) && (/\b(wont|will not|does not|doesnt|still not|its not|it is not|not) (budge|budging|move|moving|open|opening|work|working|turn|turning)\b/.test(t) || /^(still )?(nothing|no luck|nope nothing)$/.test(t))) return 'fail';
+  if (/\b(you are|your|youre) taking (forever|so long|ages|too long)\b|^(hurry|come on|cmon) (up )?(already|pls|please)?$/.test(t)) return 'rush';
+  if (/^(are|r) we (lost|going in circles|going the right way)\b|^(i think )?we are lost\b/.test(t)) return 'lostq';
+  return null;
+}
 function whyOf(t, raw) {
   const n = t.split(/\s+/).length;
   if (/\bhelp\b/.test(t) && /\b(she|shes|it|its|someone|something|the ghost|her) (is |s )?(right )?(behind|here|coming|chasing|after|next to|grabbing)\b/.test(t)) return 'danger';
@@ -11100,11 +11141,14 @@ function intentOf0(raw, selfName, fz) {
   const tt = selfName ? t.replace(new RegExp('^(hey |yo |oi )?' + selfName.replace(/[^a-z0-9]/g, '') + '\\b[ ,]*'), '').replace(new RegExp('[ ,]*\\b' + selfName.replace(/[^a-z0-9]/g, '') + '[?!]*$'), '') || t : t;
   { const sn = (selfName || '').toLowerCase().replace(/[^a-z0-9]/g, ''), ns = (MP.roster || []).map(p => String(p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')).filter(n => n.length >= 2 && n !== sn); // blaming someone else
     if (sn && new RegExp('^((hey |yo |oi )?' + sn + '+[?! ]*){2,}$').test(t.replace(/\s+/g, ' ') + ' ')) return 'called';
+    if (sn && new RegExp('^(i think |i bet |pretty sure |i swear |trust me )*(its|it is) (definitely |def |totally |100 )*' + sn + '( i swear| for sure| 100| fr| tbh| ngl| trust me)+[?!]*$').test(t)) return 'sus'; /* names it as the one, in the third person */
     if (sn && (new RegExp('\\b' + sn + ' (is|s) (dead|a ghost|gone|down)\\b|\\bis ' + sn + ' (a ghost|dead)\\b|\\bwe lost ' + sn + '\\b|\\b' + sn + ' (died|got caught)\\b').test(t))) return 'alive';
-    if (ns.length) { const N = '(' + ns.join('|') + ')'; if (new RegExp('^(i think |i bet |pretty sure |ngl |tbh |honestly )*(its|it is) (definitely |def |prob |probably |totally |so )*' + N + '( tbh| ngl| lol| fr| honestly| imo)*[?!]*$').test(tt) || new RegExp('^' + N + ' (is|has to be|must be) (lying|the copy|the clone|sus|fake|a copy|a clone|the fake|the imposter|not real)\\b').test(tt) || new RegExp('^(vote|lets vote|i vote|voting) (out )?' + N + '\\b').test(tt)) return 'accuseother'; } }
+    if (ns.length) { const N = '(' + ns.join('|') + ')'; if (new RegExp('^(i think |i bet |pretty sure |ngl |tbh |honestly |i swear |i am sure |im sure |trust me )*(its|it is) (definitely |def |prob |probably |totally |so |100 )*' + N + '( tbh| ngl| lol| fr| honestly| imo| for sure| i swear| 100| for real| trust me| i bet)*[?!]*$').test(tt) || new RegExp('^' + N + ' (is|has to be|must be) (lying|the copy|the clone|sus|fake|a copy|a clone|the fake|the imposter|not real)\\b').test(tt) || new RegExp('^(vote|lets vote|i vote|voting) (out )?' + N + '\\b').test(tt)) return 'accuseother'; } }
+  { const k = actOf(tt, raw); if (k) return k; }
   { const k = whyOf(tt, raw); if (k) return k; } /* why they said it (sarcasm, doubt, agreeing, a joke owned up, a correction, panic), before the keywords */
   for (const [k, m] of INTENTS) if (typeof m === 'function' ? m(tt) : m.test(tt)) return k;
   const bare = t.replace(/[?!\s]/g, ''); if (selfName && bare && (bare === selfName || (bare.length >= 3 && (selfName.startsWith(bare) || (bare.startsWith(selfName) && bare.length <= selfName.length + 3))))) return 'called';
+  if (/^(why|how come|y) (did|would|do|are|r|were) (you|u) (just |even |suddenly |keep )?(?!(think|know|ask|want|mean|care|like)\b)\w+/.test(t) || /^(why|how come) (you|u) \w+ing\b/.test(t)) return 'whyact'; /* why it did something, when nothing more specific read it */
   if (/\?\s*$/.test(t) || /^(why|what|how|who|where|when|which)\b/.test(t)) return 'vague';
   return null;
 }
@@ -11582,7 +11626,7 @@ function bodyAnswer(from, text, n, t, k, now, to) {
   if (k === 'hideq') { bodyHide(); return bodySay(fill(fresh('hideq'), PS.id)); }
   if (k === 'helpful') return bodySay(bankLine('helpful', PS.id));
   if (k) return bodySay(fill(fresh(persona(k, PS.id)), PS.id));
-  if (to === 'me' && Math.random() < .7) bodySay(fill(fresh('vague'), PS.id));
+  if (to === 'me' && Math.random() < .7) bodySay(fill(fresh(/\?\s*$|^(why|what|how|who|where|when|which)\b/.test(t) ? 'vague' : 'ack'), PS.id)); /* unsure: a question gets a soft 'hm?', a statement just a nod */
 }
 // she only knows the notes that player read before she wore them
 function noteAnswer(t) {
