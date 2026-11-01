@@ -9090,7 +9090,7 @@ function hostHandle(from, m) {
     latTrack(from, text, m.cps); pzStuckLearn(from, text);
     if (Date.now() - (MP.scareT[from] || 0) < 12000) (MP.reacts[from] || (MP.reacts[from] = [])).push(text);
     { const so = MP.scareOpen[from]; if (so && Date.now() - so < 12000) { MP.reactN[from] = (MP.reactN[from] || 0) + 1; (MP.reactLat[from] || (MP.reactLat[from] = [])).push(Date.now() - so); MP.scareOpen[from] = 0; } } /* how often, and how soon, they say something when the house gets them */
-    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP.lastChat = { from, text, at: Date.now() }; { const HA = MP.histAt[from] || (MP.histAt[from] = []); while (HA.length < (MP.hist[from] || []).length) HA.push(null); HA.length = (MP.hist[from] || []).length; HA.push(Date.now()); } { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now(); }
+    learnFrom(from, text); memChat(from, text); const toW = addrOf(from, text); { const HC = MP.histCtx[from] || (MP.histCtx[from] = []); while (HC.length < (MP.hist[from] || []).length) HC.push(null); HC.length = (MP.hist[from] || []).length; { const T0 = new Set(ctxTags(from)); for (const p of MP.roster) { const nm = (p.name || '').toLowerCase(); if (p.id !== from && nm.length >= 2 && new RegExp('\\b' + nm.replace(/[^a-z0-9]/g, '') + '\\b', 'i').test(text)) T0.add('n:' + nm); } HC.push(T0); } } MP._ctxHear(from, text); { const HA = MP.histAt[from] || (MP.histAt[from] = []); while (HA.length < (MP.hist[from] || []).length) HA.push(null); HA.length = (MP.hist[from] || []).length; HA.push(Date.now()); } { const HT = MP.histTo[from] || (MP.histTo[from] = []); while (HT.length < (MP.hist[from] || []).length) HT.push(null); HT.length = (MP.hist[from] || []).length; HT.push(toW); } (MP.hist[from] || (MP.hist[from] = [])).push(text); (MP.histRoom[from] || (MP.histRoom[from] = [])).push(roomOfPos(posOf(from))); typing(from, text, m.cps); learnNicks(from, text); bodyHeard(from, text); copyHeard(from, text); MP.saidAt[from] = Date.now(); }
     if (CP.on && from === CP.orig) setTimeout(() => { if (!CP.on) return; const cr = X().roomAt(CP.x, CP.z); for (const p of MP.roster) { if (p.id === from) continue; const q = posOf(p.id); if (p.id === CP.target || CP.mirror || (q && q[4] === CP.floor && X().roomAt(q[0], q[1]) === cr)) toPlayer(p.id, { t: 'chat', from, text, echo: 1 }); } }, rnd(150, 400)); // the copy says it too, at the same moment: everyone in its room hears both
     const ch = MP.roles && MP.roles.chosen === from;
     for (const p of MP.roster) if (p.id !== from && (!ghostOf(from) || ghostOf(p.id)) && (!(PS.on && from === PS.id) || ghostOf(p.id))) toPlayer(p.id, { t: 'chat', from, text: ch ? distort(text, MP.d) : text });
@@ -10545,6 +10545,7 @@ function fill0(t, id) {
 }
 // the situation each of their lines was said in, so the clone says the same thing when the same thing happens again
 MP.histCtx = {}; MP.lastChat = null; MP.ownUsed = {};
+MP._chatRing = []; MP._ctxHear = (from, text) => { const e = { from, text: String(text), at: Date.now() }; MP.lastChat = e; MP._chatRing.push(e); while (MP._chatRing.length > 8) MP._chatRing.shift(); }; // the last few lines anyone said, for reading short replies by what came just before
 function whereIs(id) { return PS.on && id === PS.id ? [PS.x, PS.z, 0, 0, PS.floor || 1] : CP.on && id === CP.orig ? [CP.x, CP.z, 0, 0, CP.floor || 1] : posOf(id); }
 function ctxTags(id, o = {}) { if (MP._ctxNow) return MP._ctxNow; const T = new Set(), now = Date.now(); let Y = null; try { Y = X().Y; } catch (e) {}
   if (Y && (Y.state === 'hunt' || Y.state === 'warn')) T.add('danger');
@@ -11649,10 +11650,31 @@ function memAnswer(self, from, text) {
     if (!S.length) return /\bhappened\b/.test(t) ? null : memFlav(self, pick(['nothing yet', 'nothing really', 'not much yet'])); return memFlav(self, S.join(pick([' then ', ' and ', ', then ']))); }
   return null;
 }
+/* v141: recent-chat context. Short replies carry no meaning alone; their 'why' is the line before them or what just happened in the game.
+   Rules: agreement (same/fr/real/me too) takes on the feeling of the latest line from someone else or the body's own last line; 'no u' mirrors the body's last jab or praise;
+   a bare 'u'/'you' after 'whos the clone' is an accusation; with a scare or a hunt going on, a bare 'yo'/'huh'/'nope'/'go'/'where' is about that. Only feeling/social reads are passed on (never facts). */
+const CTX_PASS = new Set(['imscared', 'gamefun', 'gamehate', 'meh', 'annoyed', 'tired', 'tiredq', 'laughs', 'lostq', 'praise', 'insult', 'sus', 'denyclone', 'affirmreal', 'accuse', 'happy', 'comfort', 'creepy', 'scaredq', 'wtf', 'love', 'teaseback', 'comeback']);
+const CTX_AGREE = /^(same|same here|same tbh|fr|frfr|fr fr|real|so real|facts|true|tru|ikr|me too|mee too|me 2|literally|exactly|ong|deadass|on god|fax|for real|agreed|right|this)$/;
+function ctxInfer(self, from, text, k, c) {
+  if (k && !/^(vague|ack|agree|yes|no|maybe|laughs|wtf|hearq|whyq|null|doubt|greet|directions|bareyn)$/.test(k) && !/^no (u|you)\b/i.test(text)) return null;
+  const t = String(text).toLowerCase().replace(/[!?.,]+/g, ' ').replace(/\s+/g, ' ').trim(); if (!t || t.split(' ').length > 4) return null;
+  const now = Date.now(), me = (nameOf(self) || '').toLowerCase(), say = kk => { const k2 = (persona(kk, self) || kk); const b = BANK[k2] ? k2 : BANK[kk] ? kk : null; return b ? { k: kk, line: fresh(b), ctx: 1 } : null; };
+  const core = t.replace(/^(lol|lmao|lmfao|bro|ngl|tbh|ok|oh|yeah|ya|deadass|honestly)\s+/, '').replace(/\s+(lol|lmao|lmfao|bro|tbh|ngl|fr|tho|though|rn)$/, '').trim();
+  let prev = null; for (let i = (MP._chatRing || []).length - 1; i >= 0; i--) { const e = MP._chatRing[i]; if (now - e.at > 30000) break; if (e.from !== from && e.from !== self) { prev = e; break; } }
+  const mine = lastMine(c), mineOk = mine && now - mine.at < 30000; if (mineOk && (!prev || mine.at >= prev.at)) prev = { from: self, text: mine.text, at: mine.at, mine: 1 };
+  if (/^no (u|you)$|^(u|you) (are|r)$|^(you|u) too$|^same to (u|you)$/.test(core) && mineOk) { let k0 = null; try { k0 = intentOf(mine.text, String(nameOf(from) || '').toLowerCase()); } catch (e) {} if (k0 === 'accuse' || k0 === 'sus' || /\b(clone|fake|copy|imposter|impostor)\b/.test(mine.text)) return say('denyclone'); if (k0 && CTX_PASS.has(k0)) return say(k0 === 'insult' ? 'teaseback' : k0) || say(k0); }
+  if (/^(u|you|him|her|it s you|its you|ur the clone|ur it)$/.test(core) || (me && core === me)) { if (prev && !prev.mine && /\b(who|whos|which)\b.*\b(clone|fake|copy|imposter|impostor|it)\b/i.test(prev.text)) return say('denyclone'); }
+  if (CTX_AGREE.test(core) && prev) { let k0 = null; try { k0 = intentOf(prev.text, prev.mine ? '' : me); } catch (e) {} if (k0 && CTX_PASS.has(k0)) { const r = say(k0) || (k0 === 'tired' ? say('tiredq') : null); if (r) return r; } }
+  let T = null; try { T = ctxTags(self); } catch (e) {} if (!T) return null;
+  if (T.has('danger')) { if (/^(where|where to|where do we go|which way|where we going)$/.test(core)) return say('hideq'); if (/^(go|go go|go go go|now|move|hurry|run|go now|quick|quickly)$/.test(core)) return say('run'); }
+  if (T.has('scare') || T.has('danger')) { if (/^(yo+|bro+|huh|what|wait what|wat|omg|oh no|uh+|um+|wait|yo what|bro what|what the|wtf|hello|guys)$/.test(core)) return say('hearq'); if (/^(nope|nah|no+|no no|hell no|nuh uh)$/.test(core)) return say('imscared') || say('scaredq'); }
+  return null;
+}
 function ctxReply(self, from, text, k) {
   const c = convOf(self, from), now = Date.now(), t = norm(text); convNote(c, 'them', text, k); MP._to = { id: from, at: now };
   { let mm = null; if (!(k && ACCUSE.includes(k)) || !/\b(clone|fake|real|imposter|impostor|copy|possessed|monster|ghost|sus|lying|liar)\b/i.test(text)) try { mm = memAnswer(self, from, text); } catch (e) {} if (mm) { c.pend = null; return { k: k && k !== 'vague' && !ACCUSE.includes(k) ? k : 'mem', line: mm, mem: 1 }; } } /* a question about what really happened in this game: the truth, in their words */
   if (k && ACCUSE.includes(k)) { c.pend = null; return null; }
+  { let ci = null; try { ci = ctxInfer(self, from, text, k, c); } catch (e) {} if (ci) { c.pend = null; return ci; } } /* a short reply ('same', 'fr', 'no u', 'yo') read by the line before it or what just happened */
   if (k === 'ack' && !(c.pend && now - c.pend.at < 45000)) { let r = 0; try { r = chatPerMin(self); } catch (e) {} if (Math.random() > (r < 1 ? .05 : Math.min(.4, .05 + r * .04))) return { k: 'ack', line: null }; } // a bare ok/same mostly gets nothing back, unless they were chatty // accusations always get the full denial, never a bare yes/no
   { const own = ownLine(self, { reply: k || 'vague' }); if (own) { c.pend = null; return { k: 'own', line: own }; } } // what they themselves said when someone said this kind of thing
   const p = c.pend && now - c.pend.at < 45000 ? c.pend : null, mix = tmix(self), tr = pickT(mix); let f = followKind(t, text); if (!f && p && p.type !== 'asked' && /^[a-z]+( [a-z]+)?\s*\?+$/i.test(String(text).trim()) && !/^(what|why|how|who|where|when|huh|really|srsly|fr|wdym)\b/i.test(String(text).trim())) f = 'guess'; if (!f && k === 'laughs' && p && p.type !== 'asked') f = 'laugh';
@@ -11676,7 +11698,7 @@ function ctxReply(self, from, text, k) {
   if (++p.n > 3) return out('fu.close', fu(p, 'close'), null);
   return out('fu.' + f, fu(p, f), Object.assign(p, { at: now }));
 }
-MP._conv = { CONV, convOf, convNote, ctxReply, followKind, pTopic, ptrait, tmix, spamOf, POPEN, PFU, PDENY, UTR, AANS, REPH, PLACEANS };
+MP._conv = { CONV, convOf, convNote, ctxReply, ctxInfer, followKind, pTopic, ptrait, tmix, spamOf, POPEN, PFU, PDENY, UTR, AANS, REPH, PLACEANS };
 // the clone answers the one person it follows, and only them
 function copyHeard(from, text) { FR_ID = CP.orig; MAN_TO = from; try { return copyHeard0(from, text); } finally { FR_ID = null; MAN_TO = null; } }
 function copyHeard0(from, text) {
