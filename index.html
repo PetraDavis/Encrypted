@@ -10944,7 +10944,7 @@ const INTENTS = [
   ['notlying', /\b(be honest|tell the truth|tell me the truth|swear (on|to god)|pinky promise)\b/],
   ['backoff', /\bstop (following|chasing|copying|staring)|\bgo away\b|\bleave me alone\b|\bget away\b|\bback off\b|\bstay away\b/],
   ['helpyou', /\b(help me|help!|save me|im stuck|i am stuck|its got me|she is here|shes here|she is coming|its coming)\b|\b(she|shes|it|its|something|he|hes)( is)? (coming|here|behind (you|me|us)|chasing|right there)\b|^run+\b|\brun+$|^help\b/],
-  ['whereother', t => { const m = t.match(/\bwhere (is|did|are|r|s) (?!you\b)(?!we\b)(?!i\b)(?!the\b)(?!that\b)(?!it\b)(?!this\b)(\w+)/); if (!m) return false; const p = (MP.roster || []).find(p => String(p.name).toLowerCase().replace(/[^a-z0-9]/g, '') === m[2]); OTHER = p ? p.id : /^(everyone|everybody|every1|all|yall|others|guys)$/.test(m[2]) ? '@all' : null; return true; }],
+  ['whereother', t => { let m = t.match(/\bwhere (is|did|are|r|s) (?!you\b)(?!we\b)(?!i\b)(?!the\b)(?!that\b)(?!it\b)(?!this\b)(\w+)/); if (!m) { const m2 = t.match(/\bwhere (\w+) (went|ran|go|is|at|disappeared)\b/); if (m2 && ((MP.roster || []).some(p => String(p.name).toLowerCase().replace(/[^a-z0-9]/g, '') === m2[1]) || /^(everyone|everybody|every1|yall|others)$/.test(m2[1]))) m = [m2[0], '', m2[1]]; } if (!m) return false; /* anyone know where ann went: still a where question about ann */ const p = (MP.roster || []).find(p => String(p.name).toLowerCase().replace(/[^a-z0-9]/g, '') === m[2]); OTHER = p ? p.id : /^(everyone|everybody|every1|all|yall|others|guys)$/.test(m[2]) ? '@all' : null; return true; }],
   ['whereother', /\bwho is (in|with|upstairs|downstairs|by|near) \w+/],
   ['whereother', t => { const m = t.match(/\b(has|have|did) (anyone|anybody|any1|someone|you|u) (seen|see|found) (\w+)/); if (!m) return false; const p = (MP.roster || []).find(p => String(p.name).toLowerCase().replace(/[^a-z0-9]/g, '') === m[4]); if (!p && !/^(everyone|everybody|the others|others)$/.test(m[4])) return false; OTHER = p ? p.id : '@all'; return true; }], /* has anyone seen bob: a where question about bob, not a yes/no */
   ['split', /\b(split up|separate|divide up|go different ways|split)\b/],
@@ -11030,6 +11030,7 @@ function whyOf(t, raw) {
   if (/^(no+|nah|not that( one)?)[ ,]+i (meant|mean|said)\b|^i meant\b/.test(t)) return 'correct';
   if (/\b(why (are|r) (you|u) (being )?(so )?(mean|rude)|that was (mean|rude))\b/.test(t)) return 'hurt';
   if (/^(why|how come) (are|r|do|did) (you|u) (keep )?(following|follow) me\b/.test(t)) return 'whyfollow';
+  if (/^(why|how come) (are|r) (you|u) (always|still|so|right|constantly) (behind|next to|on|up on) me\b|^(why|how come) (are|r) (you|u) (always|still|constantly) (following|follow) me\b/.test(t)) return 'whyfollow';
   if (/^(why|how come) (did|would) (you|u) (just )?(go|run|hide|open|say|stop|come|walk|touch|take|turn|scream|jump|press|pick|grab)\b/.test(t)) return 'whyact';
   return null;
 }
@@ -11045,7 +11046,20 @@ function intentOf0(raw, selfName, fz) {
     if (selfName) { const m = t0.match(/\b(has|have|did) (anyone|anybody|any1|someone|you|u|yall|u guys) (seen|see|found) (\w+)/); if (m && m[4] === String(selfName).toLowerCase().replace(/[^a-z0-9]/g, '')) return 'where'; } /* asked of the very one they are looking for: say where i am */
     if (/^(so |ok |wait |lol |quick )?(whats|what is|what's|wats|wuts) my name\b|^(do (u|you)|u) (even )?know (my name|who i am)\b|^say my name\b/.test(t0)) return 'myname'; /* answered with their real name, no dodge */
     if (/^(so |ok |guys |wait )?(whats|what is|what's|wats) the (code|combination|combo|password|pin)( again)?\s*\??$/.test(t0)) return 'code'; /* a plain code question: what they know about the code (memory) */
-    if (/\b(say|tell me) (something|smth) only (u|you|the real \w+) (would|wud) know\b/.test(t0)) return 'prove';
+    if (/\b(say|tell me) (something|smth) only (u|you|the real \w+) (would |wud )?knows?\b|^(ok |so |then |go |now )?prove (ur|youre|you are|your|u r|u are) (u|you|yourself|real|the real \w+)\b|^(ok |so |then )?prove (yourself|urself)\b/.test(t0)) return 'prove'; /* a test for it to pass: asks for proof, not a charge to deny */
+    /* what kind of question it is decides why they asked (round 4) */
+    if (/^(so |ok |guys |wait )?who (do|did) (u|you|yall|u guys|you guys) (think|reckon) (the )?(clone|copy|fake|imposter|impostor|ghost|she|it|her) (is|was)\b|^(so |ok |guys |wait )?who (is|s|might be|could be|do (u|you) think is) the (clone|copy|fake|imposter|impostor)\b/.test(t0)) return 'whoq'; /* asks its opinion about someone else, does not accuse it */
+    if (/\bwhy (wont|won't|dont|don't|arent|aren't|do not|will not|are not|r not|cant|can't) (u|you|anyone|any1|anybody) (answer|reply|respond|talk|say anything|speak)( me)?\b/.test(t0)) return 'ignored';
+    if (/^(you|u|ok (you|u)|nah (you|u)) go (in |ahead |inside |up |down )?first\b|^after (you|u)( lol)?$|^(you|u) go (in|ahead|inside)$/.test(t0)) return 'gofirst';
+    if (/\b(you are|ur|youre|you're|u r|u are) (so |too |way too |really |sooo+ |mad )?fast\b|\b(go|walk|move) slower\b|\b(can|could) (we|u|you) (go |walk |move )?slower\b/.test(t0)) return 'slowdown'; /* about walking pace: asks it to slow down */
+    if (/^what if (its|it is|it s|the (code|answer|key) is|we (try|use|put)|i (try|use|put))\b/.test(t0)) return 'suggest';
+    if (/^(nope|no|nah|ugh|damn|dang|aw+|still) (its |it s |it is |its still |it s still |it is still |still )?(locked|not opening|wont open|not working)\b/.test(t0)) return 'fail';
+    if (/^(u|you|r u|are you|are u|r you) (tired|sleepy|bored)( yet| rn| now)?$/.test(t0)) return 'tiredq';
+    if (/^(so )?what (are|r) (u|you) (even|actually|really) doing\b/.test(t0)) return 'doing';
+    if (/^(i )?(have to|hav to|gotta|need to|got to) (go|leave|log off|get off|sleep)( now| guys| sorry)?$/.test(t0)) return 'bye';
+    if (/\b(you are|ur|youre|you're|u r|u are) (so |really |actually |just )?(terrible|awful|trash|garbage|so bad|bad|horrible) at (this|it|the game)\b/.test(t0)) return 'insult';
+    if (/^where(s| is| do| does)? (ur|your|you|u) (house|home|live|from)\b|^where (do|r|are) (u|you) (live|from)\b/.test(t0)) return 'personal';
+    if (/^(sure|sure sure|ok sure|sure thing)$/.test(t0)) return 'ack';
     if (/\b(stop|quit) (standing|following|walking|creeping) (behind|next to|so close|right behind|me)\b|\bget away from me\b|\bback off\b|\bstop following\b|\bget off (my|me) (back|case)\b/.test(t0)) return 'backoff';
     if (/\b(im|i'm|i am) (freaking|freakin|lowkey freaking) out\b|^freaking out\b|\bsomething (just )?(touched|grabbed|brushed|breathed on|pulled)\b/.test(t0)) return 'imscared';
     if (/^(go ?){2,}$|^(run ?){1,3}$|^move move\b/.test(t0)) return 'run';
