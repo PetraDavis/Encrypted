@@ -11034,7 +11034,36 @@ function intentOf(raw, selfName) { MP._askText = String(raw); const parts = Stri
   if (parts.length > 1) { const ks = parts.map(x => intentOf1(x, selfName)), FILL = new Set(['waitok', 'ack', 'laughs', 'yes', 'no', 'happy', 'greet', 'meh', 'vague', 'maybe', 'sorry', null]); // several sentences: a leaving line wins, else the last thing that says something
     if (['brb', 'bye'].includes(ks[0])) return ks[0]; for (let i = ks.length - 1; i >= 0; i--) if (!FILL.has(ks[i])) return ks[i]; }
   return intentOf1(raw, selfName); }
-function intentOf1(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
+/* round 11: reading why by features, not phrases. Who the line is aimed at (me / you / the game), which feeling words it carries, with negation scoped across the whole line
+   (a 'not' within three words flips the next feeling; two flips cancel) and intensifiers dropped. Used only as a fallback when the phrase rules left the line unread or read a plain statement as a question. */
+const FEAT = { fear: /^(scared|terrified|afraid|frightened|spooked|petrified|shaking|freaking|panicking|creeped|nervous)$/, anger: /^(mad|angry|irritated|fuming|furious|pissed|annoyed|frustrated|frustrating|infuriating|irritating|heated|tilted|livid)$/,
+  sick: /^(sick|nauseous|dizzy|unwell|ill|hurt)$/, tired: /^(sleepy|tired|exhausted|eepy)$/, joyg: /^(fun|blast|enjoying|enjoy|loving|good|great|awesome|amazing|fire|goated|peak|cool)$/, hateg: /^(boring|bored|hate|trash|mid|lame|terrible|awful|bad|garbage|sucks|worst)$/,
+  likev: /^(like|love|enjoy|liking)$/, scaryg: /^(scary|creepy|spooky|freaky|terrifying)$/, ypos: /^(nice|sweet|kind|amazing|awesome|cool|smart|funny|hilarious|goated|cracked|best|legend|great|cute|helpful)$/, yneg: /^(dumb|stupid|useless|annoying|trash|bad|weird|slow|mean|cringe|lame|idiot|noob|loser)$/,
+  laugh: /^(hilarious|funny)$/, fine: /^(ok|okay|fine|good|alright|well|great)$/ };
+const FEAT_FILL = /^(so|really|super|very|actually|lowkey|highkey|kinda|kind|of|ngl|tbh|rn|fr|honestly|literally|totally|bro|omg|like|just|lol|lmao|af|mad|hella|deadass|sm|pretty|too|way|all|at|anymore|now|right|guys|man|ok|bob|ann|cy|ever|still|bit|a|getting|feeling|feel|being|im|am|i|is|this|that|it|its|s)$/;
+function featOf(raw, selfName) {
+  if (/\?/.test(raw)) return null; let t = norm(String(raw).replace(/^\s*(not gonna lie|no lie)\b/i, '')).replace(/^((aw+|omg|bro|ngl|ok|okay|oh|wow|yo|tbh|honestly|man|dude|ugh|bob|ann|cy)\s+)+/, ''); if (!t || /\?/.test(t)) return null; const names = new Set((MP.roster || []).map(p => String(p.name).toLowerCase()));
+  const W = t.split(' '), tgt = /^(ur|you|u|youre|your)\b/.test(t) ? 'you' : /^(i|im|i m|me|my)\b/.test(t) ? 'me' : /^(this|it|its|that|the game|this game|ts|the|these|so|not|no|soo?|finally|honestly|ngl|lowkey|kinda)\b/.test(t) ? 'game' : null;
+  if (!tgt && !/^(not|no)\b/.test(t)) return null; if (/^i (really |just )?dont (really |even )?like (this|it)$/.test(t)) return null;
+  let neg = 0, since = 9, hit = null, pol = 1, extra = 0;
+  for (let i = 0; i < W.length; i++) { const w = W[i];
+    if (/^(not|dont|doesnt|isnt|arent|never|no|cant|aint|wasnt|nothing)$/.test(w)) { neg++; since = 0; continue; } since++;
+    for (const k in FEAT) if (FEAT[k].test(w)) { if (hit) { extra++; break; } hit = k; pol = (neg % 2 && since <= 4) ? -1 : 1; if (k === 'joyg' && w === 'good' && W[i + 1] === 'at') hit = null; break; }
+    if (!hit && !FEAT_FILL.test(w) && !names.has(w) && !/^(having|have|a|the|game|place|here|this|of|doing|so|to|be|playing|out|game|day|rn|tbh)$/.test(w) && i > 3) return null; }
+  if (!hit || extra > 1) return null;
+  if (tgt === 'you') { if (hit === 'laugh') return pol > 0 ? 'laughs' : null; if (hit === 'ypos' || (hit === 'joyg' && W.length <= 4)) return pol > 0 ? 'praise' : 'insult'; if (hit === 'yneg' || hit === 'hateg') return pol > 0 ? 'insult' : 'praise'; return null; }
+  if (hit === 'fear') return pol > 0 ? 'imscared' : 'calm';
+  if (hit === 'anger') return pol > 0 ? 'meh' : 'calm';
+  if (hit === 'sick') return pol > 0 ? 'comfort' : 'ok';
+  if (hit === 'tired') return pol > 0 ? 'tired' : 'ok';
+  if (tgt === 'me' && hit === 'fine') return pol > 0 ? (W.length <= 4 ? 'ok' : null) : 'comfort';
+  if (tgt === 'me' && hit === 'joyg' && /\b(doing|feel|feeling)\b/.test(t)) return pol > 0 ? null : 'comfort';
+  if (hit === 'joyg' || hit === 'likev') return pol > 0 ? 'gamefun' : 'gamehate';
+  if (hit === 'hateg') return pol > 0 ? 'gamehate' : 'gamefun';
+  if (hit === 'scaryg') return pol > 0 ? 'imscared' : 'calm';
+  if (hit === 'laugh') return pol > 0 ? 'laughs' : 'meh';
+  return null; }
+function intentOf1(raw, selfName) { let k = intentOf0(raw, selfName); if (!k || k === 'vague' || k === 'yesno') { const k2 = intentOf0(raw, selfName, true); if (k2 && k2 !== 'vague' && k2 !== 'yesno') k = k2; } if (!k || k === 'vague' || k === 'yesno' || (k === 'scaredq' && /^((aw+|omg|bro|ngl|ok|oh|ugh|nah|honestly)\s+)*(im|i m|i am)\s/i.test(String(raw).replace(/'/g, ' ')) && !/\b(of|by)\b/i.test(raw)) || (k === 'scaredq' && !/\?/.test(raw) && /\b(not|isnt|aint|never)\b.{0,12}\b(scary|scared|creepy|afraid)\b/i.test(raw)) || (k === 'happy' && /\b(not|dont|isnt)\b/i.test(raw)) || (/^(meh|gamehate|gamefun|imscared)$/.test(k) && /\b(not|dont|isnt|never|aint)\s+(\w+\s+){0,2}(boring|bad|fun|good|scary|scared|creepy|mid|trash|like|love|enjoy|hate)\b/i.test(raw) && !/^\s*(ugh )?i (really |just )?(dont|don't|do not) (really |even )?like (this|it)\W*$/i.test(raw)) || (k === 'notlying' && /^(not gonna lie|ngl|no lie)\b/i.test(raw))) { let f = null; try { f = featOf(raw, selfName); } catch (e) {} if (f) k = f; } return k === 'yesno' ? pick(['yes', 'no', 'maybe']) : k; }
 /* what kind of thing was said, by its form, when no more specific reading took it (round 5: general speech acts, not phrases) */
 function actOf(t, raw) {
   const YOU = '(you|u|ya|yall|you guys|u guys)', SOME = '(someone|somebody|anyone|anybody|any1|one of (you|u)( guys)?|you guys|u guys|yall)';
