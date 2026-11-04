@@ -8979,7 +8979,7 @@ const H = window.__MPH = {};
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const status = t => { $('mp_status').textContent = t; };
-const nameOf = id => (MP.roster.find(p => p.id === id) || {}).name || '';
+const nameOf = id => (MP.roster.find(p => p.id === id) || (MP.left || {})[id] || {}).name || '';
 const colorOf = id => (MP.roster.find(p => p.id === id) || {}).color || '#d8d0c2';
 
 // ---------- PeerJS ----------
@@ -9061,7 +9061,7 @@ function addPlayer(id, name) {
 }
 function dropPlayer(id) {
   if (!MP.roster.some(p => p.id === id)) return;
-  const n = nameOf(id); MP.roster = MP.roster.filter(p => p.id !== id); delete MP.conns[id]; delete MP.pos[id];
+  const n = nameOf(id); (MP.left || (MP.left = {}))[id] = MP.roster.find(p => p.id === id); MP.roster = MP.roster.filter(p => p.id !== id); delete MP.conns[id]; delete MP.pos[id];
   removeAvatar(id); dropVoice(id); bcast({ t: 'roster', roster: MP.roster }); drawRoster(); drawVoice();
   toAll({ t: 'sys', text: n + ' left.' });
   if (MP.started) { if (MP.roles && (MP.roles.chosen === id || MP.roles.trusted === id)) assignRoles(true); if (V.open) voteCheck(); }
@@ -9100,7 +9100,7 @@ function hostHandle(from, m) {
   if (m.t === 'torch') return torchHit(from, m.on);
   if (m.t === 'dead') return makeGhost(from);
   if (m.t === 'read') { MP.readAt[from] = Date.now(); (MP.reads[from] || (MP.reads[from] = [])).push({ title: String(m.title || '').slice(0, 90), snip: String(m.snip || '').slice(0, 160) }); return; }
-  if (m.t === 'pzt') { pzNote(String(m.id || '').slice(0, 20), from, m.a); return; }
+  if (m.t === 'pzt') { pzNote(from, String(m.id || '').slice(0, 20), m.a); return; }
   if (m.t === 'readt') { const r = MP.readT[from] || (MP.readT[from] = { s: 0, n: 0 }); r.s += Math.min(120, +m.sec || 0); r.n++; return; }
   if (m.t === 'mic') { MP.voiceUsed[from] = true; return; }
   if (m.t === 'dust') { if (!ghostOf(from) || MP.dustBy[from] || (PS.on && from === PS.id)) return; MP.dustBy[from] = 1; return toAll({ t: 'dust', word: String(m.word || '').slice(0, 12), x: +m.x, z: +m.z, yaw: +m.yaw || 0, life: rnd(60, 150) }); }
@@ -9118,7 +9118,7 @@ function clientHandle(m) {
       $('mp_pick').hidden = true; $('mp_joinrow').hidden = true; $('mp_room').hidden = false; $('mp_codeout').textContent = MP.code; drawRoster();
       if (m.started) { status('They are already inside. Going in...'); startClient(m.world, m.at); } else status('In the room. Waiting for the host to start.');
       return;
-    case 'roster': MP.roster = m.roster; drawRoster(); for (const id in MP.av) if (!MP.roster.some(p => p.id === id)) removeAvatar(id); voiceSync(); drawVoice(); return;
+    case 'roster': for (const p of MP.roster) if (!m.roster.some(q => q.id === p.id)) (MP.left || (MP.left = {}))[p.id] = p; MP.roster = m.roster; drawRoster(); for (const id in MP.av) if (id !== 'poss' && id !== 'copy' && !MP.roster.some(p => p.id === id)) removeAvatar(id); /* the body and the copy are not roster ids: a join or a leave must not blink them out */ voiceSync(); drawVoice(); return;
     case 'start': startClient(m.world, null, m.fresh); return;
     case 'pos': if (m.g && m.g.join() !== MP.ghosts.join()) clientHandle({ t: 'ghosts', ids: m.g.slice() }); for (const id in m.a) if (id !== MP.me) MP.pos[id] = m.a[id]; if (!m.a.copy) delete MP.pos.copy; if (!m.a.poss) delete MP.pos.poss; return;
     case 'ws': applyDiff(m.d); return;
@@ -9293,7 +9293,7 @@ function avLoop() {
   const S = X().S;
   const figs = MP.roster.filter(p => p.id !== MP.me).filter(p => MP.ghost || !ghostOf(p.id)).filter(p => MP.ghost || !(PS.on && p.id === PS.id)).map(p => ({ id: p.id, p, kind: ghostOf(p.id) ? 'ghost' : 'live' })); // the living never see ghosts
   if (CP.on && MP.pos.copy) { const o = MP.roster.find(p => p.id === CP.orig); if (o) figs.push({ id: 'copy', p: o, kind: 'copy' }); }
-  if (PS.on && MP.pos.poss) { const o = MP.roster.find(p => p.id === PS.id); if (o) figs.push({ id: 'poss', p: o, kind: 'copy' }); }
+  if (PS.on && MP.pos.poss) { const o = MP.roster.find(p => p.id === PS.id) || (MP.left || {})[PS.id]; if (o) figs.push({ id: 'poss', p: o, kind: 'copy' }); }
   if (PS.falling && Date.now() - (PS.fallAt || 0) > 4500) PS.falling = null; /* the fall is over even if its timer was starved */
   if (PS.falling) figs.push({ id: 'poss', p: PS.falling, kind: 'copy' });
   for (const id in MP.av) if (!figs.some(f => f.id === id)) removeAvatar(id);
@@ -9354,7 +9354,13 @@ const PROF = (() => { const d = b => atob(b).split(','), C = d('ZnVjayxmdmNrLG1v
     new RegExp('\\b(eat|ate|eating) ' + P + ' out\\b', 'gi'), /\bsmash (or|n|and) pass\b/gi, /\b(i'?d|id|would|wud) (smash|bang)\s*[.!]*$/gi, /\bdo (me|her|him)\b(?! (a favou?r|a solid|first|later|now|again))(?=\s*(rn|now|pls|please|daddy|hard|harder|$))/gi, /\b(would|wud|id|i'?d) (smash|bang|hit|tap|rail|clap) (that|it|her|him)\b/gi, /\bhit (it|that) from\b/gi, /\btap that\b/gi,
     new RegExp('\\b(sleep|slept|sleeping|hook(ed|ing)? up|make out|making out|made out|hookup) with ' + P + '\\b', 'gi'), /\b(are you|r u|ru|u|you|im|i am|is (she|he))\b (a )?(top|bottom|bottoms|tops)\b\??$/gi, /\btop or bottom\b/gi,
     /\b(i'?m|i am|im|got me|made me|makes me|making me|she is|shes|he is|hes|ur|you are|youre|u r) (so |rly |really |kinda |rn )*(wet|hard|horny)\b(?! (puzzle|level|game|mode|to|because|from the rain|outside|stuck|carried|carrying|trying|working|at))/gi,
-    new RegExp('\\b(come|cum|came|coming) (on|in|inside) ' + P + '\\b', 'gi'), new RegExp('\\bmake ' + P + ' (come|cum)\\b', 'gi'), /\b(suck|blow|lick) (my|ur|your|his|her) (\w+ )?(d\*+|c\*+|thing|stuff|balls|toes|feet)\b/gi]; };
+    new RegExp('\\b(come|cum|came|coming) (on|in|inside) ' + P + '\\b', 'gi'), new RegExp('\\bmake ' + P + ' (come|cum)\\b', 'gi'), /\b(suck|blow|lick) (my|ur|your|his|her) (\w+ )?(d\*+|c\*+|thing|stuff|balls|toes|feet)\b/gi,
+    /* the same words with no person named, framed as wanting to do it ("wanna bang", "lets smash later", "down to bang"); "smash the window", "bang on the door", "heard a bang" stay */
+    /\b(wanna|wan?t to|lets|let'?s|we should|we could|tryna|trynna|down to|dtf|would|wud|i'?d|id|go|gonna|imagine) (bang|smash|rail|hook up|hookup|get railed|get banged|smang)\b(?=\s*(later|tonight|rn|now|pls|plz|tho|lol|lmao|or|with|\?|!|\.|$))/gi,
+    /\b(get|got|gets|getting) (railed|banged|smashed) ?(last night|rn|tonight|hard|lol)?\s*[.!?]*$/gi, /\b(banging|smashing) all night\b/gi, /\bbangable\b/gi, /\bdtf\b/gi, /\bnetflix (and|n|&) chill\b/gi, /\bsend (me )?(nudes|noods|nudez|pics of (ur|your) (body|\w+ naked))\b/gi,
+    /\b(bang|smash|rail) (ur|your|his|her|my) (gf|bf|girlfriend|boyfriend|wife|husband|crush|mom|mum|sister)\b/gi, /\b(wanna|lets|let'?s|want to|u wanna|you wanna) (hook up|hookup)\b(?! (the|that|those|it|them|wires?|cables?))/gi,
+    /\b(do it|sleep|sleeping) (with me|together)\b(?=\s*(tonight|rn|now|pls|plz|lol|\?|!|\.|$))/gi, /\bdo it in (the|my|ur|your) (bed|room)\b/gi, /\bsit on my (face|lap|d\w*)\b/gi, /\bspread (ur|your|her|my) legs\b/gi, /\b(get|go|got|be) on (ur|your|her|my) knees\b/gi,
+    /\b(choke|spank|whip) me\b(?! out)/gi, /\btake (ur|your|her|his|my) (clothes|shirt|pants|top|bra) off\b/gi, /\bstrip for me\b/gi, /\b69 (me|u|you|her|him)\b/gi]; };
   const ctxClean = t => { let o = t; for (const re of CTX()) o = o.replace(re, m => m.split(' ').map((w, i) => i === 0 ? w[0] + '*'.repeat(Math.max(2, w.length - 1)) : w).join(' ')); return o; };
   const clean0 = clean; clean = text => ctxClean(clean0(text));
   return { clean, bad, has: t => clean(t) !== String(t || '') };
@@ -9976,8 +9982,23 @@ MP.copyStart = (orig, target) => {
 /* after a Copy: one private line to the one who was copied, from themselves, in their own way of typing */
 function thxLine(id) { const t = PROF.clean(inStyle('thanks for letting me borrow you', styleOf(MP.hist[id] || []))); const tf = typoStep(id, t); return PROF.clean(tf[1] ? t : tf[0]); }
 MP._thx = h => { const k = '__t' + Math.random(); MP.hist[k] = h; const out = thxLine(k); delete MP.hist[k]; return out; };
+/* its time is up (or its player or target is gone): it walks off and ends only once no living player can see it, so it never blinks out in front of anyone */
+function losSeen(px, pz, ax, az) { const x = X(), B = window.__ENC.blocked, r0 = x.roomAt(px, pz), r1 = x.roomAt(ax, az), d = Math.hypot(ax - px, az - pz); if (d > 25) return false; if (r0 && r0 === r1 && d < 6) return true; for (let k = .4; k < d - .4; k += .2) { const sx = px + (ax - px) * k / d, sz = pz + (az - pz) * k / d, rr = x.roomAt(sx, sz); if (B(sx, sz) || (rr && rr !== r0 && rr !== r1)) return false; } return true; } /* a clear straight line: no wall, closed door or tall furniture in between (close by in the same room always counts) */
+function cpSeenAt(ax, az) { return living().some(p => { const q = posOf(p.id); return q && q[4] === CP.floor && losSeen(q[0], q[1], ax, az); }); }
+function cpSeen() { return cpSeenAt(CP.x, CP.z); }
+function copyLeave(dt, now) { if (!CP.leaving) { CP.leaving = now + 90000; CP.unseenAt = 0; CP.leaveDone = {}; CP.leaveSpot = null; CP.pzJob = null; CP.mirror = false; CP.leaveTo = null; CP.pass = null; }
+  if (cpSeen()) CP.unseenAt = 0; else if (!CP.unseenAt) CP.unseenAt = now; /* out of sight a moment (other screens draw it a little behind), then gone */
+  if ((CP.unseenAt && now - CP.unseenAt > 1500) || now > CP.leaving) return copyEnd(false);
+  const x = X(), here = x.roomAt(CP.x, CP.z); if (Math.hypot(CP.x - (CP.lvX || 0), CP.z - (CP.lvZ || 0)) > .3) { CP.lvX = CP.x; CP.lvZ = CP.z; CP.lvStill = now; } if (CP.leaveTo && here === CP.leaveTo) { const R = x.ROOMS[here]; if (Math.hypot((R.x0 + R.x1) / 2 - CP.x, (R.z0 + R.z1) / 2 - CP.z) < 1.2 || now - (CP.lvStill || now) > 2000) { (CP.leaveDone || (CP.leaveDone = {}))[here] = 1; CP.leaveTo = null; } } /* still seen from there: on to the next room */
+  if (!CP.leaveTo && here) { const busy = new Set(living().map(p => posOf(p.id)).filter(q => q && q[4] === CP.floor).map(q => x.roomAt(q[0], q[1]))); for (const rid in x.ROOMS) { if (rid === here || rid === 'mpvoid' || busy.has(rid) || (CP.leaveDone || {})[rid] || (x.ROOMS[rid].floor || 1) !== CP.floor) continue; const wd = walkDoor(here, rid); if (!wd || wd.portal) continue; CP.leaveTo = rid; break; } }
+  if (CP.leaveTo && here && here !== CP.leaveTo && !CP.pass) { const d = walkDoor(here, CP.leaveTo); if (!d || d.portal) { CP.leaveDone[CP.leaveTo] = 1; CP.leaveTo = null; } } /* it walks off through doors only, never a learned jump */
+  if (CP.leaveTo) { const R = x.ROOMS[CP.leaveTo]; navTo(CP, (R.x0 + R.x1) / 2, (R.z0 + R.z1) / 2, CP.leaveTo, 2.4 * dt); return; }
+  /* no room left to go to: a spot in this one out of everyone's line of sight (out of the doorway's view) */
+  if (here && (!CP.leaveSpot || now > CP.leaveSpot.t)) { const R = x.ROOMS[here], B = window.__ENC.blocked; let best = null; for (let i = 0; i < 60; i++) { const sx = R.x0 + .5 + Math.random() * (R.x1 - R.x0 - 1), sz = R.z0 + .5 + Math.random() * (R.z1 - R.z0 - 1); if (B(sx, sz) || x.roomAt(sx, sz) !== here || cpSeenAt(sx, sz)) continue; const d = Math.hypot(sx - CP.x, sz - CP.z); if (!best || d < best.d) best = { x: sx, z: sz, d }; } CP.leaveSpot = best ? { x: best.x, z: best.z, t: now + 6000 } : { t: now + 2000 }; }
+  if (CP.leaveSpot && CP.leaveSpot.x !== undefined) navTo(CP, CP.leaveSpot.x, CP.leaveSpot.z, here, 2.4 * dt); }
+MP._cpLeave = { cpSeen, copyLeave };
 function copyEnd(how) {
-  if (!CP.on) return; CP.on = false;
+  if (!CP.on) return; CP.on = false; CP.leaving = 0;
   const who = CP.orig; setTimeout(() => { if (MP.on && MP.roster.some(p => p.id === who)) toPlayer(who, { t: 'chat', from: who, text: thxLine(who) }); }, rnd(3000, 6000));
   // it failed (burned, or nobody was taken): one more attempt later, no sooner than 4 minutes from now
   if (CP.success) MP.copyDone = true; else if ((MP.copyN || 0) < 2) { MP.copyDone = false; MP.copyNext = Date.now() + 4 * 60000; MP.copyForce = Date.now() + 8 * 60000; } if (how) toAll({ t: 'cpgone' }); cpPub(); if (MP.voidOn) setTimeout(() => toAll({ t: 'void', on: false }), 4000);
@@ -10087,7 +10108,8 @@ function stepTo(tx, tz, dist) { const dx = tx - CP.x, dz = tz - CP.z, l = Math.h
 function copyTick(dt) {
   if (!CP.on) return; const now = Date.now();
   const o = posOf(CP.orig), tq = posOf(CP.target);
-  if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 6 : 10) * 60000) return copyEnd(false);
+  if (CP.leaving) return copyLeave(dt, now);
+  if (!o || !tq || ghostOf(CP.target) || ghostOf(CP.orig) || now - CP.t0 > (CP.phase === 'follow' ? 6 : 10) * 60000) return copyLeave(dt, now);
   /* time to lure: checked first, so standing together (mirror) or idling beside the target cannot hold it off until the copy times out */
   if (CP.phase === 'follow' && now > CP.lureAt && !((CP.pzJob && !CP.pzJob.note || puzDueSoon(CP, 'copy', now, 45000)) && now < CP.lureAt + 90000)) { /* working a puzzle (on the way or at it): finish it first */ if (lureReach(tq)) { CP.phase = 'lure'; CP.mirror = false; cpPub(); CP.lureEnd = now + 240000; CP.trail = []; CP.pass = null; toAll({ t: 'void', on: true, f: tq[4], i: voidSpot(tq[4], tq[0], tq[1]) }); CP.lureSay = now + rnd(5500, 7500); CP.lureN = 0; CP.lureUsed = []; CP.callAt = 0; CP.lureT0 = now; setTimeout(() => copySay(pick(['follow me', 'come here i found something', 'come with me', '{name} come here, i found something', 'i found a room, follow me']).replace('{name}', nameOf(CP.target)), 1), 1200); } else CP.lureAt = now + 5000; }
   if (CP.phase === 'follow' && puzWalk(CP, dt, 'copy', now)) { if (CP.mirror) { CP.mirror = false; cpPub(); } CP.last = o.slice(); CP.trail = []; return; }
@@ -10127,7 +10149,7 @@ function copyTick(dt) {
   }
   if (CP.phase === 'taking') return;
   // lure: walk to the room that was not there, wait inside
-  if (now > CP.lureEnd) return copyEnd(false);
+  if (now > CP.lureEnd) return copyLeave(dt, now);
   if (roomOfPos(tq) === 'mpvoid' && tq[4] === VOID.floor && VOID.uv(tq[0], tq[1])[0] > .8) {
     /* never taken on a single call: if they walked in before it called again, it calls them in once more first */
     if (!((CP.lastSaid || 0) > (CP.lureT0 || 0))) { CP.yaw = Math.atan2(-(tq[0] - CP.x), -(tq[1] - CP.z)); return; } /* its opening call first, always */
@@ -10214,7 +10236,7 @@ MP.prox = {}; MP.lead = {};
 function leadSpot(H, q) { const k = H.lead || 0; return [q[0] - Math.sin(q[2]) * k, q[1] - Math.cos(q[2]) * k]; }
 function possess(id, q) {
   chatStop(id);
-  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: 0, unhide: null, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, at: Date.now(), x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
+  Object.assign(PS, { mimicQ: [], mimicLast: null, mimicUntil: 0, unhide: null, repRoom: undefined, fol: null, hab: null, mv: null, pitch: 0, flash: 1, waitUntil: Date.now() + 5000, afk: 0, hide: null, on: true, id, at: Date.now(), x: q[0], z: q[1], yaw: q[2], eye: 1.65, floor: q[4], mode: 'replay', snip: null, idx: 0, goal: null, pass: null, pzD: {}, pzSkip: {}, pzJob: null, reqPending: null, fm: null, nextSay: Date.now() + rnd(12, 22) * 1000, seek: true });
   PS.reads = (MP.reads[id] || []).slice(); const rt = MP.readT[id]; PS.readSec = rt && rt.n ? rt.s / rt.n : 8;
   if (MP.voiceUsed[id]) setTimeout(() => bodySay(fill(pick(BANK.mic), PS.id)), rnd(15, 35) * 1000);
   toAll({ t: 'ps', on: true, id });
@@ -10222,7 +10244,7 @@ function possess(id, q) {
 }
 function unpossess(why) { if (!PS.on) return; PS.on = false; PS.endWhy = why || 'freed'; toAll({ t: 'psgone', q: [PS.x, PS.z, PS.yaw, 1.65, PS.floor, 0] }); toAll({ t: 'ps', on: false, id: PS.id }); }
 function bodyFall(q) {
-  const o = MP.roster.find(p => p.id === PS.id); if (!o) return; PS.falling = o; PS.fallQ = q; PS.fallAt = Date.now(); removeAvatar('poss');
+  const o = MP.roster.find(p => p.id === PS.id) || (MP.left || {})[PS.id]; if (!o) return; PS.falling = o; PS.fallQ = q; PS.fallAt = Date.now(); removeAvatar('poss');
   try { X().noiseBurst(2600, .7, .9, .3, 'highpass'); X().tone(60, .5, .4, 'sine'); } catch (e) {}
   let k = 0; const f = setInterval(() => { const a = MP.av.poss; if (a) { a.fig.rotation.x = Math.min(1.5, k * .12); a.fig.position.y = -Math.min(.5, k * .04); a.tag.visible = false; } if (++k > 90) { clearInterval(f); PS.falling = null; removeAvatar('poss'); } }, 33);
 }
@@ -10246,7 +10268,7 @@ function bodyReact() { if (!PS.on || Date.now() - (PS.reactT || 0) < 20000) retu
 function copyReact() { if (!CP.on || Date.now() - (CP.reactT || 0) < 20000) return; const q = posOf(CP.target); if (!q || q[4] !== CP.floor || Math.hypot(q[0] - CP.x, q[1] - CP.z) > 8) return; CP.reactT = Date.now(); const O = reactOf(CP.orig); if (Math.random() > O.rate) return; const R = MP.reacts[CP.orig] || [], t = R.length ? pick(R) : bankLine('scare', CP.orig); setTimeout(() => copySay(t), Math.max(500, O.lat * rnd(.8, 1.2))); }
 function possTick(dt) {
   if (!PS.on) return; const x = X(), E = window.__ENC, now = Date.now();
-  if (!MP.roster.some(p => p.id === PS.id)) { PS.on = false; PS.endWhy = 'left'; return toAll({ t: 'ps', on: false, id: PS.id }); }
+  if (!MP.roster.some(p => p.id === PS.id) && !(MP.left || {})[PS.id]) { PS.on = false; PS.endWhy = 'left'; /* its player closing their tab does not end it: the body is the house's now */ return toAll({ t: 'ps', on: false, id: PS.id }); }
   psReport();
   if (PS.waitFor) { const W2 = PS.waitFor, q = posOf(W2.id); if (!q || ghostOf(W2.id) || now > W2.until || (q[4] === PS.floor && Math.hypot(q[0] - PS.x, q[1] - PS.z) < 2.5)) PS.waitFor = null; else { if (q[4] === PS.floor) PS.yaw = Math.atan2(-(q[0] - PS.x), -(q[1] - PS.z)); return; } } // waiting for the one who asked
   if (x.roomAt(PS.x, PS.z) === 'mpvoid') { const w = VOID.at(-1.4); walkObj(PS, w[0], w[1], 2.2 * dt); return; }
@@ -10259,12 +10281,13 @@ function possTick(dt) {
   if (PS.afk) { if (now < PS.afk) return; PS.afk = 0; if (now > PS.nextSay - 60000) bodySay(pick(['back', 'back', 'ok back', 'sorry back'])); }
   if (PS.waitUntil) { if (now < PS.waitUntil) return; PS.waitUntil = 0; }
   if (PS.hide && !PS.hide.cut && (PS.pzJob || puzPick(PS, 'poss', now))) { PS.hide.cut = 1; PS.hide.until = Math.min(PS.hide.until, now + rnd(3000, 6000)); }
-  if (!PS.hide && puzWalk(PS, dt, 'poss', now)) return;
+  const called = PS.mode === 'follow' && PS.fol && PS.fol.asked; /* called over: it comes before any puzzle */
+  if (!PS.hide && !called && puzWalk(PS, dt, 'poss', now)) return;
   if (!PS.hide && floorMove(PS, dt, now)) return; /* the group went up or down (or a found puzzle is waiting there): take the stairs the way they did */
   if (!PS.hide && !PS.unhide && x.roomAt(PS.x, PS.z) !== 'mpvoid' && E.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); /* never left standing inside furniture, whatever put it there */
   if (PS.unhide) { if (walkObj(PS, PS.unhide[0], PS.unhide[1], 2.2 * dt) < .1) PS.unhide = null; return; } /* steps back out of the hiding place the way a player does, not stuck inside the furniture */
   if (PS.hide) { if (now > PS.hide.until) { PS.hide = null; if (E.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); } else { const h = PS.hide; const l = h.reached ? 0 : navTo(PS, h.x, h.z, h.room, 4.0 * dt); if (l !== null && l < .3) h.reached = true; return; } }
-  if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || q[4] !== PS.floor || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; }
+  if (PS.mode === 'follow') { const F = PS.fol, q = F && posOf(F.id); if (!q || ghostOf(F.id) || (q[4] !== PS.floor && !(F.asked && floorRoute(PS.floor, q[4]))) || now > F.until) { PS.fol = null; PS.mode = 'replay'; return; } if (q[4] !== PS.floor) return; /* the stairs are floorMove's job */ if (F.asked && Math.hypot(q[0] - PS.x, q[1] - PS.z) < 2.5) { F.asked = 0; F.until = Math.min(F.until, now + rnd(15, 30) * 1000); } /* got to them: it stays near a while, as asked, then back to its own ways */
     const H = PS.hab || (PS.hab = habitsOf(PS.id)), M = PS.mv || (PS.mv = {}); torchStep(PS, H, M); if (quirkStep(PS, H, M, dt, true)) return; PS.eye = M.crouch ? 1.0 : 1.65; const lw = q[7] >= 1 && Math.abs(H.lead || 0) >= .8, ls = lw ? leadSpot(H, q) : q, tg = window.__ENC.blocked(ls[0], ls[1]) ? q : ls, d = Math.hypot(tg[0] - PS.x, tg[1] - PS.z);
     if (d > (lw ? .5 : (H.near || 1.6) + .4)) { navTo(PS, tg[0], tg[1], x.roomAt(tg[0], tg[1]), (d > 5 ? 3.2 : 2.2) * dt * (now < (PS.slowUntil || 0) ? .55 : 1)); } else { M.lk = M.lk || null; M.idleT = (M.idleT || 0) + dt; /* idles by them the way its player idled: drifts off into a favourite room close by now and then, as the copy does */
       if (!M.fav && M.idleT > 12 && Math.random() < dt * .1) { const cr = x.roomAt(PS.x, PS.z), nb = x.neighbors ? x.neighbors(cr).map(n => n[0]) : [], f = (H.fav || []).find(r => r === cr || nb.includes(r)); if (f && f !== 'mpvoid') { const R = x.ROOMS[f], sp = freeNear(rnd(R.x0 + 1, R.x1 - 1), rnd(R.z0 + 1, R.z1 - 1)); if (sp) M.fav = { room: f, x: sp[0], z: sp[1], until: now + rnd(6000, 12000) }; } }
@@ -11664,7 +11687,9 @@ function ctxInfer(self, from, text, k, c) {
   const mine = lastMine(c), mineOk = mine && now - mine.at < 30000; if (mineOk && (!prev || mine.at >= prev.at)) prev = { from: self, text: mine.text, at: mine.at, mine: 1 };
   if (/^no (u|you)$|^(u|you) (are|r)$|^(you|u) too$|^same to (u|you)$/.test(core) && mineOk) { let k0 = null; try { k0 = intentOf(mine.text, String(nameOf(from) || '').toLowerCase()); } catch (e) {} if (k0 === 'accuse' || k0 === 'sus' || /\b(clone|fake|copy|imposter|impostor)\b/.test(mine.text)) return say('denyclone'); if (k0 && CTX_PASS.has(k0)) return say(k0 === 'insult' ? 'teaseback' : k0) || say(k0); }
   if (/^(u|you|him|her|it s you|its you|ur the clone|ur it)$/.test(core) || (me && core === me)) { if (prev && !prev.mine && /\b(who|whos|which)\b.*\b(clone|fake|copy|imposter|impostor|it)\b/i.test(prev.text)) return say('denyclone'); }
-  if (CTX_AGREE.test(core) && prev) { let k0 = null; try { k0 = intentOf(prev.text, prev.mine ? '' : me); } catch (e) {} if (k0 && CTX_PASS.has(k0)) { const r = say(k0) || (k0 === 'tired' ? say('tiredq') : null); if (r) return r; } }
+  if (CTX_AGREE.test(core) && prev) { let k0 = null; try { k0 = intentOf(prev.text, prev.mine ? '' : me); } catch (e) {}
+    if (prev.mine && k0 === 'laughs') k0 = null; /* the body's own answer happened to be a laugh ('im tired' -> 'im dying lol'): a 'same' after it is plain agreement, not a laugh; deterministic whichever bank line it drew */
+    if (k0 && CTX_PASS.has(k0)) { const r = say(k0) || (k0 === 'tired' ? say('tiredq') : null); if (r) return r; } }
   let T = null; try { T = ctxTags(self); } catch (e) {} if (!T) return null;
   if (T.has('danger')) { if (/^(where|where to|where do we go|which way|where we going)$/.test(core)) return say('hideq'); if (/^(go|go go|go go go|now|move|hurry|run|go now|quick|quickly)$/.test(core)) return say('run'); }
   if (T.has('scare') || T.has('danger')) { if (/^(yo+|bro+|huh|what|wait what|wat|omg|oh no|uh+|um+|wait|yo what|bro what|what the|wtf|hello|guys)$/.test(core)) return say('hearq'); if (/^(nope|nah|no+|no no|hell no|nuh uh)$/.test(core)) return say('imscared') || say('scaredq'); }
@@ -11735,15 +11760,17 @@ function bodyAnswer(from, text, n, t, k, now, to) {
   // asked to wait, stop, come back or slow down: it really does
   if (k === 'waitok') { if (/\b(for me|wait up|hold up|wait me|wait on me)\b/.test(t)) PS.waitFor = { id: from, until: now + 45000 }; else PS.waitUntil = now + rnd(30, 60) * 1000; PS.fol = null; if (PS.mode === 'follow') PS.mode = 'replay'; return bodySay(fill(fresh('waitok'), PS.id)); }
   if (k === 'backoff') { PS.waitUntil = now + rnd(15, 30) * 1000; PS.fol = null; if (PS.mode === 'follow') PS.mode = 'replay'; return bodySay(fill(fresh('backoff'), PS.id)); }
-  if (k === 'comeback' || (k === 'followme' && !PS.waitUntil)) { PS.waitUntil = 0; PS.waitFor = null; PS.fol = { id: from, until: now + 25000 }; PS.mode = 'follow'; PS.snip = null; return bodySay(fill(fresh(persona(k, PS.id)), PS.id)); }
+  if (k === 'comeback' || (k === 'followme' && !PS.waitUntil)) { PS.waitUntil = 0; PS.waitFor = null; bodyCome(from, now); PS.snip = null; return bodySay(fill(fresh(persona(k, PS.id)), PS.id)); }
   if (k === 'slowdown') { PS.slowUntil = now + 30000; return bodySay(fill(fresh('slowdown'), PS.id)); }
-  if (PS.waitUntil && (k === 'followme' || /\b(come|ok|go|lets go|follow|move)\b/.test(t))) { PS.waitUntil = 0; PS.fol = { id: from, until: now + 25000 }; PS.mode = 'follow'; return bodySay(fill(fresh(k === 'followme' ? 'followme' : 'go'), PS.id)); }
+  if (PS.waitUntil && (k === 'followme' || /\b(come|ok|go|lets go|follow|move)\b/.test(t))) { PS.waitUntil = 0; bodyCome(from, now); return bodySay(fill(fresh(k === 'followme' ? 'followme' : 'go'), PS.id)); }
   if (k === 'hideq') { bodyHide(); return bodySay(fill(fresh('hideq'), PS.id)); }
   if (k === 'helpful') return bodySay(bankLine('helpful', PS.id));
   if (k) return bodySay(fill(fresh(persona(k, PS.id)), PS.id));
   if (to === 'me' && Math.random() < .7) bodySay(fill(fresh(/\?\s*$|^(why|what|how|who|where|when|which)\b/.test(t) ? 'vague' : 'ack'), PS.id)); /* unsure: a question gets a soft 'hm?', a statement just a nod */
 }
 // she only knows the notes that player read before she wore them
+/* called over ("come here", "follow me"): it stops what it was doing (a puzzle walk, a hiding place) and comes, through open doors, until it is by them */
+function bodyCome(from, now) { PS.fol = { id: from, until: now + 90000, asked: 1 }; PS.mode = 'follow'; PS.pzJob = null; PS.fm = null; PS.afk = 0; if (PS.hide) { PS.hide = null; if (window.__ENC.blocked(PS.x, PS.z)) PS.unhide = freeNear(PS.x, PS.z); } }
 function noteAnswer(t) {
   const R = PS.reads || [];
   const hit = R.find(r => (r.title + ' ' + r.snip).toLowerCase().split(/[^a-z]+/).some(w => w.length > 4 && t.includes(w)));
@@ -11801,19 +11828,19 @@ const FLINK = {}, FLT = {}; MP.flink = FLINK;
 setInterval(() => { if (!MP.on || !MP.host) return; for (const p of MP.roster) { if (ghostOf(p.id)) { delete FLT[p.id]; continue; } const q = posOf(p.id); if (!q) continue; const o = FLT[p.id]; if (o && o[4] !== q[4] && X().roomAt(o[0], o[1]) && X().roomAt(q[0], q[1])) FLINK[o[4] + '>' + q[4]] = { dep: [o[0], o[1]], arr: [q[0], q[1]], depRoom: X().roomAt(o[0], o[1]) };
     else if (o && o[4] === q[4] && Math.hypot(q[0] - o[0], q[1] - o[1]) > 2.5) { const ra = X().roomAt(o[0], o[1]), rb = X().roomAt(q[0], q[1]); if (ra && rb && ra !== rb && !X().DOORS.some(d => d.open && ((d.a === ra && d.b === rb) || (d.a === rb && d.b === ra)))) PORTAL[ra + '>' + rb] = { portal: true, open: true, id: 'p_' + ra + '_' + rb, a: ra, b: rb, x: o[0], z: o[1], arr: [q[0], q[1]] }; } FLT[p.id] = q.slice(); } }, 250);
 function floorRoute(a, b) { const q = [[a, []]], seen = new Set([a]); while (q.length) { const [f, path] = q.shift(); if (f === b) return path; for (const k in FLINK) { const [s, t] = k.split('>').map(Number); if (s === f && !seen.has(t)) { seen.add(t); q.push([t, path.concat([t])]); } } } return null; }
-function floorWant(o, now) { const S = X().S, A = window.__ENC.PURE.ANSWERS || {}, fl = o.floor || 1; if (o.reqPending && now < o.reqPending.until && o.reqPending.e.fl !== fl && floorRoute(fl, o.reqPending.e.fl)) return o.reqPending.e.fl;
+function floorWant(o, now) { const S = X().S, A = window.__ENC.PURE.ANSWERS || {}, fl = o.floor || 1; if (o === PS && PS.mode === 'follow' && PS.fol && PS.fol.asked) { const q = posOf(PS.fol.id); return q && q[4] !== fl && floorRoute(fl, q[4]) ? q[4] : null; } if (o.reqPending && now < o.reqPending.until && o.reqPending.e.fl !== fl && floorRoute(fl, o.reqPending.e.fl)) return o.reqPending.e.fl;
   for (const id in SOLVE.found) { if (/!$/.test(id) || S.solved[id] || !A[id] || (o.pzSkip && now < (o.pzSkip[id] || 0))) continue; const e = puzEntry(id); if (!e || e.fl === fl || !floorRoute(fl, e.fl)) continue; if (now > solveJob('poss', id).at - 60000) return e.fl; }
   const L = living().filter(p => p.id !== PS.id).map(p => posOf(p.id)).filter(Boolean); if (!L.length || L.some(q => q[4] === fl)) { o.aloneT = 0; return null; }
   if (!o.aloneT) o.aloneT = now + rnd(8000, 25000); if (now < o.aloneT) return null; const n = {}; for (const q of L) n[q[4]] = (n[q[4]] || 0) + 1; return +Object.keys(n).sort((a, b) => n[b] - n[a])[0]; }
 function floorMove(o, dt, now) { const x = X(), B = window.__ENC.blocked; let F = o.fm;
-  if (!F) { if (now < (o.fmNext || 0)) return false; o.fmNext = now + 2000; const want = floorWant(o, now); if (want == null || want === (o.floor || 1)) return false; const r = floorRoute(o.floor || 1, want); if (!r || !r.length) return false; F = o.fm = { to: r[0], L: FLINK[(o.floor || 1) + '>' + r[0]], t0: now, lx: o.x, lz: o.z, still: 0 }; o.pass = null; o.fol = null; }
+  if (!F) { if (now < (o.fmNext || 0)) return false; o.fmNext = now + 2000; const want = floorWant(o, now); if (want == null || want === (o.floor || 1)) return false; const r = floorRoute(o.floor || 1, want); if (!r || !r.length) return false; F = o.fm = { to: r[0], L: FLINK[(o.floor || 1) + '>' + r[0]], t0: now, lx: o.x, lz: o.z, still: 0 }; o.pass = null; if (!(o.fol && o.fol.asked)) o.fol = null; }
   const L = F.L, here = x.roomAt(o.x, o.z), px = o.x, pz = o.z; let l;
   if (here === L.depRoom) { if (!F.gp || F.gp.room !== here) { const G = gridPath(here, o, (gx, gz) => Math.hypot(gx - L.dep[0], gz - L.dep[1]) < .6); F.gp = { room: here, P: G ? G.path : [], i: 0 }; } const w = F.gp.P[F.gp.i]; if (w) { if (walkObj(o, w.x, w.z, 2.6 * dt) < .15) F.gp.i++; l = 9; } else l = walkObj(o, L.dep[0], L.dep[1], 2.6 * dt); }
   else { if (!o.pass && here) { const d = walkDoor(here, L.depRoom); if (d && (!F.rp || F.rp.room !== here || F.rp.d !== d)) { const G = gridPath(here, o, (gx, gz) => Math.hypot(gx - d.x, gz - d.z) < .75); F.rp = { room: here, d, P: G ? G.path : [], i: 0 }; } const rp = F.rp; if (rp && rp.room === here && rp.i < rp.P.length) { const w = rp.P[rp.i]; if (walkObj(o, w.x, w.z, 2.6 * dt) < .15) rp.i++; } else navTo(o, L.dep[0], L.dep[1], L.depRoom, 2.6 * dt); } else navTo(o, L.dep[0], L.dep[1], L.depRoom, 2.6 * dt); l = 9; }
   if (B(o.x, o.z) && !B(px, pz)) { const nx = o.x, nz = o.z; o.x = px; o.z = pz; if (!B(nx, pz)) o.x = nx; else if (!B(px, nz)) o.z = nz; }
   if (Math.hypot(o.x - F.lx, o.z - F.lz) > .3) { F.lx = o.x; F.lz = o.z; F.still = 0; } else F.still += dt;
   const dd = Math.hypot(L.dep[0] - o.x, L.dep[1] - o.z);
-  if (dd < .5 || (F.still > 3 && dd < 2.5)) { o.floor = F.to; o.x = L.arr[0]; o.z = L.arr[1]; o.fm = null; o.pzJob = null; o.pass = null; o.aloneT = 0; o.snip = null; o.goal = null; o.mode = 'replay'; return true; }
+  if (dd < .5 || (F.still > 3 && dd < 2.5)) { o.floor = F.to; o.x = L.arr[0]; o.z = L.arr[1]; o.fm = null; o.pzJob = null; o.pass = null; o.aloneT = 0; o.snip = null; o.goal = null; o.mode = o.fol && o.fol.asked ? 'follow' : 'replay'; return true; }
   if (F.still > 12 || now - F.t0 > 120000) { o.fm = null; o.fmNext = now + 30000; return false; }
   return true; }
 /* how often each player actually has a go at a puzzle (opens it, types an answer, walks up to it), and how often they say they are stuck */
