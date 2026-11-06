@@ -2280,7 +2280,7 @@ function openCyl() {
 const THOMAS_DIARY = [
 ["14 March", "Claire's sister says writing things down helps. Fine. Day one.\nWe moved into Mum's house today. Ivy has the room at the end, the one with the window seat. She didn't cry in the car. I wanted her to.\nMum met us at the door and the first thing she said was: phones in the bowl. There is literally a bowl. Brass. By the coat hooks."],
 ["19 March", "Mum has rules. No phones past the hall. No laptop upstairs. No radio in the kitchen, which is new, because I remember a radio in the kitchen when I was ten. She says it went in the bin in '70 and she has not missed it once.\nI asked why. She said, \"Because they listen, Thomas.\" Then she asked if I wanted tea."],
-["28 March", "Mum has copper tape round the frame of the study door. Not new tape. Old, gone green at the edges, layered like she redoes it every few years. There is a strip over the keyhole too.\nI asked if it was for draughts. She said, \"Something like that,\" and asked me to wipe my feet."],
+["28 March", "Mum has copper tape round the frame of the study door. Not new tape. Old, gone green at the edges, layered like she redoes it every few years. There is a strip over the keyhole too.\nI asked if it was for draughts. She said, \"Something like that,\" and asked me to wipe my feet.\nLater, from the landing, I heard her telling Ivy: \"Copper grounds it. Whatever rides the wires has to go somewhere. Give it the copper and it goes to ground.\""],
 ["2 April", "Ivy is with Mum every afternoon now. They sit in the study with the door shut. When I knock it goes quiet, the way a room goes quiet when it was talking about you.\nI should be glad. She has someone. I'm out the door at seven and back after dark. But she comes out of that room with ink on her fingers and won't tell me what they were doing. \"Grandma stuff.\""],
 ["11 April", "Eight months today. I still set out two mugs some mornings.\nI found Claire's scarf in a box Mum had already unpacked for me, folded small and put at the bottom, under the towels. As if it needed hiding. I put it back on the hook by the bed. Mum saw it there and didn't say anything, which is how she says most things."],
 ["26 April", "Big row. I bought Ivy a laptop for her birthday. Second-hand, nothing special. Mum looked at it on the kitchen table like I'd brought home a snake.\nShe said I didn't know what I was letting into the house. I said it was a laptop, not a lodger. She said, very quietly, \"In the war I listened to things through a wire that you would not sleep after hearing.\" Then she went to bed at half seven.\nIvy cried. Not about the laptop. About us shouting. Claire would have known what to say to both of them."],
@@ -9097,7 +9097,8 @@ function hostHandle(from, m) {
     return;
   }
   if (m.t === 'vote') return voteIn(from, m.kind);
-  if (m.t === 'torch') return torchHit(from, m.on);
+  if (m.t === 'tape') return tapeHit(from, m.on);
+  if (m.t === 'tapeget') return tapeGet(from, m.spot);
   if (m.t === 'dead') return makeGhost(from);
   if (m.t === 'read') { MP.readAt[from] = Date.now(); (MP.reads[from] || (MP.reads[from] = [])).push({ title: String(m.title || '').slice(0, 90), snip: String(m.snip || '').slice(0, 160) }); return; }
   if (m.t === 'pzt') { pzNote(from, String(m.id || '').slice(0, 20), m.a); return; }
@@ -9131,7 +9132,9 @@ function clientHandle(m) {
     case 'vc': MP.vChosen = m.id; voiceFx(); return;
     case 'ghosts': MP.ghosts = m.ids; if (m.ids.includes(MP.me) && !MP.ghost) becomeGhost(); voiceFx(); drawVoice(); return;
     case 'cp': Object.assign(CP, m.c); if (!CP.on) { removeAvatar('copy'); delete MP.pos.copy; } voiceFx(); micGate(); drawVoice(); return;
-    case 'cpgone': copyVanish(); return;
+    case 'cpgone': if ((MP.tapeHide.copy || 0) > Date.now()) removeAvatar('copy'); else copyVanish(); return;
+    case 'taped': tapedFx(m.id); return;
+    case 'tapemsg': try { X().toast(esc(m.text), 5000); } catch (e) {} return;
     case 'ps': PS.on = m.on; PS.id = m.id; if (!m.on) delete MP.pos.poss; if (m.on && m.id === MP.me && MP.ghost) MP.povUntil = Date.now() + 22000; return;
     case 'dust': dustWord(m); return;
     case 'psgone': bodyFall(m.q); return;
@@ -9158,7 +9161,7 @@ function hostStart(cont) {
   const sv = cont ? x.readSave() : null; if (!cont) x.store.del();
   MP.started = true; MP.t0 = Date.now(); closePanel(true); hudOn();
   x.begin(sv);
-  MP.base = flat();
+  MP.base = flat(); if (!x.S.ctN) x.S.ctN = MP.roster.length; /* one copper strip per player, shared */
   toAll({ t: 'sys', text: 'the front door closes behind you.' });
   bcast({ t: 'start', world: sv ? worldSnap() : null, fresh: !sv });
   assignRoles(); hostLoops();
@@ -9311,11 +9314,10 @@ function avLoop() {
     if (id === 'poss' && !PS.falling) { if (a.glitch) { a.tag.material.map = a.tagNorm; a.glitch = 0; } else if (Math.random() < .0006) { a.tagNorm = a.tag.material.map; a.tagLow = a.tagLow || tagTex(p.name.toLowerCase(), a.color); a.tag.material.map = a.tagLow; a.glitch = 1; } }
     a.grp.position.set(a.x, 0, a.z); a.fig.rotation.y = a.yaw;
     a.tag.position.y = 2.0 * Math.max(.6, a.eye / 1.65);
-    a.grp.visible = (q[4] || 1) === (S.floor || 1) && !q[5];
+    a.grp.visible = (q[4] || 1) === (S.floor || 1) && !q[5] && !((MP.tapeHide[id] || 0) > Date.now());
     const lost = MP.d >= .75 && MP.learned.some(l => l.id === p.id) && kind !== 'ghost', key = lost ? 'lost' : 'ok';
     if (a.tagKey !== key) { a.tagKey = key; a.tag.material.map.dispose(); a.tag.material.map = lost ? tagTex(p.name.toLowerCase(), '#c0141f') : tagTex(p.name, a.color); a.tag.material.needsUpdate = true; }
   }
-  try { torchTick(Math.min(.5, rdt)); } catch (e) {}
   // a possessed player first watches their own body walk away from them
   if (MP.ghost && MP.povUntil > Date.now() && MP.av.poss) { const a = MP.av.poss, P = X().P; P.x = a.x + Math.sin(a.yaw) * 2.2; P.z = a.z + Math.cos(a.yaw) * 2.2; P.yaw = a.yaw; P.pitch = -.12; }
 }
@@ -9771,10 +9773,16 @@ function makeGhost(id) { if (ghostOf(id)) return; chatStop(id); MP.ghosts.push(i
 function killMe(how) {
   if (MP.ghost) return; const x = X(), fd = $('fade');
   x.S.ui = true; x.unlock();
-  if (how === 'torch') {
-    fd.style.transition = 'opacity .25s'; fd.style.opacity = 1; yLine('you chose me.');
-    setTimeout(() => x.toast('<i style="color:#d77b84">you chose me.</i>', 3500), 400);
-    setTimeout(() => { fd.style.transition = 'opacity 1.5s'; fd.style.opacity = 0; toHost({ t: 'dead' }); becomeGhost(); }, 3600);
+  if (how === 'tape') { /* copper grounds the signal: lock-up, shriek, shake, copper-green static. No line, no name. */
+    const P = x.P, y0 = P.yaw, p0 = P.pitch; try { x.noiseBurst(4200, .6, 1.4, .45, 'highpass'); x.tone(1900, .5, .22, 'sawtooth', 0, false); } catch (e) {}
+    const st = document.createElement('canvas'); st.width = 160; st.height = 90; st.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:60;pointer-events:none;opacity:0;image-rendering:pixelated;mix-blend-mode:screen';
+    document.body.appendChild(st); const g = st.getContext('2d'); let k = 0;
+    const f = setInterval(() => { k++; if (k > 8) { P.yaw = y0 + (Math.random() - .5) * .06; P.pitch = p0 + (Math.random() - .5) * .05; }
+      if (k > 14) { st.style.opacity = Math.min(1, (k - 14) / 20); const im = g.createImageData(160, 90); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255; im.data[i] = v * .35; im.data[i + 1] = v * .85; im.data[i + 2] = v * .6; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); }
+      if (k === 50) { fd.style.transition = 'opacity .4s'; fd.style.opacity = 1; }
+      if (k > 62) { clearInterval(f); st.remove(); P.yaw = y0; P.pitch = p0; }
+    }, 33);
+    setTimeout(() => { fd.style.transition = 'opacity 1.5s'; fd.style.opacity = 0; toHost({ t: 'dead' }); becomeGhost(); }, 3200);
   } else {
     const ys = x.ysolde, P = x.P, U = x.ysMat.uniforms, d = $('death'), inV = how === 'void';
     const far = inV ? VOID.at(6.8) : [P.x - Math.sin(P.yaw) * 1.1, P.z - Math.cos(P.yaw) * 1.1];
@@ -10200,28 +10208,85 @@ setInterval(() => {
   const pm = copyPerMin(depthOf()), p5 = 1 - Math.pow(1 - pm, 5 / 60);
   if (Math.random() < p5 || (MP.copyForce && now > MP.copyForce)) { MP.copyForce = 0; MP.copyStart(); }
 }, 5000);
-// torch held on a figure for ~3 s while the copy walks
+// ---------- copper tape: one strip per living player, shared by the team, picked up at three fixed spots ----------
+// S.ctN strips in all (set by the host at the start), spot i holds the strips k < ctN with k % 3 === i; S.ct0..2 taken per spot, S.ctUsed pressed.
+// The host is authoritative for both picking up and pressing. While a copy or a worn body is out, the tape kills whoever it touches; otherwise nothing happens.
+const TAPE_SPOTS = [
+  { at: [-14.45, .68, -53.8], lab: "Ivy's pillow", roll: [-14.45, .675, -53.95] },
+  { at: [19.4, .7, 1.86], lab: 'Kitchen drawer', drawer: [19.4, .7, 1.892] },
+  { at: [-18.5, .84, -2.95], lab: "Mildred's desk", roll: [-18.5, .825, -2.95] }];
+const tapeN = () => X().S.ctN || 0;
+const tapeLeft = i => { let n = 0; for (let k = 0; k < tapeN(); k++) if (k % 3 === i) n++; return Math.max(0, n - (X().S['ct' + i] || 0)); };
+const tapePool = () => { const S = X().S; return (S.ct0 || 0) + (S.ct1 || 0) + (S.ct2 || 0) - (S.ctUsed || 0); };
+const TAPE_DESC = 'A roll of old copper tape, gone green at the edges.';
 const tV = new THREE.Vector3(), tF = new THREE.Vector3();
-function torchTick(dt) {
-  if ((!CP.on && !PS.on) || MP.ghost || !X().flashOn || X().S.ui) { for (const id in MP.av) MP.av[id].torchT = 0; return; }
-  const x = X(), P = x.P, E = window.__ENC; x.camera.getWorldDirection(tF);
+let tapeItem = null, tapeMeshes = [];
+// the nearest figure in front of me within reach, with nothing solid between us
+function tapeAim() {
+  const x = X(), P = x.P, S = x.S; x.camera.getWorldDirection(tF); let best = null, bd = 2.0;
   for (const id in MP.av) {
-    const a = MP.av[id]; if (a.kind === 'ghost' || !a.grp.visible || (!CP.on && id !== 'poss')) { a.torchT = 0; continue; }
-    tV.set(a.x - P.x, 1.2 - x.camera.position.y, a.z - P.z); const dist = tV.length(); tV.normalize();
-    let ok = dist < 10 && tF.dot(tV) > .975; const r0 = x.roomAt(P.x, P.z), r1 = x.roomAt(a.x, a.z); if (ok && r0 !== r1 && dist > 6) ok = false; if (ok) for (let k = .6; k < dist - .3; k += .4) { const rr = x.roomAt(P.x + (a.x - P.x) * k / dist, P.z + (a.z - P.z) * k / dist); if (!rr || (rr !== r0 && rr !== r1)) { ok = false; break; } }
-    a.torchT = ok ? (a.torchT || 0) + dt : 0;
-    if (id === 'copy' && CP.phase === 'lure' && CP.target === MP.me) a.torchT = Math.min(a.torchT, 2);
-    if (a.torchT > 3) { a.torchT = -999; toHost({ t: 'torch', on: id }); }
+    const a = MP.av[id]; if (a.kind === 'ghost' || !a.grp.visible || a.x == null || (MP.tapeHide[id] || 0) > Date.now()) continue;
+    if (id !== 'copy' && id !== 'poss' && (!MP.roster.some(p => p.id === id) || ghostOf(id))) continue;
+    tV.set(a.x - P.x, 0, a.z - P.z); const d = tV.length(); if (d > bd) continue; tV.normalize(); if (tF.x * tV.x + tF.z * tV.z < .55 * Math.hypot(tF.x, tF.z)) continue;
+    let ok = true; for (let k = .15; k < d; k += .15) if (x.roomAt(P.x + (a.x - P.x) * k / d, P.z + (a.z - P.z) * k / d) == null || window.__ENC.blocked(P.x + (a.x - P.x) * k / d, P.z + (a.z - P.z) * k / d) && k > .35 && k < d - .35) { ok = false; break; }
+    if (ok) { best = { id, a }; bd = d; }
   }
+  return best;
 }
-function allClear() { const L = living(); if (!L.length) return; const f = pick(L); speak(f.id, pick(["she's gone", 'shes gone', 'she is gone', "ok she's gone"]), { except: f.id, delay: rnd(4000, 8000) }); }
-function torchHit(from, on) {
-  if ((!CP.on && !PS.on) || ghostOf(from)) return;
-  if (on === 'copy') { allClear(); return copyEnd(true); }
-  if (on === 'poss') { allClear(); return unpossess('torch:' + from); }
-  if (MP.roster.some(p => p.id === on) && !ghostOf(on)) toPlayer(on, { t: 'kill', how: 'torch' });
+function tapeInit() {
+  const x = X(); if (tapeItem || !x || !x.IT) return; const V3 = (a, b, c) => new THREE.Vector3(a, b, c);
+  TAPE_SPOTS.forEach((s, i) => {
+    x.IT.push({ id: 'ctape' + i, p: V3(...s.at), r: 2.0, label: () => MP.on && MP.started && !MP.ghost && tapeLeft(i) > 0 ? s.lab + ': copper tape' : null,
+      act: () => { if (MP.ghost || tapeLeft(i) <= 0) return; toHost({ t: 'tapeget', spot: i }); } });
+    const cu = new THREE.MeshStandardMaterial({ color: 0xb8692f, roughness: .45, metalness: .7, emissive: 0x2a1206 }), vg = new THREE.MeshStandardMaterial({ color: 0x5fae95, roughness: .8 });
+    const g = new THREE.Group();
+    if (s.roll) { const r = new THREE.Mesh(new THREE.TorusGeometry(.04, .016, 6, 14), cu); r.rotation.x = Math.PI / 2; const e = new THREE.Mesh(new THREE.TorusGeometry(.04, .017, 6, 14, Math.PI * .6), vg); e.rotation.x = Math.PI / 2; g.add(r, e); g.position.set(...s.roll); }
+    else { const f = new THREE.Mesh(new THREE.BoxGeometry(.5, .16, .015), new THREE.MeshStandardMaterial({ color: 0x6a4a2c, roughness: .8 })); const h = new THREE.Mesh(new THREE.BoxGeometry(.1, .02, .012), new THREE.MeshStandardMaterial({ color: 0xb8692f, metalness: .7, roughness: .4 })); h.position.z = -.012; g.add(f, h); g.position.set(...s.drawer); g.keep = 1; }
+    x.scene.add(g); tapeMeshes.push(g);
+  });
+  tapeItem = { id: 'ctape_fig', p: V3(0, -999, 0), r: 2.2, tgt: null, label: () => { const t = tapeItem.tgt; return t && MP.on && !MP.ghost && tapePool() > 0 ? 'Press the copper tape on ' + (MP.av[t] ? MP.av[t].name : 'them') : null; },
+    act: () => { const t = tapeItem.tgt; if (!t || MP.ghost || tapePool() <= 0) return; tapeItem.tgt = null; toHost({ t: 'tape', on: t }); try { X().tone(180, .06, .12, 'triangle', 0, false); } catch (e) {} } };
+  x.IT.push(tapeItem);
 }
-MP._cp = { copyTick, torchHit, styleOf, inStyle, makeGhost, terse: (id, t) => terse(id, t) };
+setInterval(() => { try {
+  if (!MP.on || !MP.started || !X() || !X().S.started) return; tapeInit();
+  tapeMeshes.forEach((g, i) => { if (!g.keep) g.visible = tapeLeft(i) > 0; });
+  const b = !MP.ghost && tapePool() > 0 ? tapeAim() : null; tapeItem.tgt = b && b.id; if (b) tapeItem.p.set(b.a.x, 1.2, b.a.z); else tapeItem.p.set(0, -999, 0);
+} catch (e) {} }, 100);
+function tapeGet(from, i) {
+  const S = X().S; if (!MP.started || ghostOf(from) || !(i >= 0 && i < 3) || tapeLeft(i) <= 0) return;
+  const q = posOf(from), s = TAPE_SPOTS[i]; if (!q || Math.hypot(q[0] - s.at[0], q[1] - s.at[2]) > 3) return;
+  S['ct' + i] = (S['ct' + i] || 0) + 1;
+  toPlayer(from, { t: 'tapemsg', text: TAPE_DESC + ' You tear off a strip. (' + tapePool() + ' for the team)' });
+}
+function tapeHit(from, on) {
+  const S = X().S; if (!MP.started || ghostOf(from) || tapePool() <= 0) return;
+  const q = posOf(from), t = on === 'copy' ? (CP.on ? [CP.x, CP.z] : null) : on === 'poss' ? (PS.on ? [PS.x, PS.z] : null) : MP.pos[on] || posOf(on);
+  if (!q || !t || Math.hypot(q[0] - t[0], q[1] - t[1]) > 3) return;
+  S.ctUsed = (S.ctUsed || 0) + 1;
+  if (!CP.on && !PS.on) return; /* nothing is out: the strip is used up and nothing happens */
+  if (on === 'copy') { toAll({ t: 'taped', id: 'copy' }); return copyEnd(true); }
+  if (on === 'poss') { toAll({ t: 'taped', id: 'poss' }); return unpossess('tape:' + from); }
+  if (MP.roster.some(p => p.id === on) && !ghostOf(on)) { toAll({ t: 'taped', id: on }); toPlayer(on, { t: 'kill', how: 'tape' }); }
+}
+// what everyone else sees: the figure locks up, shrieks, shakes and comes apart in copper-green static. The same for a copy, a worn body and a real player.
+MP.tapeHide = {};
+function tapedFx(id) {
+  const a = MP.av[id]; MP.tapeHide[id] = Date.now() + 9000; if (!a) return; const x = X();
+  const g = a.grp.clone(true); g.visible = a.grp.visible; x.scene.add(g); a.grp.visible = false;
+  const fig = g.children[0], tag = g.children[1]; if (tag) tag.visible = false;
+  const pm = new THREE.PointsMaterial({ color: 0x5fe0a8, size: .035, transparent: true, opacity: .9, depthWrite: false }), pg = new THREE.BufferGeometry(), N = 140, pa = new Float32Array(N * 3), v0 = [];
+  for (let i = 0; i < N; i++) { const r = Math.random() * .3, t = Math.random() * 6.283; pa[i * 3] = Math.cos(t) * r; pa[i * 3 + 1] = Math.random() * 1.75; pa[i * 3 + 2] = Math.sin(t) * r; v0.push([(Math.random() - .5) * .006, Math.random() * .004, (Math.random() - .5) * .006]); }
+  pg.setAttribute('position', new THREE.BufferAttribute(pa, 3)); const pts = new THREE.Points(pg, pm); pts.visible = false; g.add(pts);
+  const lt = new THREE.PointLight(0x40d090, 0, 3); lt.position.y = 1.2; g.add(lt);
+  try { x.noiseBurst(4200, .6, 1.4, .45, 'highpass'); x.tone(1900, .5, .22, 'sawtooth', 0, false); x.tone(2400, .7, .12, 'square', .1, false); } catch (e) {}
+  let k = 0; const f = setInterval(() => { k++;
+    if (k > 8) { fig.position.x = (Math.random() - .5) * .12; fig.position.z = (Math.random() - .5) * .12; fig.rotation.z = (Math.random() - .5) * .08; }
+    if (k > 14) { pts.visible = true; lt.intensity = 1.5 + Math.random(); const P = pg.attributes.position; for (let i = 0; i < N; i++) { P.array[i * 3] += v0[i][0] * 3; P.array[i * 3 + 1] += v0[i][1] * 3; P.array[i * 3 + 2] += v0[i][2] * 3; } P.needsUpdate = true; fig.visible = k < 34 ? Math.random() < .6 : false; pm.opacity = Math.max(0, .9 - (k - 34) * .06); }
+    if (k > 50) { clearInterval(f); x.scene.remove(g); pg.dispose(); pm.dispose(); }
+  }, 33);
+}
+MP._cp = { copyTick, tapeHit, tapeGet, tapePool, tapedFx, styleOf, inStyle, makeGhost, terse: (id, t) => terse(id, t) };
 // ---------- her wearing a lured player's body (host runs it) ----------
 const PS = MP.poss = { on: false, id: null, x: 0, z: 0, yaw: 0, eye: 1.65, floor: 1, mode: 'replay', snip: null, idx: 0, goal: null, pass: null, nextSay: 0 };
 MP.track = {};
